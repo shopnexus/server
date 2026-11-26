@@ -139,6 +139,7 @@ func TestSaveAddressWriteID(t *testing.T) {
 	}
 }
 
+// UC-ACC-07 E2.
 func TestAddressLimit(t *testing.T) {
 	t.Parallel()
 	s, book := newBook(t)
@@ -198,6 +199,7 @@ func TestSetDefaultAddress(t *testing.T) {
 	}
 }
 
+// UC-ACC-07 A3.
 func TestDeleteAddressMovesTheDefault(t *testing.T) {
 	t.Parallel()
 	s, book := newBook(t)
@@ -235,6 +237,7 @@ func TestDeleteAddressMovesTheDefault(t *testing.T) {
 
 // TestAddressRequestKey: a request key the account used already returns
 // the address that request added, at the cap too, and adds nothing.
+// UC-ACC-07 A4 · NFR-IDEM-01.
 func TestAddressRequestKey(t *testing.T) {
 	t.Parallel()
 	s, book := newBook(t)

@@ -26,12 +26,16 @@ const maxUserAgent = 500
 // The attempt is charged to the email's lock before anything is checked. A
 // wrong password or code keeps the charge; any other answer takes it back,
 // and a finished sign-in clears the count.
+//
+// Login is UC-MOD-10.
 func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
+	// 1. E1 for a wrong email or password, E2 once the email is locked.
 	now := s.d.Now()
 	m, key, err := s.checkPassword(ctx, in.Email, in.Password, now)
 	if err != nil {
 		return SignedIn{}, err
 	}
+	// A1. The temporary password is replaced first; E4 for a weak one.
 	if m.Next() == domain.StepChangePassword {
 		if in.NewPassword == "" {
 			return SignedIn{}, s.refund(ctx, key, now, domain.ErrPasswordChangeRequired)
@@ -44,6 +48,8 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 			return SignedIn{}, saveFailed(err)
 		}
 	}
+	// 2. The code; A2 confirms a new enrollment, E3 for a wrong or used
+	// code.
 	if !s.d.SkipTOTP {
 		if err = s.acceptCode(ctx, &m, key, in.Code, now); err != nil {
 			return SignedIn{}, err
@@ -55,6 +61,7 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 	if r := []rune(in.UserAgent); len(r) > maxUserAgent {
 		in.UserAgent = string(r[:maxUserAgent])
 	}
+	// 3. The session.
 	tok, hash := token.NewOpaque("ss_")
 	sess := domain.Session{
 		ID: uuid.NewV7(), MemberID: m.ID(), TokenHash: hash, CredentialsVersion: m.CredentialsVersion(),

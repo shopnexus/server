@@ -167,12 +167,12 @@ PriceEstimate:
       format: int64
     source:
       type: string
-      enum: [market, model]
-      description: market is similar listings on the platform; model is the AI's own guess.
+      enum: [market]
+      description: Similar listings on the platform; the only source today.
     sample_size:
       type: integer
       minimum: 0
-      description: Listings behind a market range; 0 for model.
+      description: Listings behind the range.
 PriceGuideRequest:
   type: object
   additionalProperties: false

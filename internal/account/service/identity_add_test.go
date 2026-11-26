@@ -19,6 +19,7 @@ import (
 // Adding a sign-in method, and mailing the code that adds one, need a
 // sign-in within 15 minutes and an account that may write. Both refuse
 // before Restate is called, so these tests run without it.
+// UC-ACC-08 E1 · BR-ACC-04.
 func TestAddingAnIdentityNeedsARecentSignInAndAWritableAccount(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

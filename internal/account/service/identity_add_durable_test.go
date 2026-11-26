@@ -76,6 +76,7 @@ func (e *addEnv) run(t *testing.T, in service.AddIdentityRun) service.AddIdentit
 	return res
 }
 
+// UC-ACC-08 · BR-ACC-03.
 func TestAddIdentityAddsAPhone(t *testing.T) {
 	t.Parallel()
 	e := startAddIdentity(t)
@@ -90,6 +91,7 @@ func TestAddIdentityAddsAPhone(t *testing.T) {
 	}
 }
 
+// UC-ACC-08 A1.
 func TestAddIdentityByEmailCode(t *testing.T) {
 	t.Parallel()
 	e := startAddIdentity(t)
@@ -101,6 +103,7 @@ func TestAddIdentityByEmailCode(t *testing.T) {
 }
 
 // A retry of the request key, its code consumed, answers as the first did.
+// UC-ACC-08 A2.
 func TestAddIdentityRetriedKey(t *testing.T) {
 	t.Parallel()
 	e := startAddIdentity(t)
@@ -112,6 +115,7 @@ func TestAddIdentityRetriedKey(t *testing.T) {
 	}
 }
 
+// UC-ACC-08 E5.
 func TestAddIdentityRefusesAnotherAccountsChallenge(t *testing.T) {
 	t.Parallel()
 	e := startAddIdentity(t)
@@ -123,6 +127,7 @@ func TestAddIdentityRefusesAnotherAccountsChallenge(t *testing.T) {
 	}
 }
 
+// UC-ACC-08 E3, E4 · BR-ACC-05.
 func TestAddIdentityRefusals(t *testing.T) {
 	t.Parallel()
 	e := startAddIdentity(t)
@@ -154,6 +159,7 @@ func (s *staleCredentials) Save(ctx context.Context, c *domain.Credentials, writ
 	return s.Credentials.Save(ctx, c, writeID)
 }
 
+// UC-ACC-08 E6.
 func TestAddIdentityLostRaceIsTryAgain(t *testing.T) {
 	t.Parallel()
 	e := startAddIdentity(t, func(s *service.AddIdentity) { s.Credentials = &staleCredentials{Credentials: s.Credentials} })

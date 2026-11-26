@@ -10,10 +10,10 @@ import (
 	"github.com/shopnexus/server/internal/media/domain"
 )
 
-// Square attaches owner's upload to holder as a square and runs
-// MediaProcess on it, with the upload ID as the idempotency key, so a retry
-// and a run already under way share one processing. A photo processing
-// refuses is domain.ErrInvalidUpload.
+// Square is UC-SHR-01 A2: it attaches owner's upload to holder as a square
+// and runs MediaProcess on it, with the upload ID as the idempotency key,
+// so a retry and a run already under way share one processing. A photo
+// processing refuses is domain.ErrInvalidUpload.
 func (m *Media) Square(ctx context.Context, owner, holder, id uuid.UUID) (string, error) {
 	if err := m.attachAs(ctx, owner, holder, domain.ShapeSquare, []uuid.UUID{id}, uuid.NewV7()); err != nil {
 		return "", err

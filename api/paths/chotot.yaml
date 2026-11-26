@@ -1,6 +1,7 @@
 chototCodes:
   post:
     operationId: createChototCode
+    x-uc: [UC-LST-04]
     summary: The code that links the caller's Chợ Tốt profile.
     description: |
       The live code when the caller has one, otherwise a new one for 30
@@ -21,6 +22,7 @@ chototCodes:
 chotot:
   get:
     operationId: getChotot
+    x-uc: [UC-LST-04]
     summary: The caller's linked Chợ Tốt profile, if any.
     tags: [chotot]
     security:
@@ -36,6 +38,7 @@ chotot:
         $ref: "../responses/common.yaml#/Unauthorized"
   put:
     operationId: linkChotot
+    x-uc: [UC-LST-04]
     x-rate-limit: costly
     summary: Link the Chợ Tốt profile whose bio holds the caller's code.
     description: |
@@ -93,6 +96,7 @@ chotot:
               $ref: "../schemas/error.yaml#/Error"
   patch:
     operationId: updateChotot
+    x-uc: [UC-LST-04]
     summary: Change the link's settings.
     tags: [chotot]
     security:
@@ -122,6 +126,7 @@ chotot:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: unlinkChotot
+    x-uc: [UC-LST-04]
     summary: Unlink the caller's Chợ Tốt profile.
     description: Imported listings stay on ShopNexus and stop following Chợ Tốt. Also 204 when none is linked.
     tags: [chotot]
@@ -135,6 +140,7 @@ chotot:
 chototAds:
   get:
     operationId: listChototAds
+    x-uc: [UC-LST-04]
     x-rate-limit: costly
     summary: The linked profile's listings on sale on Chợ Tốt, each with what it is on ShopNexus.
     description: |
@@ -168,6 +174,7 @@ chototAds:
 chototImports:
   post:
     operationId: importChototAds
+    x-uc: [UC-LST-04]
     x-rate-limit: costly
     summary: Bring the chosen Chợ Tốt listings over as listings.
     description: |
@@ -209,6 +216,7 @@ chototImports:
 chototAdListing:
   post:
     operationId: postChototDraft
+    x-uc: [UC-LST-04]
     summary: Post an imported listing that waits as a draft, with the fields the seller filled.
     description: |
       The body is the whole listing, as for POST /v1/listings; the draft's

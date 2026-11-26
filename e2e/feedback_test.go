@@ -21,7 +21,7 @@ type feedbackBody struct {
 }
 
 // Two people's feedback becomes one group; shipping it tells both, and
-// the reply tells its owner.
+// the reply tells its owner. UC-MOD-11.
 func TestFeedbackFromSendToShipped(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
@@ -119,7 +119,7 @@ func TestFeedbackFromSendToShipped(t *testing.T) {
 	}
 }
 
-// Every refusal the feedback operations declare.
+// Every refusal the feedback operations declare. UC-MOD-11 E1, E3.
 func TestFeedbackRefusals(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)

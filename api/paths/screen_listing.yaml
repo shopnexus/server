@@ -92,6 +92,7 @@ screenSoldListing:
 screenSeller:
   get:
     operationId: getSellerScreen
+    x-uc: [UC-DSC-04]
     summary: The seller view, a seller's profile with the first page of their listings and reviews.
     description: |
       More listings come from GET /v1/sellers/{id}/listings and more

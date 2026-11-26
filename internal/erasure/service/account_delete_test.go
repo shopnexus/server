@@ -39,6 +39,7 @@ type deals struct {
 
 func (d deals) OpenOrders(context.Context, uuid.UUID) (bool, error) { return d.open, nil }
 
+// UC-ACC-09 E1, E2, E3.
 func TestDeleteAccount(t *testing.T) {
 	t.Parallel()
 	me := uuid.NewV7()

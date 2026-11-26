@@ -103,6 +103,7 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 			return moving{}, r
 		}
 	}
+	// E10
 	if binds && by == domain.Buyer {
 		away, readErr := s.d.Accounts.Away(ctx, d.SellerID())
 		if readErr != nil {

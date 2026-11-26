@@ -116,11 +116,12 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 	return nil
 }
 
-// TransitTimeout fails a shipped order whose carrier, Waits.Transit after
-// the parcel went in transit, no longer knows it or reports it cancelled
-// or lost; it gives the listing back. A carrier still moving the parcel
-// moves the order as a report would, and the timeout waits again. A read
-// that tells nothing, such as a carrier to link again, waits again too.
+// TransitTimeout is UC-DEAL-05 E4: it fails a shipped order whose
+// carrier, Waits.Transit after the parcel went in transit, no longer knows
+// it or reports it cancelled or lost; it gives the listing back. A carrier
+// still moving the parcel moves the order as a report would, and the
+// timeout waits again. A read that tells nothing, such as a carrier to
+// link again, waits again too.
 func (s OrderTimers) TransitTimeout(ctx restate.Context, ref OrderRef) error {
 	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {

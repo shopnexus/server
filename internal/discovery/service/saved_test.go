@@ -70,6 +70,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	return env{db: db, catalog: c, media: m, discovery: d, model: model, text: text, image: image, accounts: acc, sweeps: sw, me: accounttest.New(t, db)}
 }
 
+// UC-DSC-03.
 func TestSaveAndList(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -104,6 +105,7 @@ func TestSaveAndList(t *testing.T) {
 // TestSavedListsEndedLast: a listing that sold or was taken down after the
 // save moves its save after those still on sale, which keep the newest
 // first.
+// UC-DSC-03.
 func TestSavedListsEndedLast(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -138,6 +140,7 @@ func TestSavedListsEndedLast(t *testing.T) {
 	}
 }
 
+// UC-DSC-03 E1, E2, E3.
 func TestSaveRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -159,6 +162,7 @@ func TestSaveRefusals(t *testing.T) {
 	}
 }
 
+// UC-DSC-03.
 func TestHiddenSaveShowsStatusOnly(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

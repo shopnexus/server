@@ -11,6 +11,7 @@ import (
 // started a read with already answers that read, otherwise it runs
 // LinkRead.Start, then reads the read it started.
 func (a *Assist) StartLinkRead(ctx context.Context, account, key uuid.UUID, link string) (ListingReadView, error) {
+	// E7: not a link, or not a listing on chotot.com.
 	l, err := domain.ParseLink(link)
 	if err != nil {
 		return ListingReadView{}, err

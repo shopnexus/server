@@ -62,7 +62,7 @@ func serverOn(t *testing.T, svc service.Service) *httptest.Server {
 // The stream reaches the console event by event as the service emits it,
 // with the stream's headers and the member's Last-Event-ID, past the
 // server's write timeout; closing the console's side ends the service's
-// stream. UC-MOD-08.
+// stream. UC-MOD-08 A6.
 func TestEventsStream(t *testing.T) {
 	t.Parallel()
 	turn := uuid.NewV7()

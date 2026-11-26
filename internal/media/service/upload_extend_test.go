@@ -16,6 +16,8 @@ import (
 // Extend takes all of the owner's photos or none; one that is another
 // account's, unknown, never put or a video leaves the rest as they were.
 // Extending again moves the expiry out, never in.
+//
+// UC-SHR-01 A1.
 func TestExtendAllOrNone(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

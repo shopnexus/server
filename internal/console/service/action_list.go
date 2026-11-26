@@ -9,7 +9,8 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
-// ListActions lists the audit log newest first, narrowed by f.
+// ListActions lists the audit log newest first, narrowed by f. It is
+// UC-MOD-05 steps 2 and 3.
 func (s *Console) ListActions(ctx context.Context, f audit.Filter, p page.Request) (page.Page[audit.Action], error) {
 	rows, err := s.d.Actions.List(ctx, f, p)
 	if err != nil {

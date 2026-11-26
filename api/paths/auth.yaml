@@ -1,6 +1,7 @@
 signIn:
   post:
     operationId: signIn
+    x-uc: [UC-ACC-01]
     x-rate-limit: auth
     summary: Sign in, or sign up on first use, with a phone number Firebase verified, a Google account or an email code.
     description: |
@@ -56,6 +57,7 @@ signIn:
 refresh:
   post:
     operationId: refreshSession
+    x-uc: [UC-ACC-02]
     summary: Rotate the refresh token and get a new access token.
     description: |
       A refresh token works once. Presenting it again, or two refreshes
@@ -86,6 +88,7 @@ refresh:
 sessions:
   get:
     operationId: listSessions
+    x-uc: [UC-ACC-02]
     summary: List signed-in devices, newest first.
     tags: [auth]
     security:
@@ -107,6 +110,7 @@ sessions:
 otherSessions:
   delete:
     operationId: deleteOtherSessions
+    x-uc: [UC-ACC-02]
     summary: Sign out every session of the account but the one this request was made with.
     description: |
       Needs a sign-in within the last 15 minutes. The signed-out devices'
@@ -125,6 +129,7 @@ otherSessions:
 currentSession:
   delete:
     operationId: deleteCurrentSession
+    x-uc: [UC-ACC-02]
     summary: Sign out the session this request was made with.
     description: The access token keeps working until it expires, at most 15 minutes; the app discards it.
     tags: [auth]
@@ -138,6 +143,7 @@ currentSession:
 reauthenticate:
   post:
     operationId: reauthenticateSession
+    x-uc: [UC-ACC-02]
     x-rate-limit: auth
     summary: Prove again that the caller holds the account, for the calls that need a sign-in within 15 minutes.
     description: |
@@ -204,6 +210,7 @@ reauthenticate:
 session:
   delete:
     operationId: deleteSession
+    x-uc: [UC-ACC-02]
     summary: Sign one device out.
     tags: [auth]
     security:
@@ -227,6 +234,7 @@ session:
 emailCodes:
   post:
     operationId: sendEmailCode
+    x-uc: [UC-ACC-01]
     x-rate-limit: code
     summary: Mail a six-digit code to sign in, or sign up on first use, with an email address.
     description: |

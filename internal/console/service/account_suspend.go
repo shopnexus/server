@@ -10,7 +10,9 @@ import (
 )
 
 // SuspendAccount suspends a customer account; module account records
-// account.suspend in the account's own transaction.
+// account.suspend in the account's own transaction. It is UC-MOD-02 step 3;
+// module account refuses no reason (E4), a past end (E5) and the
+// ShopNexus account (E6).
 func (s *Console) SuspendAccount(ctx context.Context, in accountsvc.SuspendInput) (accountsvc.ConsoleAccount, error) {
 	r, err := s.d.Accounts.Suspend(ctx, in)
 	if err != nil {

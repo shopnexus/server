@@ -22,6 +22,7 @@ import (
 // changes no business data. A key the member used answers its turn and
 // starts no run.
 func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversation uuid.UUID, in NewTurn) (TurnStarted, error) {
+	// A5
 	if in.Key != nil {
 		if started, ok, err := s.turnOfKey(ctx, caller, *in.Key); err != nil || ok {
 			return started, err
@@ -31,6 +32,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if in.AgentID != nil {
 		id = *in.AgentID
 	}
+	// E6
 	a, err := s.d.Settings.Agent(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && a.Kind != domain.AgentConsole) {
 		return TurnStarted{}, domain.ErrAgentNotFound
@@ -41,6 +43,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if !a.Enabled {
 		return TurnStarted{}, domain.ErrAgentDisabled
 	}
+	// E7
 	c, err := s.d.Runs.Conversation(ctx, conversation)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && !visible(c, caller)) {
 		return TurnStarted{}, domain.ErrConversationNotFound
@@ -60,9 +63,11 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		skill = &runSkill{ID: sk.ID, Name: sk.Name, Prompt: sk.Prompt}
 	}
 	now := s.d.Now().UTC().Truncate(time.Microsecond)
+	// E5
 	if !s.limiter.allow(caller.MemberID, now) {
 		return TurnStarted{}, domain.ErrRateLimited
 	}
+	// E4
 	text, err := domain.CleanInput(in.Text)
 	if err != nil {
 		return TurnStarted{}, err
@@ -93,6 +98,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	case errors.Is(err, repository.ErrNotFound):
 		return TurnStarted{}, domain.ErrConversationNotFound
 	case errors.Is(err, repository.ErrBusy):
+		// E3
 		return TurnStarted{}, domain.ErrTurnInProgress
 	case err != nil:
 		return TurnStarted{}, fmt.Errorf("open the turn: %w", err)
@@ -123,6 +129,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		req.Skill, req.History = skill, historyOf(history)
 		stream, cancel, err = s.startRun(ctx, req, deadline)
 	}
+	// E2: a run that did not start takes its turn with it.
 	if err != nil {
 		if delErr := s.d.Runs.DeleteTurn(context.WithoutCancel(ctx), t.ID); delErr != nil {
 			s.d.Log.WarnContext(ctx, "agent: delete a turn whose run did not start", "turn_id", t.ID, "err", delErr)

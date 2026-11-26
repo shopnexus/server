@@ -10,7 +10,7 @@ import (
 )
 
 // A turn's outcome, whether Continue works and turn.finished's status, as
-// the agent worked them out.
+// the agent worked them out. UC-MOD-08 A1, E1.
 func TestOutcomeAndContinuable(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
@@ -43,7 +43,7 @@ func TestOutcomeAndContinuable(t *testing.T) {
 }
 
 // The input guard refuses empty and long text and takes out zero-width
-// and control characters and tags.
+// and control characters and tags. UC-MOD-08 E4.
 func TestCleanInput(t *testing.T) {
 	t.Parallel()
 	got, err := domain.CleanInput("Ai\u200b mở <b>ticket</b>?\x07")

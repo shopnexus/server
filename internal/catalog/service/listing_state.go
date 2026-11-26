@@ -29,7 +29,7 @@ func (c *Catalog) Hide(ctx context.Context, seller, id uuid.UUID, t locale.Tag) 
 	return c.moveView(ctx, seller, id, opHide, t)
 }
 
-// Unhide is UC-LST-02.
+// Unhide is UC-LST-02; a listing a member holds is listing_held.
 func (c *Catalog) Unhide(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error) {
 	return c.moveView(ctx, seller, id, opUnhide, t)
 }
@@ -39,7 +39,7 @@ func (c *Catalog) MarkSold(ctx context.Context, seller, id uuid.UUID, t locale.T
 	return c.moveView(ctx, seller, id, opMarkSold, t)
 }
 
-// UnmarkSold is UC-LST-02 A2.
+// UnmarkSold is UC-LST-02 A2, E6.
 func (c *Catalog) UnmarkSold(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error) {
 	return c.moveView(ctx, seller, id, opUnmarkSold, t)
 }
@@ -86,8 +86,9 @@ func (c *Catalog) move(ctx context.Context, seller, id uuid.UUID, o op) (domain.
 	return l, c.save(ctx, l, kind, now, uuid.NewV7())
 }
 
-// Reprice sets the price of the seller's listing alone, as an edit of the
-// price would, with listing.updated; the same price writes nothing.
+// Reprice is UC-LST-04 A3: it sets the price of the seller's listing alone,
+// as an edit of the price would, with listing.updated; the same price
+// writes nothing.
 func (c *Catalog) Reprice(ctx context.Context, seller, id uuid.UUID, price int64) error {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {

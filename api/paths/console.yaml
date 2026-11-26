@@ -3,6 +3,7 @@ login:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: consoleLogin
+    x-uc: [UC-MOD-10]
     x-rate-limit: auth
     summary: Sign a console member in.
     description: |
@@ -50,6 +51,7 @@ loginTotpEnrollment:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: consoleLoginTotpEnrollment
+    x-uc: [UC-MOD-10]
     x-rate-limit: auth
     summary: Start TOTP enrollment during the first sign-in.
     description: |
@@ -81,6 +83,7 @@ logout:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: consoleLogout
+    x-uc: [UC-MOD-10]
     summary: Sign this session out and clear the cookie.
     tags: [console, internal]
     security:
@@ -95,6 +98,7 @@ me:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleMe
+    x-uc: [UC-MOD-10]
     summary: The signed-in console member.
     tags: [console, internal]
     security:
@@ -113,6 +117,7 @@ mePassword:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   put:
     operationId: changeConsolePassword
+    x-uc: [UC-MOD-10]
     summary: Change the password and end every session of the member, this one included.
     tags: [console, internal]
     security:
@@ -135,6 +140,7 @@ members:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleMembers
+    x-uc: [UC-MOD-04]
     summary: Console members, newest first. Admins only.
     tags: [console, internal]
     security:
@@ -155,6 +161,7 @@ members:
         $ref: "../responses/common.yaml#/ConsoleForbidden"
   post:
     operationId: createConsoleMember
+    x-uc: [UC-MOD-04]
     summary: Create a moderator with a temporary password. Admins only.
     tags: [console, internal]
     security:
@@ -183,6 +190,7 @@ member:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   patch:
     operationId: renameConsoleMember
+    x-uc: [UC-MOD-04]
     summary: Rename a moderator. Admins only.
     tags: [console, internal]
     security:
@@ -213,6 +221,7 @@ memberDisable:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: disableConsoleMember
+    x-uc: [UC-MOD-04]
     summary: Disable a moderator and end their sessions. Admins only.
     tags: [console, internal]
     security:
@@ -235,6 +244,7 @@ memberEnable:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: enableConsoleMember
+    x-uc: [UC-MOD-04]
     summary: Enable a disabled moderator. Admins only.
     tags: [console, internal]
     security:
@@ -257,6 +267,7 @@ memberUnlock:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: unlockConsoleMember
+    x-uc: [UC-MOD-04]
     summary: Clear the sign-in lock on a moderator's email. Admins only.
     tags: [console, internal]
     security:
@@ -279,6 +290,7 @@ memberResetPassword:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: resetConsoleMemberPassword
+    x-uc: [UC-MOD-04]
     summary: Give a moderator a temporary password and end their sessions. Admins only.
     tags: [console, internal]
     security:
@@ -301,6 +313,7 @@ memberResetTotp:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: resetConsoleMemberTotp
+    x-uc: [UC-MOD-04]
     summary: Remove a moderator's TOTP and end their sessions. Admins only.
     tags: [console, internal]
     security:
@@ -323,6 +336,7 @@ accounts:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleAccounts
+    x-uc: [UC-MOD-02]
     summary: Customer accounts, newest first, or the one q names.
     description: >-
       q matches an account ID, an email address or a phone number in any common form, exactly.
@@ -363,6 +377,7 @@ account:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleAccount
+    x-uc: [UC-MOD-02]
     summary: One customer account with its identities and console history.
     tags: [console, internal]
     security:
@@ -383,6 +398,7 @@ accountSuspend:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: suspendConsoleAccount
+    x-uc: [UC-MOD-02]
     summary: Suspend a customer account.
     tags: [console, internal]
     security:
@@ -417,6 +433,7 @@ accountUnsuspend:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: unsuspendConsoleAccount
+    x-uc: [UC-MOD-02]
     summary: Lift a customer account's suspension.
     tags: [console, internal]
     security:
@@ -443,6 +460,7 @@ actions:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleActions
+    x-uc: [UC-MOD-05]
     summary: The audit log, newest first. Admins only.
     tags: [console, internal]
     security:
@@ -474,6 +492,7 @@ dashboardTickets:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: createConsoleDashboardTicket
+    x-uc: [UC-MOD-10]
     summary: A one-time ticket that opens an ops dashboard on its own host.
     description: |
       The console asks for a ticket, then sends the browser to callback_url,
@@ -509,6 +528,7 @@ dashboardTickets:
 dashboardAuth:
   get:
     operationId: authorizeConsoleDashboard
+    x-uc: [UC-MOD-10]
     x-rate-limit: exempt
     summary: Traefik's forwardAuth check in front of every ops dashboard.
     description: |
@@ -569,6 +589,7 @@ dashboardAuth:
 dashboardCallback:
   get:
     operationId: openConsoleDashboard
+    x-uc: [UC-MOD-10]
     summary: Turn a dashboard ticket into the dashboard's cookie.
     description: |
       Served on each dashboard's own host, where the Ingress routes
@@ -623,6 +644,7 @@ supportTickets:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleTickets
+    x-uc: [UC-MOD-09]
     summary: The ticket queue, newest activity first.
     tags: [console, internal]
     security:
@@ -646,6 +668,7 @@ supportTicket:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleTicket
+    x-uc: [UC-MOD-09]
     summary: One ticket with its person, order, other tickets and first page of messages.
     tags: [console, internal]
     security:
@@ -672,6 +695,7 @@ supportTicketMessages:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleTicketMessages
+    x-uc: [UC-MOD-09]
     summary: Older messages of a ticket's chat, newest first.
     tags: [console, internal]
     security:
@@ -700,6 +724,7 @@ supportTicketReplies:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: replyConsoleTicket
+    x-uc: [UC-MOD-09]
     summary: Reply in a ticket's chat as ShopNexus.
     tags: [console, internal]
     security:
@@ -739,6 +764,7 @@ supportTicketResolve:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: resolveConsoleTicket
+    x-uc: [UC-MOD-09]
     summary: Mark a ticket resolved; a carrier request sends "Đã ghi nhận hãng <name>." in its chat.
     tags: [console, internal]
     security:
@@ -765,6 +791,7 @@ supportTicketReopen:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: reopenConsoleTicket
+    x-uc: [UC-MOD-09]
     summary: Open a resolved ticket again.
     tags: [console, internal]
     security:
@@ -791,6 +818,7 @@ supportSummary:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleSupportSummary
+    x-uc: [UC-MOD-09]
     summary: The open count for the drawer.
     tags: [console, internal]
     security:
@@ -809,6 +837,7 @@ feedbackQueue:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleFeedback
+    x-uc: [UC-MOD-11]
     summary: Feedback, newest first.
     tags: [console, internal]
     security:
@@ -832,6 +861,7 @@ feedbackDetail:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleFeedback
+    x-uc: [UC-MOD-11]
     summary: A feedback with the rest of its group.
     tags: [console, internal]
     security:
@@ -858,6 +888,7 @@ feedbackGroups:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleFeedbackGroups
+    x-uc: [UC-MOD-11]
     summary: Feedback groups, largest first, with their figures.
     tags: [console, internal]
     security:
@@ -878,6 +909,7 @@ feedbackSummary:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleFeedbackSummary
+    x-uc: [UC-MOD-11]
     summary: What was sent in the last 30 days.
     tags: [console, internal]
     security:
@@ -896,6 +928,7 @@ feedbackStatus:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: setConsoleFeedbackStatus
+    x-uc: [UC-MOD-11]
     summary: Set the status of a feedback's whole group.
     description: |
       Sets the status, note and version of the feedback, its group's root and
@@ -939,6 +972,7 @@ feedbackReply:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: replyConsoleFeedback
+    x-uc: [UC-MOD-11]
     summary: Set ShopNexus's one reply to a feedback.
     description: A second call replaces the text. Only the first tells the owner.
     tags: [console, internal]
@@ -979,6 +1013,7 @@ feedbackHeart:
     - $ref: "../parameters/common.yaml#/ConsoleFeedbackID"
   put:
     operationId: heartConsoleFeedback
+    x-uc: [UC-MOD-11]
     summary: Heart a feedback.
     tags: [console, internal]
     security:
@@ -1000,6 +1035,7 @@ feedbackHeart:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: unheartConsoleFeedback
+    x-uc: [UC-MOD-11]
     summary: Take a feedback's heart back.
     tags: [console, internal]
     security:
@@ -1024,6 +1060,7 @@ feedbackSameAs:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: joinConsoleFeedback
+    x-uc: [UC-MOD-11]
     summary: Join a feedback to another's group.
     description: |
       Groups are flat: each feedback points at its group's root. Joining a
@@ -1066,6 +1103,7 @@ reportCases:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleReportCases
+    x-uc: [UC-MOD-02]
     summary: Report cases, open or resolved, newest first.
     description: >-
       An open case is an account's reports not withdrawn and not resolved, ordered by its latest report, and total counts the open cases. A resolved case is the reports one resolution closed, ordered by the resolution's time; it has no total.
@@ -1101,6 +1139,7 @@ reportCase:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleReportCase
+    x-uc: [UC-MOD-02]
     summary: An account's open report case or, without one, its latest resolved case.
     tags: [console, internal]
     security:
@@ -1138,6 +1177,7 @@ reportCaseDismiss:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: dismissConsoleReportCase
+    x-uc: [UC-MOD-02]
     summary: Close the account's open case as dismissed ("Không vi phạm").
     description: >-
       Records report.dismiss.
@@ -1171,6 +1211,7 @@ reportCaseResolve:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: resolveConsoleReportCase
+    x-uc: [UC-MOD-02]
     summary: Close the account's open case as actioned.
     description: >-
       The console calls it after its hides or suspension succeed. Records report.resolve.
@@ -1204,6 +1245,7 @@ reportCaseReopen:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: reopenConsoleReportCase
+    x-uc: [UC-MOD-02]
     summary: Undo the account's latest resolution.
     description: >-
       Its reports join the account's open case, with any newer reports; a report whose reporter has reported the same target again since stays out, the newer one standing for it. Records report.reopen.
@@ -1237,6 +1279,7 @@ listingHide:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: hideConsoleListing
+    x-uc: [UC-MOD-02]
     summary: Hide a listing as ShopNexus.
     description: >-
       An active listing, or one its seller hid, goes hidden, and its seller cannot put it back on sale until a member unhides it. Records listing.hide.
@@ -1276,6 +1319,7 @@ listingUnhide:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: unhideConsoleListing
+    x-uc: [UC-MOD-02]
     summary: Lift ShopNexus's hide of a listing.
     description: >-
       The listing goes back on sale when it is still hidden. Records listing.unhide.

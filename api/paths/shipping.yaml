@@ -1,6 +1,7 @@
 carrierAccounts:
   get:
     operationId: listCarrierAccounts
+    x-uc: [UC-ACC-04]
     summary: The carrier accounts the caller linked, and the carriers they can link.
     tags: [shipping]
     security:
@@ -24,6 +25,7 @@ carrierAccount:
         type: string
   put:
     operationId: linkCarrierAccount
+    x-uc: [UC-ACC-04]
     summary: Link the caller's account at a carrier, or replace the one linked.
     description: |
       GHTK: the seller's email and password, exchanged at once for the
@@ -66,6 +68,7 @@ carrierAccount:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: unlinkCarrierAccount
+    x-uc: [UC-ACC-04]
     summary: Unlink the caller's account at a carrier.
     tags: [shipping]
     security:
@@ -96,6 +99,7 @@ carrierAccount:
 carrierOTP:
   post:
     operationId: sendCarrierOTP
+    x-uc: [UC-ACC-04]
     x-rate-limit: code
     summary: Have GHN text the code that links the seller's GHN account.
     tags: [shipping]
@@ -180,6 +184,7 @@ carrierPickups:
 shipmentQuote:
   get:
     operationId: quoteShipment
+    x-uc: [UC-DEAL-04]
     x-rate-limit: costly
     summary: The carrier's fee for a linked shipment of a pending order, read-only.
     description: |
@@ -306,6 +311,7 @@ carrierWebhook:
 shippingSettings:
   put:
     operationId: putShippingSettings
+    x-uc: [UC-ACC-04]
     summary: Replace the caller's pickup preference.
     tags: [shipping]
     security:

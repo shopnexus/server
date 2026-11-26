@@ -11,6 +11,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
+// UC-DSC-03 A5, E1.
 func TestSetAlertSavesAndTells(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

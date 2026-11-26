@@ -9,26 +9,33 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
+// Block is UC-ACC-05.
 func (s *Account) Block(ctx context.Context, blocker, blocked uuid.UUID) error {
+	// E1
 	if blocker == blocked {
 		return domain.ErrSelfBlock
 	}
+	// E2
 	if blocked == domain.ShopNexusID {
 		return domain.ErrSystemAccount
 	}
+	// E4
 	other, err := s.load(ctx, blocked)
 	if err != nil {
 		return err
 	}
+	// E3
 	if other.StoredStatus() == domain.StatusDeleted {
 		return domain.ErrAccountDeleted
 	}
+	// 2. Block and drop the follows both ways · BR-ACC-01; A1 a block that stands changes nothing.
 	if err = s.d.Accounts.Block(ctx, uuid.NewV7(), blocker, blocked, s.d.Now()); err != nil {
 		return fmt.Errorf("block: %w", err)
 	}
 	return nil
 }
 
+// Unblock is UC-ACC-05 A2.
 func (s *Account) Unblock(ctx context.Context, blocker, blocked uuid.UUID) error {
 	if err := s.d.Accounts.Unblock(ctx, blocker, blocked); err != nil {
 		return fmt.Errorf("unblock: %w", err)
@@ -54,6 +61,8 @@ func (s *Account) BlockedWith(ctx context.Context, account uuid.UUID) ([]uuid.UU
 
 // Blocks lists the accounts blocker blocks with their display names, read
 // in one query.
+//
+// Blocks is UC-ACC-05 A2.
 func (s *Account) Blocks(ctx context.Context, blocker uuid.UUID, p page.Request) (page.Page[BlockView], error) {
 	rows, err := s.d.Accounts.ListBlocks(ctx, blocker, p)
 	if err != nil {

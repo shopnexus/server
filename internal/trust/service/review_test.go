@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server/internal/trust/domain"
 )
 
+// UC-TRS-01 A1, A2, E6, E8.
 func TestPutReview(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -70,6 +71,7 @@ func TestPutReview(t *testing.T) {
 
 // A retry of a put or a reply whose first try landed answers the review as
 // it is; a different put or reply is still refused.
+// UC-TRS-01 A2, E6, E11, E12.
 func TestReviewRetries(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -132,6 +134,7 @@ func TestReviewRetries(t *testing.T) {
 
 // The second side's review shows both at once; the subject replies once,
 // which closes the review.
+// UC-TRS-01 E7, E10, E11, E12.
 func TestTwoSidesAndReply(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -194,6 +197,7 @@ func TestTwoSidesAndReply(t *testing.T) {
 	}
 }
 
+// UC-TRS-01 E1, E2, E4, E5 · UC-TRS-05 E1.
 func TestPutReviewRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -247,6 +251,7 @@ func TestReviewsOfAStranger(t *testing.T) {
 
 // A failed delivery is reviewed by both sides: a refused parcel is the
 // seller's case.
+// UC-TRS-01.
 func TestFailedOrderIsReviewed(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

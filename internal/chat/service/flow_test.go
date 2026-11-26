@@ -18,6 +18,7 @@ import (
 	"github.com/shopnexus/server/internal/media/mediatest"
 )
 
+// UC-DEAL-01 A1.
 func TestPhotoMessage(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -40,6 +41,7 @@ func TestPhotoMessage(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 A1.
 func TestFailedPhoto(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -58,6 +60,7 @@ func TestFailedPhoto(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 E8.
 func TestRefusedAttachLeavesNoMessage(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -73,6 +76,7 @@ func TestRefusedAttachLeavesNoMessage(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 A2 · NFR-IDEM-01.
 func TestRepeatedKeySendsOnce(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -112,6 +116,7 @@ func (b blockAfterOpen) OpenPair(ctx context.Context, c domain.Conversation) (do
 	return got, errors.New("lost before the journal")
 }
 
+// UC-DEAL-01 A2 · NFR-IDEM-01.
 func TestOpenRetriedAfterItsWrite(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

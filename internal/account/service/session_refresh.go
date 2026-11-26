@@ -15,23 +15,28 @@ import (
 // two refreshes racing with one token, means two parties hold it, so the
 // session is revoked. A suspended account's session is revoked too, and
 // its token answers account_suspended while the suspension lasts.
+//
+// Refresh is UC-ACC-02 A3.
 func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, error) {
 	now := s.d.Now()
 	hash := domain.HashRefresh(token)
 	sess, err := s.d.Sessions.FindByRefresh(ctx, hash)
 	if errors.Is(err, repository.ErrNotFound) {
 		prev, prevErr := s.d.Sessions.FindByPrevRefresh(ctx, hash)
+		// E4
 		if errors.Is(prevErr, repository.ErrNotFound) {
 			return domain.Tokens{}, domain.ErrInvalidRefreshToken
 		}
 		if prevErr != nil {
 			return domain.Tokens{}, fmt.Errorf("find session by previous token: %w", prevErr)
 		}
+		// E5 · NFR-SEC-01: a rotated token presented again.
 		return domain.Tokens{}, s.reused(ctx, prev.ID(), now, "rotated token presented again")
 	}
 	if err != nil {
 		return domain.Tokens{}, fmt.Errorf("find session by token: %w", err)
 	}
+	// E5, E6: signed out or expired; E7 revoked for a suspension.
 	if err = sess.Usable(now); err != nil {
 		// A client that lost the answer to the refresh that revoked its
 		// session for a suspension retries with the same token. Only that
@@ -51,7 +56,7 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 	if err != nil {
 		return domain.Tokens{}, err
 	}
-	// A suspended account's session ends with account_suspended; a deleted
+	// E7, E5. A suspended account's session ends with account_suspended; a deleted
 	// one's, which a sign-in racing Erase may have issued, with
 	// session_revoked.
 	st := a.Status(now)
@@ -65,12 +70,13 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 		}
 		return domain.Tokens{}, r
 	}
+	// A3. Rotate the refresh token.
 	next := sess.Rotate(now)
 	if err = s.d.Sessions.Save(ctx, &sess, uuid.NewV7()); err != nil {
 		if !errors.Is(err, repository.ErrConflict) {
 			return domain.Tokens{}, fmt.Errorf("save session: %w", err)
 		}
-		// The write that won is a concurrent refresh with the same token, or a
+		// E5. The write that won is a concurrent refresh with the same token, or a
 		// sign-out. Only the first means two parties hold the token.
 		cur, getErr := s.d.Sessions.Get(ctx, sess.ID())
 		if getErr != nil {

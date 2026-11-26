@@ -103,6 +103,8 @@ func TestDropPair(t *testing.T) {
 // who did not move counts it unread, and the conversation leads the inbox.
 // The system's move counts for both. A repeated post writes nothing more,
 // no move writes message.sent, and a block stops none.
+//
+// UC-DEAL-01.
 func TestPostMove(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -186,6 +188,8 @@ func TestPostMove(t *testing.T) {
 // conversation back from no archive, whether it lands older than the last
 // message, as a late event does, or newest: only a message someone writes
 // does.
+//
+// UC-DEAL-01 A3.
 func TestMovesKeepTheArchive(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -225,6 +229,8 @@ func TestMovesKeepTheArchive(t *testing.T) {
 
 // The conversation shows the other member's read marker, absent before
 // they read anything.
+//
+// UC-DEAL-01.
 func TestGetShowsTheOtherRead(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

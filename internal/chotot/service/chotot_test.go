@@ -17,6 +17,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
+// UC-LST-04 A2, A6, E1, E2, E3, E4, E5, E6.
 func TestLink(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -113,6 +114,7 @@ func waitSettled(t *testing.T, e env, account uuid.UUID, listID int64) service.A
 	return got
 }
 
+// UC-LST-04 A1, A5, E8.
 func TestImport(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -199,6 +201,7 @@ func TestImport(t *testing.T) {
 	}
 }
 
+// UC-LST-04 E7.
 func TestImportNotYours(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -226,6 +229,7 @@ WHERE account_id = @a AND list_id = @l`, pgx.StrictNamedArgs{"a": me, "l": their
 	}
 }
 
+// UC-LST-04 A3, A4.
 func TestSync(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

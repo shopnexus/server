@@ -48,6 +48,7 @@ func dashboardAuth(t *testing.T, host, method, cookie string) Response {
 	return call(t, "GET", "/v1/console/dashboard-auth", nil, h...)
 }
 
+// UC-MOD-10 A3.
 func TestConsoleOpensGrafana(t *testing.T) {
 	t.Parallel()
 	s := signInMember(t, consoledomain.RoleModerator)
@@ -89,6 +90,7 @@ func TestConsoleOpensRestateAsAdmin(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 E6.
 func TestConsoleDashboardTicketRefusals(t *testing.T) {
 	t.Parallel()
 	mod := signInMember(t, consoledomain.RoleModerator)
@@ -103,6 +105,7 @@ func TestConsoleDashboardTicketRefusals(t *testing.T) {
 	expectStatus(t, consoleCall(t, consoleSession{}, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "grafana"}), 401)
 }
 
+// UC-MOD-10 E7.
 func TestConsoleDashboardCallbackRefusals(t *testing.T) {
 	t.Parallel()
 	s := signInMember(t, consoledomain.RoleModerator)

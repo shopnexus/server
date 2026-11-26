@@ -107,7 +107,7 @@ type Service interface {
 	// the listing and returns the order's deal. A repeated key of the same
 	// caller moves nothing more.
 	//
-	// UC-DEAL-05 A2 · NFR-IDEM-01
+	// UC-DEAL-05 · NFR-IDEM-01
 	ConfirmReceipt(ctx context.Context, caller, order, key uuid.UUID) (DealView, error)
 	// OpenShipmentsAt tells whether a shipped order of the seller's has a
 	// shipment at carrier; module shipping refuses to unlink it then.

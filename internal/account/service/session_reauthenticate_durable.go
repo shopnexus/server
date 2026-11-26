@@ -49,6 +49,7 @@ const reauthenticateService = "Reauthenticate"
 
 func (s Reauthenticate) ServiceName() string { return s.Prefix + reauthenticateService }
 
+// Run is UC-ACC-02 A2.
 func (s Reauthenticate) Run(ctx restate.Context, in ReauthenticateRun) (ReauthenticateResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
@@ -71,6 +72,7 @@ func (s Reauthenticate) Run(ctx restate.Context, in ReauthenticateRun) (Reauthen
 	if err != nil {
 		return ReauthenticateResult{}, err
 	}
+	// E3 · BR-ACC-02
 	if !f.Found || f.Ref.AccountID != in.AccountID {
 		return ReauthenticateResult{Refused: domain.ErrWrongAccount}, nil
 	}

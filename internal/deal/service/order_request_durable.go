@@ -59,7 +59,7 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 		if r := status.Refusal(); r != nil {
 			return buyerFacts{Refused: r}, nil //nolint:nilerr // A business refusal goes back as data.
 		}
-		// A new order waits on the seller, who must not be away.
+		// E7: a new order waits on the seller, who must not be away.
 		if m.By == domain.Buyer {
 			away, awayErr := s.Deals.d.Accounts.Away(rc, m.Deal.SellerID)
 			if awayErr != nil {

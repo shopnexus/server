@@ -10,9 +10,9 @@ import (
 	"github.com/shopnexus/server/internal/provider/chotot"
 )
 
-// ListingSold announces the sale of an import's copy, unless the seller
-// turned remind_hide off, no longer links the profile, or the listing left
-// Chợ Tốt already. Chợ Tốt not answering still reminds.
+// ListingSold is UC-LST-04 A4: it announces the sale of an import's copy,
+// unless the seller turned remind_hide off, no longer links the profile, or
+// the listing left Chợ Tốt already. Chợ Tốt not answering still reminds.
 func (c *Chotot) ListingSold(ctx context.Context, listing, event uuid.UUID, at time.Time) error {
 	imp, found, err := c.d.Imports.ByListing(ctx, listing)
 	if err != nil || !found {

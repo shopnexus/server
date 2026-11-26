@@ -129,6 +129,7 @@ VALUES (@id, @email, @name, 'moderator', 'active', 'x', false, 1, 0, @at, @at, @
 	return audit.Actor{Kind: audit.ActorMember, MemberID: id}
 }
 
+// UC-MOD-09.
 func TestOpenOtherMakesAChatWithTheFirstMessage(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -153,6 +154,7 @@ func TestOpenOtherMakesAChatWithTheFirstMessage(t *testing.T) {
 	}
 }
 
+// UC-MOD-09 A1.
 func TestReportTwiceReturnsTheTicket(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -172,6 +174,7 @@ func TestReportTwiceReturnsTheTicket(t *testing.T) {
 	}
 }
 
+// UC-MOD-09 E2, E3.
 func TestReportRefusals(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -195,6 +198,7 @@ func TestReportRefusals(t *testing.T) {
 	}
 }
 
+// UC-MOD-09 A4.
 func TestSuspendedPersonOpensATicket(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -205,6 +209,7 @@ func TestSuspendedPersonOpensATicket(t *testing.T) {
 	}
 }
 
+// UC-MOD-09.
 func TestReplyGoesOutAsShopNexusAndNamesTheMember(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -231,6 +236,7 @@ func TestReplyGoesOutAsShopNexusAndNamesTheMember(t *testing.T) {
 	}
 }
 
+// UC-MOD-09 A3.
 func TestResolvingACarrierRequestSendsTheNote(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -298,6 +304,7 @@ func TestAFailedNoteLeavesTheTicketOpen(t *testing.T) {
 }
 
 // The eleventh ticket in a day is refused before its chat opens.
+// UC-MOD-09 E1.
 func TestARefusedOpenLeavesNoChat(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -331,7 +338,7 @@ JOIN conversations c ON c.id = m.conversation_id WHERE m.account_id = @p AND c.k
 }
 
 // A first message that chat refuses leaves no ticket and no chat, and the
-// key's retry gets the refusal again.
+// key's retry gets the refusal again. UC-MOD-09 E5.
 func TestARefusedFirstMessageLeavesNoTicket(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -365,6 +372,7 @@ func TestARunThatLosesTheKeyDropsItsChat(t *testing.T) {
 	}
 }
 
+// UC-MOD-09 A2.
 func TestAPersonsMessageReopens(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

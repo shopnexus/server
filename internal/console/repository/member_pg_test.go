@@ -81,6 +81,7 @@ func TestCreateGetFind(t *testing.T) {
 	}
 }
 
+// UC-MOD-04 E3.
 func TestEmailTaken(t *testing.T) {
 	t.Parallel()
 	s, _ := newStore(t)

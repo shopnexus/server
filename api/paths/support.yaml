@@ -1,6 +1,7 @@
 tickets:
   get:
     operationId: listMyTickets
+    x-uc: [UC-MOD-09]
     summary: The caller's tickets, open ones first, each newest activity first.
     tags: [support]
     security:
@@ -16,6 +17,7 @@ tickets:
         $ref: "../responses/common.yaml#/Unauthorized"
   post:
     operationId: openTicket
+    x-uc: [UC-MOD-09]
     summary: Open a ticket and its chat with ShopNexus.
     description: |
       not_received needs order_id, an order of the caller's as buyer that is
@@ -79,6 +81,7 @@ tickets:
 summary:
   get:
     operationId: getSupportSummary
+    x-uc: [UC-MOD-09]
     summary: Open tickets and unread replies, for Tôi and Trợ giúp.
     tags: [support]
     security:
@@ -95,6 +98,7 @@ summary:
 orderTicket:
   get:
     operationId: getOrderTicket
+    x-uc: [UC-MOD-09]
     summary: The ticket of one of the caller's orders, for "Xem yêu cầu".
     tags: [support]
     security:

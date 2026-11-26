@@ -52,9 +52,9 @@ type openedRead struct {
 	Answer *StartResult
 }
 
-// openRead runs the steps every Start opens with: the clock, the account's
-// status and phone, then newRead's insert under key. A refusal, or a read
-// the key already started, is the Answer.
+// openRead is UC-LST-01, step 2: it runs the steps every Start opens with,
+// the clock, the account's status and phone, then newRead's insert under
+// key. A refusal, or a read the key already started, is the Answer.
 func (d Deps) openRead(ctx restate.Context, account, key uuid.UUID,
 	newRead func(id uuid.UUID, at time.Time) domain.ListingRead,
 ) (openedRead, error) {
@@ -62,6 +62,7 @@ func (d Deps) openRead(ctx restate.Context, account, key uuid.UUID,
 	if err != nil {
 		return openedRead{}, err
 	}
+	// E1 · BR-LST-02
 	status, err := restate.Run(ctx, func(rc restate.RunContext) (accountdomain.Status, error) {
 		return d.Accounts.Status(rc, account)
 	})
@@ -71,8 +72,9 @@ func (d Deps) openRead(ctx restate.Context, account, key uuid.UUID,
 	if r := status.Refusal(); r != nil {
 		return openedRead{Answer: &StartResult{Refused: r}}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
 	}
-	// A read exists to post a listing, and posting needs a phone; asking
-	// for it here keeps accounts made of an email alone off the model.
+	// E4 · BR-ACC-03: a read exists to post a listing, and posting needs a
+	// phone; asking for it here keeps accounts made of an email alone off
+	// the model.
 	hasPhone, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		return d.Accounts.HasPhone(rc, account)
 	})
@@ -82,6 +84,7 @@ func (d Deps) openRead(ctx restate.Context, account, key uuid.UUID,
 	if !hasPhone {
 		return openedRead{Answer: &StartResult{Refused: accountdomain.ErrPhoneRequired}}, nil
 	}
+	// E6: the insert counts the account's reads of the source in 24 hours.
 	id := restatex.NewID(ctx, at)
 	ins, err := insertStep(ctx, d.Reads, newRead(id, at), key)
 	if err != nil {

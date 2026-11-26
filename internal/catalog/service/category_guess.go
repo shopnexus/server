@@ -12,8 +12,8 @@ import (
 // guessBatch is how many category texts go in one embedding call.
 const guessBatch = 64
 
-// GuessCategory embeds the listing's text with the text model and takes
-// the nearest category text's subcategory.
+// GuessCategory is UC-LST-01, step 2 and A1: it embeds the listing's text
+// with the text model and takes the nearest category text's subcategory.
 func (c *Catalog) GuessCategory(ctx context.Context, title, description string) (string, error) {
 	text := domain.GuessText(title, description)
 	if text == "" || c.d.Text == nil {

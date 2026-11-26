@@ -42,6 +42,7 @@ func reputation(t *testing.T, token string) reputationScreen {
 	return expect[reputationScreen](t, call(t, "GET", "/v1/screens/reputation", nil, bearer(token)), http.StatusOK)
 }
 
+// UC-TRS-04 A1, A2.
 func TestReputationScreen(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)

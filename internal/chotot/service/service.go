@@ -28,24 +28,40 @@ import (
 type Service interface {
 	// Code returns the account's live code, or a new one for
 	// domain.CodeLife.
+	//
+	// UC-LST-04
 	Code(ctx context.Context, account uuid.UUID) (domain.Code, error)
 	// Link links the profile at profileURL when its bio holds the account's
 	// live code, and starts its hourly checks.
+	//
+	// UC-LST-04
 	Link(ctx context.Context, account uuid.UUID, profileURL string) (LinkView, error)
 	// Get returns the account's link; a nil Link for none. It reads
 	// ShopNexus only.
+	//
+	// UC-LST-04
 	Get(ctx context.Context, account uuid.UUID) (StateView, error)
 	// Update changes the link's settings; no link is domain.ErrNotLinked.
+	//
+	// UC-LST-04 A6
 	Update(ctx context.Context, account uuid.UUID, p domain.SettingsPatch) (LinkView, error)
 	// Unlink removes the account's link; its imports stay. None is fine.
+	//
+	// UC-LST-04 A6
 	Unlink(ctx context.Context, account uuid.UUID) error
 	// Ads lists the linked profile's listings on Chợ Tốt, each with what it
 	// is here.
+	//
+	// UC-LST-04
 	Ads(ctx context.Context, account uuid.UUID) (AdListView, error)
 	// Import starts an import of each listing and returns them as they now
 	// are; one settled already answers as it is.
+	//
+	// UC-LST-04 · NFR-IDEM-01
 	Import(ctx context.Context, account uuid.UUID, listIDs []int64) (ImportListView, error)
 	// PostDraft posts the listing an import left as a draft, as in.
+	//
+	// UC-LST-04 A1
 	PostDraft(ctx context.Context, account uuid.UUID, listID int64, in catalogdomain.ListingInput) (ImportView, error)
 	// FromChotot says which of the account's listings an import brought
 	// over from Chợ Tốt.
@@ -53,6 +69,8 @@ type Service interface {
 	// ListingSold announces chotot_import.sold, as event, when the listing
 	// is an import's copy whose seller wants the reminder and whose listing
 	// is still on Chợ Tốt.
+	//
+	// UC-LST-04 A4
 	ListingSold(ctx context.Context, listing, event uuid.UUID, at time.Time) error
 	// ListingEdited clears the review of the import that posted the
 	// listing: the seller has seen it.

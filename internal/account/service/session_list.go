@@ -10,6 +10,8 @@ import (
 )
 
 // ListSessions lists the caller's devices, newest first.
+//
+// ListSessions is UC-ACC-02, step 1.
 func (s *Account) ListSessions(ctx context.Context, p authn.Principal, req page.Request) (page.Page[SessionItem], error) {
 	rows, err := s.d.Sessions.ListActive(ctx, p.AccountID, s.d.Now(), req)
 	if err != nil {

@@ -1,6 +1,7 @@
 screenHome:
   get:
     operationId: getHomeScreen
+    x-uc: [UC-DSC-05]
     summary: The Home view, the category tree, the first page of the nearby feed, Dành cho bạn and Vì bạn đã xem gần đây.
     description: |
       nearby is the first page of GET /v1/search with sort=nearby and the

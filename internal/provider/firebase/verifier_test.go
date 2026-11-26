@@ -51,6 +51,7 @@ func TestVerifyAcceptsBothIssuers(t *testing.T) {
 	}
 }
 
+// UC-ACC-01 E1.
 func TestVerifyRefuses(t *testing.T) {
 	t.Parallel()
 	i := newIssuer(t)
@@ -116,6 +117,7 @@ func TestVerifyTestNumbersWhenAllowed(t *testing.T) {
 	}
 }
 
+// UC-ACC-01 E1.
 func TestVerifyForeignNumber(t *testing.T) {
 	t.Parallel()
 	i := newIssuer(t)

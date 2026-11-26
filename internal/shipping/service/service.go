@@ -107,27 +107,43 @@ type Deps struct {
 // Service is module shipping's contract.
 type Service interface {
 	Settings(ctx context.Context, owner uuid.UUID) (domain.Settings, error)
+	// PutSettings saves the owner's pickup: one of their addresses and a
+	// contact phone.
+	//
+	// UC-ACC-04
 	PutSettings(ctx context.Context, owner uuid.UUID, st domain.Settings) (domain.Settings, error)
 	SavedPickup(ctx context.Context, owner uuid.UUID) (Pickup, error)
 	// Accounts lists the owner's linked accounts, without their tokens, and
 	// the carriers they can link: those with a client on this stack.
+	//
+	// UC-ACC-04
 	Accounts(ctx context.Context, owner uuid.UUID) (AccountList, error)
 	// SendOTP has carrier c text phone the code Link takes; only GHN does.
+	//
+	// UC-ACC-04
 	SendOTP(ctx context.Context, c, phone string) error
 	// Link checks the credentials at carrier c and keeps the token sealed,
 	// replacing an account linked there before; a new shop is refused while
 	// a shipment of the owner's is open there.
+	//
+	// UC-ACC-04 · NFR-PRIV-01
 	Link(ctx context.Context, owner uuid.UUID, c string, cr carrier.Credentials) (AccountView, error)
 	// Unlink drops the owner's account at c, refused while a shipment of
 	// theirs is open there.
+	//
+	// UC-ACC-04
 	Unlink(ctx context.Context, owner uuid.UUID, c string) error
 	// Pickups lists the owner's pickup points at c, read from the carrier.
 	Pickups(ctx context.Context, owner uuid.UUID, c string) ([]carrier.PickupPoint, error)
 	// Quote is the carrier's fee for a linked shipment of an order.
+	//
+	// UC-DEAL-04
 	Quote(ctx context.Context, owner uuid.UUID, c string, in QuoteRequest) (int64, error)
 	// Create, Lookup and Cancel are module deal's: a shipment on the
 	// seller's account at c. carrier.ErrNotFound and
 	// carrier.ErrNotCancellable come back as they are.
+	//
+	// UC-DEAL-04
 	Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error)
 	Lookup(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error
@@ -141,6 +157,8 @@ type Service interface {
 	// its newest fee. A code
 	// no order has keeps its events and moves nothing; a report that does
 	// not read is domain.ErrReportUnread.
+	//
+	// UC-DEAL-05 · NFR-IDEM-01
 	Reported(ctx context.Context, c carrier.Carrier, contentType string, body []byte) error
 	// DevReported is a report as the dev endpoint makes it, for the fake
 	// carrier: the carrier is the order's, and a code no order has is
@@ -150,6 +168,8 @@ type Service interface {
 	// steps, and for the seller also the weight, fee and COD paid out.
 	Tracking(ctx context.Context, c, code string, seller bool) (Tracking, error)
 	// AccountDeleted drops the account's carrier accounts.
+	//
+	// UC-ACC-09
 	AccountDeleted(ctx context.Context, owner uuid.UUID) error
 }
 
@@ -221,6 +241,7 @@ func carrierError(err error) error {
 	return err
 }
 
+// Accounts is UC-ACC-04, step 1.
 func (s *Shipping) Accounts(ctx context.Context, owner uuid.UUID) (AccountList, error) {
 	rows, err := s.d.Accounts.List(ctx, owner)
 	if err != nil {
@@ -246,7 +267,9 @@ func mobile(raw string) (string, error) {
 	return p.Value(), nil
 }
 
+// SendOTP is UC-ACC-04 A1.
 func (s *Shipping) SendOTP(ctx context.Context, c, phone string) error {
+	// E5
 	cl, err := s.client(c)
 	if err != nil {
 		return err
@@ -255,22 +278,27 @@ func (s *Shipping) SendOTP(ctx context.Context, c, phone string) error {
 	if !ok || c != string(carrier.GHN) {
 		return domain.ErrInvalidCarrier
 	}
+	// E2
 	if phone, err = mobile(phone); err != nil {
 		return err
 	}
 	return carrierError(t.SendOTP(ctx, phone))
 }
 
+// Link is UC-ACC-04, steps 2 and 3.
 func (s *Shipping) Link(ctx context.Context, owner uuid.UUID, c string, cr carrier.Credentials) (AccountView, error) {
+	// E5
 	cl, err := s.client(c)
 	if err != nil {
 		return AccountView{}, err
 	}
+	// A1. GHN by a phone and the code it texted; E2 a phone GHN does not know.
 	if cr.OTP != "" {
 		if cr.Phone, err = mobile(cr.Phone); err != nil {
 			return AccountView{}, err
 		}
 	}
+	// 3. The carrier checks the account; E1 a wrong login, E3 a wrong code.
 	l, err := cl.Link(ctx, cr)
 	if err != nil {
 		return AccountView{}, carrierError(err)
@@ -280,7 +308,7 @@ func (s *Shipping) Link(ctx context.Context, owner uuid.UUID, c string, cr carri
 	if l.Token != "" {
 		row.Token = s.d.Tokens.Seal([]byte(l.Token), nil)
 	}
-	// Another shop would read the open parcels with a token that does not
+	// E4. Another shop would read the open parcels with a token that does not
 	// know them.
 	if err = s.d.Accounts.Put(ctx, row, s.noneOpen(owner, c)); errors.Is(err, domain.ErrShipmentsOpen) {
 		return AccountView{}, err //nolint:wrapcheck // The refusal goes out as it is.
@@ -293,10 +321,13 @@ func (s *Shipping) Link(ctx context.Context, owner uuid.UUID, c string, cr carri
 
 // Unlink needs no client, so an account at a carrier this stack runs off
 // can still be dropped.
+//
+// Unlink is UC-ACC-04 A2.
 func (s *Shipping) Unlink(ctx context.Context, owner uuid.UUID, c string) error {
 	if !carrier.Carrier(c).HasClient() {
 		return domain.ErrInvalidCarrier
 	}
+	// E4
 	deleted, err := s.d.Accounts.Delete(ctx, owner, c, s.noneOpen(owner, c))
 	if errors.Is(err, domain.ErrShipmentsOpen) {
 		return err //nolint:wrapcheck // The refusal goes out as it is.
@@ -304,6 +335,7 @@ func (s *Shipping) Unlink(ctx context.Context, owner uuid.UUID, c string) error 
 	if err != nil {
 		return fmt.Errorf("unlink %s: %w", c, err)
 	}
+	// E8
 	if !deleted {
 		return domain.ErrAccountNotFound
 	}
@@ -553,6 +585,7 @@ func (s *Shipping) Tracking(ctx context.Context, c, code string, seller bool) (T
 	return t, nil
 }
 
+// AccountDeleted is UC-ACC-09, step 4.
 func (s *Shipping) AccountDeleted(ctx context.Context, owner uuid.UUID) error {
 	if err := s.d.Accounts.DeleteAll(ctx, owner); err != nil {
 		return fmt.Errorf("drop the carrier accounts: %w", err)

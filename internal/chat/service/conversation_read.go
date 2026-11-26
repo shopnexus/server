@@ -11,9 +11,9 @@ import (
 	"github.com/shopnexus/server/internal/chat/repository"
 )
 
-// Read moves account's marker to message, a message account may see in the
-// conversation; an older one changes nothing. The other member's stream
-// hears of a move.
+// Read is UC-DEAL-01, step 4: it moves account's marker to message, a
+// message account may see in the conversation; an older one changes
+// nothing. The other member's stream hears of a move.
 func (c *Chat) Read(ctx context.Context, account, conversation, message uuid.UUID) error {
 	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
@@ -32,6 +32,7 @@ func (c *Chat) Read(ctx context.Context, account, conversation, message uuid.UUI
 	return nil
 }
 
+// MarkUnread is UC-DEAL-01 A3.
 func (c *Chat) MarkUnread(ctx context.Context, account, conversation uuid.UUID) error {
 	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
@@ -46,6 +47,7 @@ func (c *Chat) MarkUnread(ctx context.Context, account, conversation uuid.UUID) 
 	return nil
 }
 
+// Archive is UC-DEAL-01 A3.
 func (c *Chat) Archive(ctx context.Context, account, conversation uuid.UUID) error {
 	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
@@ -60,6 +62,7 @@ func (c *Chat) Archive(ctx context.Context, account, conversation uuid.UUID) err
 	return nil
 }
 
+// Unarchive is UC-DEAL-01 A3.
 func (c *Chat) Unarchive(ctx context.Context, account, conversation uuid.UUID) error {
 	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
@@ -74,10 +77,12 @@ func (c *Chat) Unarchive(ctx context.Context, account, conversation uuid.UUID) e
 	return nil
 }
 
+// Ignore is UC-DEAL-01 A3.
 func (c *Chat) Ignore(ctx context.Context, account, conversation uuid.UUID) error {
 	return c.setIgnored(ctx, account, conversation, new(c.d.Now()))
 }
 
+// Unignore is UC-DEAL-01 A3.
 func (c *Chat) Unignore(ctx context.Context, account, conversation uuid.UUID) error {
 	return c.setIgnored(ctx, account, conversation, nil)
 }

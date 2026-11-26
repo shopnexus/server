@@ -68,6 +68,8 @@ type Service interface {
 	// ProfileTasks reads account's Hoàn thiện hồ sơ view.
 	ProfileTasks(ctx context.Context, account uuid.UUID) (ProfileTasksScreen, error)
 	// Reputation reads account's Uy tín của bạn view.
+	//
+	// UC-TRS-04 · BR-TRS-05
 	Reputation(ctx context.Context, account uuid.UUID) (ReputationScreen, error)
 	// Unread counts account's unread messages, as the inbox does, its
 	// unread notices and the buyers' open offers waiting on it.

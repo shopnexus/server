@@ -20,6 +20,7 @@ screenProfileTasks:
 screenReputation:
   get:
     operationId: getReputationScreen
+    x-uc: [UC-TRS-04]
     summary: The Uy tín của bạn view, the figures the server holds about the caller and the caps in use.
     tags: [screen]
     security:

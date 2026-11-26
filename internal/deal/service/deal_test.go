@@ -250,6 +250,8 @@ func TestSuspendedCallerTakesBackOnly(t *testing.T) {
 
 // While the seller is away, the buyer's offers and accepts are refused;
 // the seller's moves and a decline go on, and clearing away mode lifts it.
+//
+// UC-DEAL-02 E10 · UC-DEAL-03 E7.
 func TestSellerAwayRefusesTheBuyersBindingMoves(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -33,21 +33,35 @@ import (
 type Service interface {
 	// SignIn checks a proof, finds or creates the account and starts a
 	// session.
+	//
+	// UC-ACC-01 · NFR-IDEM-01
 	SignIn(ctx context.Context, in SignInInput) (SignedIn, error)
 	// Refresh rotates a refresh token.
+	//
+	// UC-ACC-02 · NFR-SEC-01
 	Refresh(ctx context.Context, refreshToken string) (domain.Tokens, error)
 	// Reauthenticate checks a proof of the caller's own account without
 	// creating one, renews the sign-in time of the caller's session and
 	// returns an access token that carries the new time.
+	//
+	// UC-ACC-02 · BR-ACC-02
 	Reauthenticate(ctx context.Context, in ReauthenticateInput) (domain.AccessToken, error)
 	// DeleteCurrentSession revokes the caller's session.
+	//
+	// UC-ACC-02
 	DeleteCurrentSession(ctx context.Context, p authn.Principal) error
 	// DeleteOtherSessions signs out every session of the caller's account
 	// but the caller's own.
+	//
+	// UC-ACC-02 · BR-ACC-04
 	DeleteOtherSessions(ctx context.Context, p authn.Principal) error
 	// DeleteSession signs one of the caller's devices out.
+	//
+	// UC-ACC-02
 	DeleteSession(ctx context.Context, p authn.Principal, id uuid.UUID) error
 	// ListSessions lists the caller's devices, newest first.
+	//
+	// UC-ACC-02
 	ListSessions(ctx context.Context, p authn.Principal, req page.Request) (page.Page[SessionItem], error)
 	// ActiveSessions returns which of ids are neither revoked nor expired;
 	// notification pushes only to their tokens.
@@ -60,6 +74,8 @@ type Service interface {
 	GetMany(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]AccountView, error)
 	// Update changes the display name, bio, avatar and away mode of an
 	// account that may write.
+	//
+	// UC-ACC-06 · NFR-CONC-01
 	Update(ctx context.Context, id uuid.UUID, in UpdateInput) (AccountView, error)
 	// Status is the account's status in force now: active, suspended (a
 	// suspension that has not lapsed) or deleted. A module that refuses a
@@ -73,6 +89,8 @@ type Service interface {
 	// avatar, its credentials, addresses, blocks and follows go, its
 	// sessions are revoked and account.deleted is written. A suspension in
 	// force is domain.ErrSuspended; a deleted account changes nothing.
+	//
+	// UC-ACC-09
 	Erase(ctx context.Context, id uuid.UUID) error
 	// Touch records that the people of ids have the app open now.
 	Touch(ctx context.Context, ids []uuid.UUID) error
@@ -98,7 +116,12 @@ type Service interface {
 	Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleAccount, error)
 	// Block stops blocked and blocker from reaching each other and deletes
 	// the follows between them; blocking again changes nothing.
+	//
+	// UC-ACC-05 · BR-ACC-01
 	Block(ctx context.Context, blocker, blocked uuid.UUID) error
+	// Unblock lifts blocker's block; the follows it deleted stay deleted.
+	//
+	// UC-ACC-05
 	Unblock(ctx context.Context, blocker, blocked uuid.UUID) error
 	// Blocked reports a block between a and b, in either direction.
 	Blocked(ctx context.Context, a, b uuid.UUID) (bool, error)
@@ -106,6 +129,8 @@ type Service interface {
 	// discovery leaves their listings out of account's searches.
 	BlockedWith(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error)
 	// Blocks lists the accounts blocker blocks, newest block first.
+	//
+	// UC-ACC-05
 	Blocks(ctx context.Context, blocker uuid.UUID, p page.Request) (page.Page[BlockView], error)
 	// Follow makes follower follow followed; following again changes
 	// nothing. A block either way is domain.ErrBlocked.
@@ -138,11 +163,17 @@ type Service interface {
 	// written in; Address is empty for an account without an email.
 	Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, error)
 	// Me reads the caller's own account with its identities.
+	//
+	// UC-ACC-06
 	Me(ctx context.Context, id uuid.UUID) (MeView, error)
 	// AddIdentity adds the identity kind an account lacks, from a proof.
+	//
+	// UC-ACC-08 · BR-ACC-04 · BR-ACC-05
 	AddIdentity(ctx context.Context, in AddIdentityInput) (IdentitiesView, error)
 	// SendEmailCode mails a six-digit code to an address: a sign-in code,
 	// or with AccountID one that adds the address to that account.
+	//
+	// UC-ACC-01 · UC-ACC-08 · BR-ACC-02
 	SendEmailCode(ctx context.Context, in SendEmailCodeInput) (EmailCodeView, error)
 
 	// The address book: only the owner reads or changes an address; any
@@ -150,6 +181,8 @@ type Service interface {
 
 	// Addresses lists owner's addresses, the default first, then the
 	// newest.
+	//
+	// UC-ACC-07
 	Addresses(ctx context.Context, owner uuid.UUID) ([]AddressView, error)
 	// Address reads one of owner's addresses; module deal copies it into
 	// an order.
@@ -159,13 +192,22 @@ type Service interface {
 	// address becomes the default, and so does one added with makeDefault.
 	// A key owner used already returns the address that request added and
 	// moves no default.
+	//
+	// UC-ACC-07 · NFR-IDEM-01
 	CreateAddress(ctx context.Context, owner, key uuid.UUID, d domain.AddressDraft, makeDefault bool) (AddressView, error)
 	// UpdateAddress replaces an address with d; with makeDefault it also
 	// becomes the default.
+	//
+	// UC-ACC-07
 	UpdateAddress(ctx context.Context, owner, id uuid.UUID, d domain.AddressDraft, makeDefault bool) (AddressView, error)
+	// SetDefaultAddress makes one of owner's addresses the default.
+	//
+	// UC-ACC-07
 	SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) error
 	// DeleteAddress removes an address; when it was the default, the newest
 	// remaining one becomes the default.
+	//
+	// UC-ACC-07
 	DeleteAddress(ctx context.Context, owner, id uuid.UUID) error
 }
 

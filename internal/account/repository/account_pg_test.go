@@ -311,6 +311,7 @@ func TestSaveWritesItsEvents(t *testing.T) {
 	}
 }
 
+// UC-ACC-05 A1 · BR-ACC-01.
 func TestBlocks(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
@@ -384,6 +385,7 @@ func count(t *testing.T, db *pgxpool.Pool, q string, id uuid.UUID) int {
 	return n
 }
 
+// UC-ACC-09.
 func TestErase(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

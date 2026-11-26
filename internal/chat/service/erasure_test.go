@@ -15,6 +15,8 @@ import (
 
 // A conversation with a deleted account stays readable; the other member's
 // reply is account_deleted, and the person shows as deleted.
+//
+// UC-DEAL-01 E6.
 func TestReplyToADeletedAccount(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

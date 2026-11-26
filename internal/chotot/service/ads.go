@@ -10,12 +10,14 @@ import (
 	"github.com/shopnexus/server/internal/provider/chotot"
 )
 
-// Ads reads the linked profile's listings on Chợ Tốt each call.
+// Ads is UC-LST-04, step 4: it reads the linked profile's listings on Chợ
+// Tốt each call.
 func (c *Chotot) Ads(ctx context.Context, account uuid.UUID) (AdListView, error) {
 	l, found, err := c.d.Links.Get(ctx, account)
 	if err != nil {
 		return AdListView{}, err //nolint:wrapcheck // the store names it
 	}
+	// E6
 	if !found {
 		return AdListView{}, domain.ErrNotLinked
 	}
@@ -63,7 +65,7 @@ func (c *Chotot) Ads(ctx context.Context, account uuid.UUID) (AdListView, error)
 	return out, nil
 }
 
-// Import starts the imports through ChototImport.
+// Import is UC-LST-04, step 5: it starts the imports through ChototImport.
 func (c *Chotot) Import(ctx context.Context, account uuid.UUID, listIDs []int64) (ImportListView, error) {
 	res, err := c.start.Call(ctx, StartInput{Account: account, ListIDs: listIDs})
 	if err != nil {
@@ -79,7 +81,7 @@ func (c *Chotot) Import(ctx context.Context, account uuid.UUID, listIDs []int64)
 	return out, nil
 }
 
-// PostDraft posts the draft through ChototImport.
+// PostDraft is UC-LST-04 A1: it posts the draft through ChototImport.
 func (c *Chotot) PostDraft(ctx context.Context, account uuid.UUID, listID int64, in catalogdomain.ListingInput) (ImportView, error) {
 	res, err := c.post.Call(ctx, DraftInput{Account: account, ListID: listID, Listing: in})
 	if err != nil {

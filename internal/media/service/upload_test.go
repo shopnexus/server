@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/objectstore"
 )
 
+// UC-SHR-01 E1.
 func TestCreateUploadIsWaitingWithAPresignedPut(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -31,6 +32,7 @@ func TestCreateUploadIsWaitingWithAPresignedPut(t *testing.T) {
 	}
 }
 
+// UC-SHR-01 A4, E2.
 func TestAttachRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -65,6 +67,7 @@ func TestAttachRefusals(t *testing.T) {
 	}
 }
 
+// UC-SHR-01 E4.
 func TestExpireDeletesAWaitingUpload(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

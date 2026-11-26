@@ -22,7 +22,9 @@ func (s *Feedback) Queue(ctx context.Context, status *domain.Status, kind *domai
 	return page.Of(out, p, func(c ConsoleFeedback) uuid.UUID { return c.Feedback.ID }), nil
 }
 
+// Detail is UC-MOD-11 step 3.
 func (s *Feedback) Detail(ctx context.Context, id uuid.UUID) (ConsoleFeedbackDetail, error) {
+	// E3
 	f, err := s.d.Store.Get(ctx, id)
 	if err != nil {
 		return ConsoleFeedbackDetail{}, fmt.Errorf("read the feedback: %w", err)

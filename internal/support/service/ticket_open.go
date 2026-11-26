@@ -12,11 +12,13 @@ import (
 
 // Open checks the request; a key the account opened a ticket with already
 // answers that ticket (NFR-IDEM-01), otherwise it runs TicketOpen and
-// reads the ticket it opened or found.
+// reads the ticket it opened or found. It is UC-MOD-09 steps 1 and 2.
 func (s *Support) Open(ctx context.Context, account, key uuid.UUID, in OpenInput) (TicketView, bool, error) {
+	// E4
 	if _, err := domain.NewTicket(in.Kind, in.CarrierName, in.Text, len(in.Photos), in.OrderID); err != nil {
 		return TicketView{}, false, err
 	}
+	// A1: the key's ticket.
 	var existed bool
 	t, err := s.d.Tickets.ByKey(ctx, account, key)
 	if errors.Is(err, domain.ErrNotFound) {

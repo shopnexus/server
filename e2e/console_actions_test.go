@@ -7,6 +7,7 @@ import (
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
+// UC-MOD-05 E1 · UC-SHR-02.
 func TestConsoleActions(t *testing.T) {
 	t.Parallel()
 	admin := signInMember(t, consoledomain.RoleAdmin)

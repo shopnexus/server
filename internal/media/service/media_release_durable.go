@@ -49,8 +49,9 @@ func Release(ctx restate.Context, prefix string, holder uuid.UUID, ids []uuid.UU
 	restate.ServiceSend(ctx, prefix+mediaRelease, "Run").Send(ReleaseInput{Holder: holder, IDs: ids})
 }
 
-// Run releases those of in.IDs that in.Holder holds. A save that loses to
-// another write, such as processing that ends meanwhile, reads them again.
+// Run is UC-SHR-01 A6: it releases those of in.IDs that in.Holder holds. A
+// save that loses to another write, such as processing that ends meanwhile,
+// reads them again.
 func (s MediaRelease) Run(ctx restate.Context, in ReleaseInput) error {
 	for {
 		at, err := restatex.Now(ctx, s.Now)

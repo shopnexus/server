@@ -18,22 +18,26 @@ type PriceDropFacts struct {
 	SavedPrice int64     `json:"saved_price"`
 }
 
-// SetAlert saves the listing, a second time changing nothing, then sets
-// the level. An unsave between the two is try_again.
+// SetAlert is UC-DSC-03, step 2: it saves the listing, a second time
+// changing nothing, then sets the level. An unsave between the two is
+// try_again.
 func (d *Discovery) SetAlert(ctx context.Context, account, listing uuid.UUID, below int64) error {
 	if err := d.Save(ctx, account, listing); err != nil {
 		return err
 	}
+	// 2.
 	found, err := d.d.Saves.SetAlert(ctx, account, listing, &below)
 	if err != nil {
 		return fmt.Errorf("set alert: %w", err)
 	}
+	// E11
 	if !found {
 		return apperr.ErrTryAgain
 	}
 	return nil
 }
 
+// ClearAlert is UC-DSC-03 A5.
 func (d *Discovery) ClearAlert(ctx context.Context, account, listing uuid.UUID) error {
 	if _, err := d.d.Saves.SetAlert(ctx, account, listing, nil); err != nil {
 		return fmt.Errorf("clear alert: %w", err)
@@ -41,8 +45,9 @@ func (d *Discovery) ClearAlert(ctx context.Context, account, listing uuid.UUID) 
 	return nil
 }
 
-// PriceMoved reads the listing as it is now, so events out of order or late
-// tell at the current price; a listing off sale tells no one.
+// PriceMoved is UC-DSC-03, step 3: it reads the listing as it is now, so
+// events out of order or late tell at the current price; a listing off
+// sale tells no one.
 func (d *Discovery) PriceMoved(ctx context.Context, listing uuid.UUID) error {
 	l, ok, err := d.d.Catalog.Summary(ctx, listing)
 	if err != nil {
@@ -51,6 +56,7 @@ func (d *Discovery) PriceMoved(ctx context.Context, listing uuid.UUID) error {
 	if !ok || l.Status != catalogdomain.StatusActive {
 		return nil
 	}
+	// 3. Each save below its level and its last told price tells.
 	if _, err = d.d.Saves.PriceMoved(ctx, listing, l.Price, d.d.Now()); err != nil {
 		return fmt.Errorf("weigh the saves: %w", err)
 	}

@@ -26,6 +26,7 @@ func cardIDs(items []service.SearchItem) []uuid.UUID {
 // their own, hidden and blocked listings stay out. The rail is the
 // subcategory opened that day, without the listings opened. A guest and an
 // account without signals get the newest listings.
+// UC-DSC-05 A2, A3 · BR-DSC-02.
 func TestForYou(t *testing.T) {
 	t.Parallel()
 	clock := time.Now()

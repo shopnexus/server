@@ -77,19 +77,21 @@ type SearchView struct {
 	WatchID *uuid.UUID `json:"watch_id,omitempty"`
 }
 
-// Search reads the query through the model, from the cache when it read the
-// same query within domain.CacheTTL, and searches catalog with the person's
-// filters and the boosts the model's answer resolves to. With vectors it
-// fuses BM25, the query's text vector and its visual description by RRF;
-// photo searches by a photo of the viewer's alone, and like by a listing.
-// SortNearby browses by distance and age. A guest's q, and a q the model
-// errs on or outlasts the timeout for, searches its raw words without the
-// lists the model feeds, and the cursor keeps the next pages on them; a
-// guest's q embeds nothing either. A signed-in
-// viewer's first page with q is kept in the history; a failed write is
-// logged and the search still answers. A search of one seller's listings
-// keeps no history and names no watch.
+// Search is UC-DSC-01 (q and photo), UC-DSC-02 (browsing, filters and like),
+// UC-DSC-03 A3 (a watch) and UC-DSC-05 (the nearby feed). It reads the query
+// through the model, from the cache when it read the same query within
+// domain.CacheTTL, and searches catalog with the person's filters and the
+// boosts the model's answer resolves to. With vectors it fuses BM25, the
+// query's text vector and its visual description by RRF; photo searches by a
+// photo of the viewer's alone, and like by a listing. SortNearby browses by
+// distance and age. A guest's q, and a q the model errs on or outlasts the
+// timeout for, searches its raw words without the lists the model feeds, and
+// the cursor keeps the next pages on them; a guest's q embeds nothing
+// either. A signed-in viewer's first page with q is kept in the history; a
+// failed write is logged and the search still answers. A search of one
+// seller's listings keeps no history and names no watch.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
+	// UC-DSC-03 A3, E10: a watch brings its query and filters alone.
 	if in.Watch != uuid.Nil() {
 		if in.Query != "" || in.Category != "" || in.Province != "" || in.PriceMin != 0 || in.PriceMax != 0 || len(in.Conditions) > 0 ||
 			in.RadiusKm != 0 || in.OffersOnly || in.Near != (catalogdomain.Near{}) || in.Photo != uuid.Nil() || in.Like != uuid.Nil() ||
@@ -99,6 +101,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		if viewer == nil {
 			return SearchView{}, authn.ErrUnauthenticated
 		}
+		// UC-DSC-03 E9
 		w, found, err := d.d.Watches.Get(ctx, in.Watch)
 		if err != nil {
 			return SearchView{}, fmt.Errorf("read the watch: %w", err)
@@ -112,19 +115,23 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	}
 	q := strings.TrimSpace(in.Query)
 	photo, like := in.Photo != uuid.Nil(), in.Like != uuid.Nil()
+	// E2
 	if photo && (q != "" || like) {
 		return SearchView{}, domain.ErrSearchConflict
 	}
 	if in.Sort == SortNearby && (q != "" || photo || like) {
 		return SearchView{}, domain.ErrSearchConflict
 	}
+	// E1
 	if photo && viewer == nil {
 		return SearchView{}, authn.ErrUnauthenticated
 	}
+	// UC-DSC-02 E2 · UC-DSC-05 E2
 	origin, err := d.d.Catalog.Origin(ctx, in.Near)
 	if err != nil {
 		return SearchView{}, fmt.Errorf("read the position: %w", err)
 	}
+	// UC-DSC-02 E3
 	if in.Province != "" {
 		provinces, provErr := d.d.Catalog.Provinces(ctx)
 		if provErr != nil {
@@ -138,6 +145,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if err != nil {
 		return SearchView{}, err
 	}
+	// UC-DSC-02 E4
 	if in.PriceMin > 0 && in.PriceMax > 0 && in.PriceMin > in.PriceMax {
 		return SearchView{}, domain.ErrInvalidPriceRange
 	}
@@ -150,6 +158,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	}
 	near := sort == catalogdomain.SortNearest || sort == SortNearby
 	radius := in.RadiusKm
+	// UC-DSC-02 E1 · UC-DSC-05 E1
 	if (near || radius > 0) && origin == nil {
 		return SearchView{}, domain.ErrPositionRequired
 	}
@@ -166,6 +175,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		search.Sort, search.Boosts = catalogdomain.SortRelevance, domain.NearbyBoosts(*origin, d.d.Now())
 	}
 	search.Vectors.TextMin, search.Vectors.PhotoMin = d.d.TextMin, d.d.PhotoMin
+	// BR-DSC-02
 	if viewer != nil {
 		if search.ExcludeListings, search.ExcludeSellers, err = d.exclusions(ctx, *viewer); err != nil {
 			return SearchView{}, err
@@ -173,6 +183,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	}
 	view := SearchView{SearchID: uuid.NewV7()}
 
+	// A5
 	if photo {
 		// Photo search needs the image model; with it off the search is
 		// unavailable, as when the model fails.
@@ -180,6 +191,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			return SearchView{}, domain.ErrSearchUnavailable
 		}
 		now := d.d.Now()
+		// E3
 		up, upErr := d.d.Media.QueryUpload(ctx, *viewer, in.Photo)
 		if upErr != nil {
 			return SearchView{}, fmt.Errorf("check the search photo: %w", upErr)
@@ -194,6 +206,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 				return SearchView{}, fmt.Errorf("read the search photo: %w", imgErr)
 			}
 			vs, embedErr := d.d.Image.Embed(ctx, []string{embed.ImageInput(img)})
+			// E4
 			if embedErr != nil {
 				d.d.Log.WarnContext(ctx, "embed the search photo", "err", embedErr)
 				return SearchView{}, domain.ErrSearchUnavailable
@@ -206,6 +219,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		search.Vectors.Photo, search.Weights = vec, domain.FusePhoto
 	}
 
+	// UC-DSC-02 A1, E5
 	if like {
 		src, ok, srcErr := d.d.Catalog.Summary(ctx, in.Like)
 		if srcErr != nil {
@@ -236,12 +250,15 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		var u, preview domain.Understanding
 		understood, previewed := false, false
 		switch {
+		// 2.
 		case viewer != nil && !raw:
 			u, understood = d.understand(ctx, *viewer, q, categories, now)
+		// A4
 		case viewer == nil && in.Cursor == "" && !like:
 			preview, previewed = d.cached(ctx, q, now)
 		default:
 		}
+		// A1: no answer searches the raw words, on the next pages too.
 		raw = !understood
 		names = make(map[string]string, len(categories))
 		for _, c := range categories {
@@ -264,6 +281,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 				d.d.Log.WarnContext(ctx, "resolve the places", "err", placeErr)
 			}
 		}
+		// 5. Off turns chips off on the same reading.
 		c := domain.Compile(u, q, vocab, origin, now, in.Off)
 		if previewed {
 			view.PreviewChips = domain.Compile(preview, q, vocab, origin, now, nil).Chips
@@ -280,6 +298,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		view.Chips = c.Chips
 		// A guest's words search through BM25 alone: their vector, typed
 		// without diacritics, brought listings that share no word.
+		// 3.
 		if !like && viewer != nil {
 			// The text vector reads the rewrite, or the raw words when the
 			// model did not answer; the photo list needs the English
@@ -309,6 +328,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		d.d.Log.InfoContext(ctx, "search terms", "search_id", view.SearchID, "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
 	}
 
+	// 3. A2: an empty page keeps its chips.
 	cards, err := d.d.Catalog.Search(ctx, search)
 	if err != nil {
 		return SearchView{}, fmt.Errorf("search listings: %w", err)
@@ -317,6 +337,8 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if view.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
 		return SearchView{}, err
 	}
+	// 4. The first page with q is kept in the history.
+	// UC-DSC-02 A3: one seller's listings keep none.
 	scoped := in.Seller != uuid.Nil()
 	if viewer != nil && q != "" && in.Cursor == "" && !scoped {
 		// The history keeps the Vietnamese name, whatever the chip says.
@@ -334,6 +356,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			d.d.Log.WarnContext(ctx, "remember the search", "err", err)
 		}
 	}
+	// A3
 	if viewer != nil && q != "" && !scoped {
 		id, found, keyErr := d.d.Watches.ByKey(ctx, *viewer, domain.HistoryKey(q))
 		switch {
@@ -344,6 +367,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		default:
 		}
 	}
+	// UC-DSC-03 A3: the first page resets the new count.
 	if in.Watch != uuid.Nil() && in.Cursor == "" {
 		if err = d.d.Watches.Seen(ctx, *viewer, in.Watch); err != nil {
 			d.d.Log.WarnContext(ctx, "see the watch", "err", err)

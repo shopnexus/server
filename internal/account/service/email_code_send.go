@@ -14,6 +14,8 @@ import (
 // SendEmailCode mails a code to the address through the EmailCodeSend
 // service. A retry of the Idempotency-Key answers with the challenge the
 // first request made and mails nothing.
+//
+// SendEmailCode is UC-ACC-01 A1 and UC-ACC-08 A1.
 func (s *Account) SendEmailCode(ctx context.Context, in SendEmailCodeInput) (EmailCodeView, error) {
 	addr, err := contact.ParseEmail(in.Email)
 	if err != nil {

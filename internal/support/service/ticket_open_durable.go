@@ -62,6 +62,7 @@ type TicketOpen struct{ Support *Support }
 
 func (o TicketOpen) ServiceName() string { return o.Support.d.Prefix + ticketOpen }
 
+// Run is UC-MOD-09 step 2.
 func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, error) {
 	s := o.Support
 	draft, err := domain.NewTicket(in.Input.Kind, in.Input.CarrierName, in.Input.Text, len(in.Input.Photos), in.Input.OrderID)
@@ -78,10 +79,11 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		if stepErr != nil {
 			return openFacts{}, fmt.Errorf("read account status: %w", stepErr)
 		}
-		// A suspended person may still ask why.
+		// A4 · BR-MOD-02: a suspended person may still ask why.
 		if r := status.Refusal(); r != nil && status != accountdomain.StatusSuspended {
 			return openFacts{Refused: r}, nil
 		}
+		// A1: the order's ticket.
 		if draft.Kind == domain.KindNotReceived {
 			existing, getErr := s.d.Tickets.ByOrder(rc, in.Account, *draft.OrderID)
 			if getErr == nil {
@@ -91,8 +93,8 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 				return openFacts{}, fmt.Errorf("find the order's ticket: %w", getErr)
 			}
 		}
-		// Refused here, a request past the limit opens no chat; the insert
-		// counts again under the account's lock.
+		// E1. Refused here, a request past the limit opens no chat; the
+		// insert counts again under the account's lock.
 		n, countErr := s.d.Tickets.OpenedSince(rc, in.Account, at.Add(-24*time.Hour))
 		if countErr != nil {
 			return openFacts{}, fmt.Errorf("count the day's tickets: %w", countErr)
@@ -107,12 +109,14 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		if readErr != nil {
 			return openFacts{}, fmt.Errorf("read the order: %w", readErr)
 		}
+		// E2
 		if !ok {
 			return openFacts{Refused: domain.ErrOrderNotFound}, nil
 		}
 		check := domain.OrderCheck{
 			BuyerID: order.BuyerID, Status: string(order.Status), CompletedBy: string(order.CompletedBy), ClosedAt: order.ClosedAt,
 		}
+		// E2 for another's order, E3 for one not shipped or closed too long.
 		if mayErr := domain.MayReport(check, in.Account, at); mayErr != nil {
 			return openFacts{Refused: apperr.From(mayErr)}, nil
 		}
@@ -127,6 +131,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 	if f.Existing != nil {
 		return OpenResult{TicketID: *f.Existing, Existed: true}, nil
 	}
+	// 2. The support chat, then the ticket, then the first message.
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
 		if _, openErr := s.d.Chats.OpenSupport(rc, in.Account, conversationID); openErr != nil {
 			return fmt.Errorf("open: %w", openErr)
@@ -166,8 +171,9 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 	if err != nil {
 		return OpenResult{}, fmt.Errorf("send the first message: %w", err)
 	}
-	// A refused first message (a photo not the person's, an account deleted
-	// meanwhile) leaves no ticket: the key's retry runs again and is refused.
+	// E5. A refused first message (a photo not the person's, an account
+	// deleted meanwhile) leaves no ticket: the key's retry runs again and is
+	// refused.
 	if sent.Refused != nil {
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
 			if wErr := s.d.Tickets.Withdraw(rc, ticketID, in.Account, conversationID); wErr != nil {

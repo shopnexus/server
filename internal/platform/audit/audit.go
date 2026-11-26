@@ -170,7 +170,8 @@ FROM unnest(@ids::uuid[], @actor_kinds::text[], @member_ids::uuid[], @actor_name
     AS a(id, actor_kind, member_id, actor_name, session_id, ip, action_kind, target_kind, target_id, details, acted_at)`
 
 // Queue adds to b one statement that writes entries, so they commit with
-// the change they record. No entries queues nothing.
+// the change they record. No entries queues nothing. It is UC-SHR-02
+// step 2.
 func Queue(b *pgx.Batch, entries ...Entry) {
 	if len(entries) == 0 {
 		return

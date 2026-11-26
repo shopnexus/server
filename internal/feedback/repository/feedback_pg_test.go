@@ -151,7 +151,7 @@ func TestOfAccountAndQueue(t *testing.T) {
 
 // A status moves the whole group, tells each owner whose status moved to
 // in_progress or shipped, and is audited; a member joins with its root
-// moving its members, and they take the group's status.
+// moving its members, and they take the group's status. UC-SHR-02.
 func TestGroups(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -224,6 +224,7 @@ func TestGroups(t *testing.T) {
 
 // The first reply writes feedback.replied; a second replaces the text and
 // writes none. A heart is audited once per change.
+// UC-MOD-11 A2 · UC-SHR-02 A1.
 func TestReplyAndHeart(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

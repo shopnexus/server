@@ -87,6 +87,7 @@ func reportCases(t *testing.T, mod consoleSession, status string) (at map[string
 // A case gathers an account's reports, a withdrawn one aside; dismissing
 // moves it to the resolved list, a new report opens the next case, and
 // reopening merges the dismissed reports back, each step audited.
+// UC-MOD-02 A1, A2, E1, E2, E3, E6 · UC-SHR-02.
 func TestConsoleReportCases(t *testing.T) {
 	t.Parallel()
 	mod := signInMember(t, consoledomain.RoleModerator)
@@ -211,6 +212,7 @@ func TestConsoleReportCases(t *testing.T) {
 
 // A member's hide keeps the listing off sale against its seller's unhide,
 // until a member unhides it; both are audited against the listing.
+// UC-MOD-02 A3, E7.
 func TestConsoleHidesAListing(t *testing.T) {
 	t.Parallel()
 	mod := signInMember(t, consoledomain.RoleModerator)

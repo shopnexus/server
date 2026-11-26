@@ -30,23 +30,43 @@ type Service interface {
 	// Open starts the buyer's conversation with a listing's seller, or
 	// reuses the pair's, and sends the first message about the listing. A
 	// repeated key of the same buyer sends nothing more.
+	//
+	// UC-DEAL-01 · NFR-IDEM-01
 	Open(ctx context.Context, buyer, key uuid.UUID, in OpenInput) (ConversationView, error)
 	// Send sends a message in a conversation of the sender's; a repeated
 	// key of the same sender sends nothing more and returns the first
 	// message.
+	//
+	// UC-DEAL-01 · NFR-IDEM-01
 	Send(ctx context.Context, sender, conversation, key uuid.UUID, in SendInput) (MessageView, error)
 	// Read moves account's read marker to message when message is newer,
 	// and clears account's unread mark.
+	//
+	// UC-DEAL-01
 	Read(ctx context.Context, account, conversation, message uuid.UUID) error
 	// MarkUnread marks a conversation of account's unread until account
 	// reads it; the read marker stays.
+	//
+	// UC-DEAL-01 A3
 	MarkUnread(ctx context.Context, account, conversation uuid.UUID) error
+	// Archive takes a pair conversation out of account's inbox until
+	// someone writes in it.
+	//
+	// UC-DEAL-01 A3
 	Archive(ctx context.Context, account, conversation uuid.UUID) error
+	// Unarchive brings it back.
+	//
+	// UC-DEAL-01 A3
 	Unarchive(ctx context.Context, account, conversation uuid.UUID) error
 	// Ignore stops account hearing of a pair conversation: it lists under
 	// BoxIgnored, counts as unread nowhere and pushes nothing, and the other
 	// member is not told. Writing to it, or Unignore, ends that.
+	//
+	// UC-DEAL-01 A3
 	Ignore(ctx context.Context, account, conversation uuid.UUID) error
+	// Unignore ends account's ignore of a conversation.
+	//
+	// UC-DEAL-01 A3
 	Unignore(ctx context.Context, account, conversation uuid.UUID) error
 	// Ignores reports whether account ignores its conversation with other;
 	// false when the two have none.
@@ -71,6 +91,8 @@ type Service interface {
 	// conversation. Posting the same move again writes nothing more; a
 	// move that does not belong there is domain.ErrMisplacedMove, which no
 	// retry fixes. Module deal only.
+	//
+	// UC-DEAL-01
 	PostMove(ctx context.Context, in MoveInput) error
 	// Peer returns the other member of conversation when account is a
 	// member and neither blocks the other; ok is false otherwise, and for an
@@ -116,12 +138,18 @@ type Service interface {
 	// Search finds account's conversations by the other member's name or a
 	// listing's title, on the first page only, and a page of their messages
 	// by text; archived conversations are searched too.
+	//
+	// UC-DEAL-01 A4
 	Search(ctx context.Context, account uuid.UUID, q string, p page.Request) (SearchResult, error)
 	// QuickReplies are account's saved chat answers, the defaults in t when
 	// it saved none.
+	//
+	// UC-DEAL-01 A5
 	QuickReplies(ctx context.Context, account uuid.UUID, t locale.Tag) (QuickReplies, error)
 	// PutQuickReplies replaces account's quick replies with items, each
 	// trimmed, in their order.
+	//
+	// UC-DEAL-01 A5
 	PutQuickReplies(ctx context.Context, account uuid.UUID, items []string) (QuickReplies, error)
 	// DeleteAccount deletes a deleted account's quick replies and reply
 	// samples; the worker calls it on account.deleted.

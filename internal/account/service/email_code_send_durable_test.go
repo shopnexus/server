@@ -105,6 +105,7 @@ func (e *emailCodeEnv) send(t *testing.T, to, ip string) service.EmailCodeResult
 	return res
 }
 
+// UC-ACC-01 A1.
 func TestEmailCodeSendMailsTheCode(t *testing.T) {
 	t.Parallel()
 	e := startEmailCodeSend(t, &mailbox{})
@@ -118,6 +119,7 @@ func TestEmailCodeSendMailsTheCode(t *testing.T) {
 	}
 }
 
+// UC-ACC-01 E3, E4 · NFR-SEC-01.
 func TestEmailCodeSendLimits(t *testing.T) {
 	t.Parallel()
 	e := startEmailCodeSend(t, &mailbox{})
@@ -138,6 +140,7 @@ func TestEmailCodeSendLimits(t *testing.T) {
 	}
 }
 
+// UC-ACC-01 E4.
 func TestEmailCodeSendLimitsAClient(t *testing.T) {
 	t.Parallel()
 	e := startEmailCodeSend(t, &mailbox{})
@@ -154,6 +157,7 @@ func TestEmailCodeSendLimitsAClient(t *testing.T) {
 
 // A send that fails is retried by Restate and mails the same code: the
 // code comes from the challenge ID, not from a fresh draw.
+// UC-ACC-01 A1 · NFR-DUR-01.
 func TestEmailCodeSendRetriesTheSameCode(t *testing.T) {
 	t.Parallel()
 	e := startEmailCodeSend(t, &mailbox{failFirst: true})
@@ -166,6 +170,7 @@ func TestEmailCodeSendRetriesTheSameCode(t *testing.T) {
 
 // An address the provider refuses for good ends the send with invalid_email
 // instead of a retry that never ends.
+// UC-ACC-01 E5.
 func TestEmailCodeSendStopsOnARefusedAddress(t *testing.T) {
 	t.Parallel()
 	e := startEmailCodeSend(t, &mailbox{refuse: true})
@@ -189,6 +194,7 @@ func TestEmailCodeSendSkipsAnExpiredCode(t *testing.T) {
 
 // A code that adds an address to an account says so, so nobody reads it out
 // believing it signs them in.
+// UC-ACC-08 A1.
 func TestEmailCodeSendNamesAnAddIdentityCode(t *testing.T) {
 	t.Parallel()
 	e := startEmailCodeSend(t, &mailbox{})
@@ -221,6 +227,7 @@ func TestEmailCodeSendInEnglish(t *testing.T) {
 // A retry of the key that reaches the flow, as one racing the first does,
 // answers the first challenge: no otp_too_soon, no second mail, and the
 // client's quota counts one send.
+// UC-ACC-01 A1 · NFR-IDEM-01.
 func TestEmailCodeSendRetryOfTheKeyAnswersTheFirst(t *testing.T) {
 	t.Parallel()
 	e := startEmailCodeSend(t, &mailbox{})

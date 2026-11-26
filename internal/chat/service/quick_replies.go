@@ -9,6 +9,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/locale"
 )
 
+// QuickReplies is UC-DEAL-01 A5.
 func (s *Chat) QuickReplies(ctx context.Context, account uuid.UUID, t locale.Tag) (QuickReplies, error) {
 	items, saved, err := s.d.QuickReplies.Get(ctx, account)
 	if err != nil {
@@ -20,6 +21,7 @@ func (s *Chat) QuickReplies(ctx context.Context, account uuid.UUID, t locale.Tag
 	return QuickReplies{Items: items}, nil
 }
 
+// PutQuickReplies is UC-DEAL-01 A5.
 func (s *Chat) PutQuickReplies(ctx context.Context, account uuid.UUID, items []string) (QuickReplies, error) {
 	items = domain.TrimQuickReplies(items)
 	if err := s.d.QuickReplies.Put(ctx, account, items); err != nil {

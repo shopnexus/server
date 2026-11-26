@@ -30,7 +30,7 @@ func (c *Chat) DropPair(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// PostMove adds the move's message, sent at the move's time, to a pair
+// PostMove is UC-DEAL-01, step 3: it adds the move's message, sent at the move's time, to a pair
 // conversation whose member, or ShopNexus, made the move. The message
 // counts as unread for every member who did not make the move, and a
 // block changes nothing: the deal goes on across it. A move that does not

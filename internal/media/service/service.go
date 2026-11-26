@@ -20,16 +20,22 @@ import (
 // Service is module media's contract.
 type Service interface {
 	// CreateUpload starts an upload and returns where to PUT it.
+	//
+	// UC-SHR-01
 	CreateUpload(ctx context.Context, owner uuid.UUID, contentType string, size int64) (UploadTicket, error)
 	// Attach gives owner's uploads to holder, such as a listing: all of them
 	// or none, saved under writeID. Uploads holder already holds pass, so a
 	// retry succeeds.
+	//
+	// UC-SHR-01 · NFR-IDEM-01
 	Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID, writeID uuid.UUID) error
 	// Extend keeps owner's photos for their drafts, all or none: each is
 	// owner's photo, waiting before its expiry and in the store as
 	// declared, otherwise domain.ErrInvalidUpload. Each then expires 30
 	// days from now; nothing brings an expiry in. The uploads stay
 	// waiting, so Attach takes them.
+	//
+	// UC-SHR-01 A1
 	Extend(ctx context.Context, owner uuid.UUID, ids []uuid.UUID) error
 	// Gone returns those of ids that owner's drafts can no longer name: a
 	// holder took it, it expired, or no upload has the ID.
@@ -37,10 +43,14 @@ type Service interface {
 	// Square gives one of owner's uploads to holder, such as an account for
 	// its avatar, waits until it is processed into a square and returns the
 	// square's object key. A retry returns the same key.
+	//
+	// UC-SHR-01 A2
 	Square(ctx context.Context, owner, holder, id uuid.UUID) (string, error)
 	// Photos gives owner's uploads to holder, such as an order's review, as
 	// photos, waits until each is processed and returns their keys by upload
 	// ID. A retry returns the same keys.
+	//
+	// UC-SHR-01
 	Photos(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]ProcessResult, error)
 	// URL is where a client reads the processed object key.
 	URL(key string) string
@@ -61,11 +71,15 @@ type Service interface {
 	// The caller mints id so a retry saves the same upload. It expires in
 	// 24 hours like an upload the app put. Origin app, a video type or a
 	// size outside the photo limits is domain.ErrInvalidUpload.
+	//
+	// UC-SHR-01 A3
 	SavePhoto(ctx context.Context, owner, id uuid.UUID, data []byte, contentType string, origin domain.Origin) error
 	// HoldVideo gives owner's video upload to holder, such as a read: owner's,
 	// waiting or already held by holder, before its expiry and in the store
 	// as declared, saved under writeID. Anything else is
 	// domain.ErrInvalidUpload.
+	//
+	// UC-SHR-01 A5
 	HoldVideo(ctx context.Context, owner, holder, id, writeID uuid.UUID) error
 	// VideoKey is the object store key of a held video, for module ai to
 	// read. An unknown, unheld or consumed video is objectstore.ErrNotFound.
@@ -75,6 +89,8 @@ type Service interface {
 	// Consume deletes a held video's object once its read is over and saves
 	// the upload under writeID. Anything else, or a second call, changes
 	// nothing.
+	//
+	// UC-SHR-01 A5
 	Consume(ctx context.Context, id, writeID uuid.UUID) error
 }
 

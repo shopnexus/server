@@ -17,6 +17,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
+// UC-DEAL-01.
 func TestOpenAndSend(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -55,6 +56,7 @@ func TestOpenAndSend(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 E1, E2, E3, E4, E5.
 func TestOpenRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -97,6 +99,7 @@ func TestOpenRefusals(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 E1, E7.
 func TestSendRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -144,6 +147,7 @@ func TestGet(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 A3.
 func TestArchive(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -175,6 +179,8 @@ func TestArchive(t *testing.T) {
 
 // A deal's move does not bring an archived conversation back: only a
 // message someone wrote does.
+//
+// UC-DEAL-01 A3.
 func TestArchiveStaysOnADealMove(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -202,6 +208,8 @@ func TestArchiveStaysOnADealMove(t *testing.T) {
 // An ignored conversation lists under BoxIgnored alone, counts as unread
 // nowhere and pushes nothing, and the other member's messages leave it
 // there. Writing to it, or Unignore, brings it back.
+//
+// UC-DEAL-01 A3.
 func TestIgnore(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -316,6 +324,7 @@ func TestPeer(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 A3.
 func TestMarkUnread(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -338,6 +347,8 @@ func TestMarkUnread(t *testing.T) {
 
 // Only opening needs a phone: a seller without one replies in a chat a
 // buyer with a phone opened on its listing.
+//
+// UC-DEAL-01 E2.
 func TestPhoneRequiredOnlyToOpen(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -105,6 +105,7 @@ func reauthRefused(t *testing.T, res service.ReauthenticateResult, code string) 
 	}
 }
 
+// UC-ACC-02 A2.
 func TestReauthenticateFindsTheCallersIdentity(t *testing.T) {
 	t.Parallel()
 	e := startReauthenticate(t)
@@ -122,6 +123,7 @@ func TestReauthenticateFindsTheCallersIdentity(t *testing.T) {
 
 // A proof of another account and one of an address no account holds get
 // the same refusal, and nothing is created.
+// UC-ACC-02 E3 · BR-ACC-02.
 func TestReauthenticateRefusesAnotherAccountsProof(t *testing.T) {
 	t.Parallel()
 	e := startReauthenticate(t)
@@ -136,6 +138,7 @@ func TestReauthenticateRefusesAnotherAccountsProof(t *testing.T) {
 }
 
 // A sign-in code to the caller's address works once.
+// UC-ACC-02 A2.
 func TestReauthenticateByEmailCode(t *testing.T) {
 	t.Parallel()
 	e := startReauthenticate(t)

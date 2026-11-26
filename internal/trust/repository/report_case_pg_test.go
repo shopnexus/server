@@ -37,7 +37,7 @@ VALUES (@id, @email, @name, 'moderator', 'active', 'x', false, 1, 0, @at, @at, @
 // Open cases group the reports not withdrawn by account, latest report
 // first; resolving stamps them, a new report opens the next case, and
 // reopening merges the resolved reports back, except one the same reporter
-// has reported again.
+// has reported again. UC-MOD-02 A2.
 func TestCases(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

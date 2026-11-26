@@ -22,6 +22,7 @@ func (e env) conversation(t *testing.T) (c service.ConversationView, buyer, sell
 	return e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn bảo hành không?"), buyer, seller
 }
 
+// UC-DEAL-01 E7.
 func TestReplyToMustBeASentMessageHere(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -70,6 +71,7 @@ func TestTheQuoteComesWithTheMessage(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 E3.
 func TestSuspendedPersonWritesToSupport(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

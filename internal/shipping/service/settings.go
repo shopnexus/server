@@ -33,10 +33,13 @@ func (s *Shipping) Settings(ctx context.Context, owner uuid.UUID) (domain.Settin
 	return st, nil
 }
 
+// PutSettings is UC-ACC-04, step 4.
 func (s *Shipping) PutSettings(ctx context.Context, owner uuid.UUID, st domain.Settings) (domain.Settings, error) {
+	// E7
 	if err := st.Normalize(); err != nil {
 		return domain.Settings{}, fmt.Errorf("normalize settings: %w", err)
 	}
+	// 4. Save the pickup; E6 an address that is not the owner's · BR-ACC-02.
 	if err := s.d.Settings.Put(ctx, owner, st); err != nil {
 		return domain.Settings{}, fmt.Errorf("save settings: %w", err)
 	}

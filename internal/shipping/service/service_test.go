@@ -102,6 +102,7 @@ func fakes() map[carrier.Carrier]carrier.Client {
 	return map[carrier.Carrier]carrier.Client{carrier.GHTK: carrier.Fake{Carrier: carrier.GHTK}, carrier.GHN: carrier.Fake{Carrier: carrier.GHN}}
 }
 
+// UC-ACC-04 · NFR-PRIV-01.
 func TestLinkStoresASealedTokenAndShowsTheShopCode(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -128,6 +129,7 @@ func TestLinkStoresASealedTokenAndShowsTheShopCode(t *testing.T) {
 	}
 }
 
+// UC-ACC-04 A1, E2, E3.
 func TestLinkByACodeKeepsNoToken(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -163,6 +165,7 @@ func TestLinkByACodeKeepsNoToken(t *testing.T) {
 	}
 }
 
+// UC-ACC-04 E1.
 func TestAWrongPasswordIsLoginFailed(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, fakes())
@@ -175,6 +178,7 @@ func TestAWrongPasswordIsLoginFailed(t *testing.T) {
 	}
 }
 
+// UC-ACC-04 A2, E4, E8.
 func TestUnlinkCountsOnlyThatCarrier(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -201,6 +205,7 @@ func TestUnlinkCountsOnlyThatCarrier(t *testing.T) {
 
 // While a shipment is open at a carrier, linking there again keeps to the
 // same shop: another shop's token would not know the open parcels.
+// UC-ACC-04 E4.
 func TestRelinkToAnotherShopWaitsForTheOpenShipments(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -279,6 +284,7 @@ func TestNotLinkedAndNoCarrier(t *testing.T) {
 // Each carrier is on or off by itself: with GHN alone a seller links GHN,
 // GHTK answers carrier_unavailable, an account kept at GHTK can still be
 // dropped, and a code with no client stays invalid_carrier.
+// UC-ACC-04 E5.
 func TestOneCarrierOff(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -461,6 +467,7 @@ func TestTrackKeepsTheFee(t *testing.T) {
 	}
 }
 
+// UC-ACC-09.
 func TestAccountDeletedDropsTheTokens(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

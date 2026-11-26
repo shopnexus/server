@@ -33,6 +33,7 @@ VALUES (@id, @email, @name, 'moderator', 'active', 'x', false, 1, 0, @at, @at, @
 
 // A case shows its account, its most reported listing and its reporters;
 // dismissing moves it to the resolved list, and reopening brings it back.
+// UC-MOD-02 A1, A2, A4, E1, E2, E3, E6.
 func TestReportCase(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

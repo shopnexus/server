@@ -15,6 +15,8 @@ import (
 // Erase deletes the account in one transaction with what goes with it,
 // reading it again once when another write won the race. The ShopNexus
 // account is refused.
+//
+// Erase is UC-ACC-09, step 3.
 func (s *Account) Erase(ctx context.Context, id uuid.UUID) error {
 	if id == domain.ShopNexusID {
 		return domain.ErrSystemAccount
@@ -25,6 +27,7 @@ func (s *Account) Erase(ctx context.Context, id uuid.UUID) error {
 		if err != nil {
 			return err
 		}
+		// E3. A suspension in force refuses the deletion.
 		changed, err := a.Delete(now)
 		if err != nil || !changed {
 			return err

@@ -17,7 +17,7 @@ type DealConfirm struct{ Deals *Deals }
 
 func (s DealConfirm) ServiceName() string { return s.Deals.d.Prefix + dealConfirm }
 
-// Run is UC-DEAL-05 A2.
+// Run is UC-DEAL-05, step 4, and A2.
 func (s DealConfirm) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {

@@ -85,12 +85,14 @@ func findIdentity(ctx restate.Context, credentials repository.Credentials, addr 
 	return f, nil
 }
 
+// Run is UC-ACC-01, steps 2 and 3.
 func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
 		return SignInResult{}, err
 	}
 	var addr contact.Address
+	// A1. Judge the code; E6, E7, E8 a wrong, locked or stale code.
 	if in.Guess != nil {
 		proved, refused, judgeErr := judgeGuess(ctx, s.Challenges, *in.Guess, domain.PurposeSignIn, nil, in.Key, at)
 		if judgeErr != nil || refused != nil {
@@ -101,6 +103,7 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 		addr = *in.Address
 	}
 
+	// 3. Find the account that holds the address.
 	f, err := findIdentity(ctx, s.Credentials, addr)
 	if err != nil {
 		return SignInResult{}, err
@@ -127,8 +130,10 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 		}
 		switch st.Status {
 		case domain.StatusSuspended:
+			// E9
 			return SignInResult{Refused: domain.ErrSuspended}, nil
 		case domain.StatusDeleted:
+			// E10
 			// The identity was found before Erase deleted it with the
 			// account; the person's retry finds no identity and signs up.
 			return SignInResult{Refused: apperr.ErrTryAgain}, nil
@@ -154,6 +159,7 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 		return SignInResult{AccountID: f.Ref.AccountID, IsNew: st.SignedUp}, nil
 	}
 
+	// A2. No account holds the address: sign up.
 	accountID, identityID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
 	a, err := domain.New(accountID, "", at)
 	if err != nil {
@@ -166,6 +172,7 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 	if err != nil {
 		return SignInResult{}, fmt.Errorf("create account: %w", err)
 	}
+	// E10 · BR-ACC-05
 	if taken {
 		// Another sign-up took the identity between the lookup and the
 		// insert, and the transaction wrote nothing: the client tries again.

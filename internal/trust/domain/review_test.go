@@ -23,6 +23,7 @@ func newReview(stars int, text string) (domain.Review, error) {
 		now.Add(10*24*time.Hour), now)
 }
 
+// UC-TRS-01 E2.
 func TestNewReview(t *testing.T) {
 	t.Parallel()
 	r, err := newReview(5, "  Đúng mô tả  ")
@@ -49,6 +50,7 @@ func TestNewReview(t *testing.T) {
 }
 
 // A review carries distinct tags of its role; a delete drops them.
+// UC-TRS-01 E2.
 func TestTags(t *testing.T) {
 	t.Parallel()
 	review := func(role domain.Role, tags ...domain.Tag) (domain.Review, error) {
@@ -84,6 +86,7 @@ func TestTags(t *testing.T) {
 	}
 }
 
+// UC-TRS-01 A1, E6.
 func TestEditWindow(t *testing.T) {
 	t.Parallel()
 	r, err := newReview(5, "Tốt")
@@ -108,6 +111,7 @@ func TestEditWindow(t *testing.T) {
 	}
 }
 
+// UC-TRS-01 E6.
 func TestLockedOnceShown(t *testing.T) {
 	t.Parallel()
 	day := 24 * time.Hour
@@ -137,6 +141,7 @@ func TestLockedOnceShown(t *testing.T) {
 	}
 }
 
+// UC-TRS-01 A1, E6.
 func TestDeleteAndRepost(t *testing.T) {
 	t.Parallel()
 	day := 24 * time.Hour
@@ -161,6 +166,7 @@ func TestDeleteAndRepost(t *testing.T) {
 	}
 }
 
+// UC-TRS-01.
 func TestRevealAt(t *testing.T) {
 	t.Parallel()
 	day := 24 * time.Hour
@@ -176,6 +182,7 @@ func TestRevealAt(t *testing.T) {
 	}
 }
 
+// UC-TRS-01 E2, E7, E10, E11, E12.
 func TestReply(t *testing.T) {
 	t.Parallel()
 	day := 24 * time.Hour
@@ -213,6 +220,7 @@ func TestReply(t *testing.T) {
 	}
 }
 
+// UC-TRS-01 E12.
 func TestReplyToDeleted(t *testing.T) {
 	t.Parallel()
 	r, err := newReview(1, "Tệ")

@@ -13,6 +13,7 @@ import (
 
 // Anyone but the reviewer and the subject marks a visible review helpful,
 // once; a reader sees their own mark, and the count holds every mark.
+// UC-TRS-05 A1, E2, E3.
 func TestReviewHelpful(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

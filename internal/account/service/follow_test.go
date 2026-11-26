@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
+// UC-DSC-04 A2, E1, E2, E3, E5.
 func TestFollow(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -73,6 +74,7 @@ func TestFollow(t *testing.T) {
 	}
 }
 
+// UC-DSC-04 E6.
 func TestFollowADeletedAccount(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

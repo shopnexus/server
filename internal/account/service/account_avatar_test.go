@@ -31,6 +31,7 @@ func withMedia(t *testing.T) (*service.Account, repository.Accounts, *mediasvc.M
 
 // The reply to an avatar change already carries the processed square; a
 // later update removes it.
+// UC-ACC-06 A2.
 func TestUpdateAvatar(t *testing.T) {
 	t.Parallel()
 	accounts, store, media := withMedia(t)
@@ -51,6 +52,7 @@ func TestUpdateAvatar(t *testing.T) {
 
 // A photo media refuses, or someone else's upload, is invalid_upload and
 // leaves the account as it was.
+// UC-ACC-06 E2.
 func TestUpdateAvatarRefusals(t *testing.T) {
 	t.Parallel()
 	accounts, store, media := withMedia(t)

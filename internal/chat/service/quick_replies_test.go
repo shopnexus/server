@@ -17,6 +17,8 @@ import (
 // An account that saved none reads the defaults in its language; a put
 // trims each answer and keeps the order; the account's deletion removes
 // them.
+//
+// UC-DEAL-01 A5.
 func TestPutQuickReplies(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

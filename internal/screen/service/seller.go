@@ -58,22 +58,24 @@ type SellerViewer struct {
 	ConversationID uuid.UUID `json:"conversation_id,omitzero"`
 }
 
-// Seller reads the seller's profile with how soon they usually answer and
-// whether they have a phone identity, and the first page, of the default
-// size, of their public listings as search items, each with its distance
-// from near and whether the viewer saved it, and of their reviews as a
-// seller and as a buyer, with both ratings. An unknown account is
-// accountdomain.ErrAccountNotFound. A viewer who is not the seller also
-// gets whether a block stands between the two, whether they follow the
-// seller, and their conversation.
+// Seller is UC-DSC-04, steps 1 to 4. It reads the seller's profile with how
+// soon they usually answer and whether they have a phone identity, and the
+// first page, of the default size, of their public listings as search items,
+// each with its distance from near and whether the viewer saved it, and of
+// their reviews as a seller and as a buyer, with both ratings. An unknown
+// account is accountdomain.ErrAccountNotFound. A viewer who is not the
+// seller also gets whether a block stands between the two, whether they
+// follow the seller, and their conversation.
 func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error) {
 	seller, err := s.d.Accounts.Get(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the seller: %w", err)
 	}
+	// E1
 	if seller.Status == accountdomain.StatusDeleted {
 		return SellerScreen{}, accountdomain.ErrAccountNotFound
 	}
+	// 2.
 	counts, err := s.d.Catalog.SellerCounts(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("count the listings: %w", err)
@@ -98,6 +100,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the phone identity: %w", err)
 	}
+	// 3.
 	listings, err := s.d.Discovery.SellerListings(ctx, viewer, id, near, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the listings: %w", err)
@@ -121,6 +124,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 	if viewer == nil || *viewer == id {
 		return out, nil
 	}
+	// 4.
 	blocked, err := s.d.Accounts.Blocked(ctx, *viewer, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the blocks: %w", err)

@@ -79,6 +79,7 @@ func refused(t *testing.T, res service.SignInResult, code string) {
 	}
 }
 
+// UC-ACC-01 A2.
 func TestSignInCreatesThenFindsTheAccount(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
@@ -92,6 +93,7 @@ func TestSignInCreatesThenFindsTheAccount(t *testing.T) {
 
 // A retry of the sign-up's key is a new invocation that finds the account
 // and answers is_new as the first did; another key's sign-in is not new.
+// UC-ACC-01 A2 · NFR-IDEM-01.
 func TestSignInRetriedKey(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
@@ -107,6 +109,7 @@ func TestSignInRetriedKey(t *testing.T) {
 	}
 }
 
+// UC-ACC-01 E9.
 func TestSignInRefusesASuspendedAccount(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
@@ -115,6 +118,7 @@ func TestSignInRefusesASuspendedAccount(t *testing.T) {
 	refused(t, e.signIn(t, "0901234567"), "account_suspended")
 }
 
+// UC-ACC-01.
 func TestSignInMarksTheIdentityUsed(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
@@ -138,6 +142,7 @@ func (c *credentialsCommitThenFail) SignUp(ctx context.Context, a domain.Account
 	return c.After(c.Credentials.SignUp(ctx, a, cr, key))
 }
 
+// UC-ACC-01 A2 · NFR-DUR-01.
 func TestSignInSurvivesCommitThenFail(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t, func(s *service.SignIn) { s.Credentials = &credentialsCommitThenFail{Credentials: s.Credentials} })
@@ -154,6 +159,7 @@ func (takenCredentials) SignUp(context.Context, domain.Account, domain.Credentia
 	return domain.ErrIdentityTaken
 }
 
+// UC-ACC-01 E10 · BR-ACC-05.
 func TestSignInRefusesWhenTheIdentityIsTaken(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t, func(s *service.SignIn) { s.Credentials = takenCredentials{s.Credentials} })
@@ -173,6 +179,7 @@ func TestSignInMintsV7IDs(t *testing.T) {
 
 // A sign-in that found the identity before Erase deleted the account gets
 // try_again, and the retry signs up a new account.
+// UC-ACC-01 E10.
 func TestSignInRacingADeletionTriesAgain(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
@@ -217,6 +224,7 @@ func wrongCode(code string) string {
 	return "000000"
 }
 
+// UC-ACC-01 A1.
 func TestSignInByEmailCode(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
@@ -238,6 +246,7 @@ func TestSignInByEmailCode(t *testing.T) {
 	}
 }
 
+// UC-ACC-01 E6, E7, E8.
 func TestSignInByEmailCodeRefusals(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
@@ -263,6 +272,7 @@ func TestSignInByEmailCodeRefusals(t *testing.T) {
 	refused(t, e.guess(t, old, oldCode), "code_expired")
 }
 
+// UC-ACC-01 E8.
 func TestSignInRefusesAnAddIdentityChallenge(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
@@ -271,6 +281,7 @@ func TestSignInRefusesAnAddIdentityChallenge(t *testing.T) {
 	refused(t, e.guess(t, c, code), "code_expired")
 }
 
+// UC-ACC-01.
 func TestSignInByGoogleFindsTheEmailAccount(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)

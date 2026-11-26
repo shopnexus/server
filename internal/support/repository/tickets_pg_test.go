@@ -199,6 +199,7 @@ func TestAPersonsMessageReopens(t *testing.T) {
 	}
 }
 
+// UC-SHR-02.
 func TestResolveWritesTheAudit(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -333,6 +334,7 @@ func TestSameCarrierCountsThirtyDays(t *testing.T) {
 	}
 }
 
+// UC-MOD-09 A5.
 func TestResolveAllOfAnAccount(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

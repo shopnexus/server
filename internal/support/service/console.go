@@ -56,6 +56,7 @@ func (s *Support) consoleTickets(ctx context.Context, ts []repository.Ticket) ([
 	return out, nil
 }
 
+// Queue is UC-MOD-09 step 3.
 func (s *Support) Queue(ctx context.Context, status domain.Status, kind *domain.Kind, p page.Request) (page.Page[ConsoleTicket], error) {
 	ts, err := s.d.Tickets.Queue(ctx, status, kind, p)
 	if err != nil {
@@ -68,6 +69,7 @@ func (s *Support) Queue(ctx context.Context, status domain.Status, kind *domain.
 	return page.Of(items, p, func(c ConsoleTicket) uuid.UUID { return c.Ticket.ID }), nil
 }
 
+// Detail is UC-MOD-09 step 3.
 func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail, error) {
 	t, err := s.d.Tickets.Get(ctx, id)
 	if err != nil {
@@ -162,6 +164,7 @@ func (s *Support) Messages(ctx context.Context, id uuid.UUID, p page.Request) (p
 	return out, nil
 }
 
+// Reply is UC-MOD-09 step 4.
 func (s *Support) Reply(ctx context.Context, id, key uuid.UUID, in ReplyInput, by audit.Actor) (ConsoleMessage, error) {
 	t, err := s.d.Tickets.Get(ctx, id)
 	if err != nil {
@@ -181,11 +184,13 @@ func (s *Support) Reply(ctx context.Context, id, key uuid.UUID, in ReplyInput, b
 	return ConsoleMessage{Message: m, Member: replies[m.ID].Member}, nil
 }
 
+// Resolve is UC-MOD-09 step 5.
 func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error) {
 	t, err := s.d.Tickets.Get(ctx, id)
 	if err != nil {
 		return ConsoleTicket{}, fmt.Errorf("read the ticket: %w", err)
 	}
+	// A3
 	if t.Kind == domain.KindCarrierRequest && t.Status == domain.StatusOpen {
 		// The note goes out before the status moves, so a failed note is
 		// sent again when the member resolves again. The key names this
@@ -215,6 +220,7 @@ func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (Co
 	return shown[0], nil
 }
 
+// Reopen is UC-MOD-09 A2.
 func (s *Support) Reopen(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error) {
 	t, err := s.d.Tickets.Reopen(ctx, id, uuid.NewV7(), &by, s.d.Now())
 	if err != nil {

@@ -1,6 +1,7 @@
 uploads:
   post:
     operationId: createUpload
+    x-uc: [UC-SHR-01]
     summary: Get a presigned URL to upload one photo or video to.
     description: |
       The app PUTs the file to `url` with `headers` before `expires_at`;

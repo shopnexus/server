@@ -94,6 +94,7 @@ func (c *reauthCase) authTime(t *testing.T) time.Time {
 
 // The session's auth_time becomes the time the proof was checked, and the
 // access token carries it.
+// UC-ACC-02 A2.
 func TestReauthenticateRenewsTheSession(t *testing.T) {
 	t.Parallel()
 	checked := now.Add(20 * time.Minute)

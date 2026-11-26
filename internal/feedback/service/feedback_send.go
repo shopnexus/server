@@ -12,12 +12,15 @@ import (
 
 // Send checks the feedback, returns the key's feedback when there is one,
 // refuses past the day's limit, processes the screenshots, then stores it.
-// The key holds the photos in media, so a retry finds them its own.
+// The key holds the photos in media, so a retry finds them its own. It is
+// UC-MOD-11 steps 1 and 2.
 func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in domain.Draft) (FeedbackView, bool, error) {
+	// E1
 	d, err := domain.NewFeedback(in)
 	if err != nil {
 		return FeedbackView{}, false, err
 	}
+	// A1
 	prior, err := s.d.Store.ByKey(ctx, account, key)
 	if err == nil {
 		return s.view(prior), true, nil
@@ -31,6 +34,7 @@ func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in domain.D
 	if err != nil {
 		return FeedbackView{}, false, fmt.Errorf("count feedback: %w", err)
 	}
+	// E2
 	if n >= domain.DailyLimit {
 		return FeedbackView{}, false, domain.ErrTooMany
 	}
@@ -44,6 +48,7 @@ func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in domain.D
 			photos = append(photos, domain.Photo{UploadID: id, PhotoKey: processed[id].PhotoKey, ThumbKey: processed[id].ThumbKey})
 		}
 	}
+	// 2. The feedback is stored as sent.
 	f, existed, err := s.d.Store.Insert(ctx, repository.Feedback{
 		ID: uuid.NewV7(), AccountID: account, Mood: d.Mood, Kind: d.Kind, Text: d.Text, Photos: photos, Device: d.Device,
 		Screen: d.Screen, Contact: d.Contact, Source: d.Source, PageURL: d.PageURL, CreatedAt: now,

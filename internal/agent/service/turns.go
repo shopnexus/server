@@ -70,6 +70,7 @@ func (s *Agent) Control(ctx context.Context, caller authn.ConsoleMember, turn uu
 	}
 	switch c {
 	case ControlPause, ControlStop:
+		// A2
 		if t.Status != domain.TurnRunning {
 			return TurnState{}, domain.ErrTurnState
 		}
@@ -84,6 +85,8 @@ func (s *Agent) Control(ctx context.Context, caller authn.ConsoleMember, turn uu
 		}
 		return TurnState{TurnID: turn}, nil
 	case ControlContinue:
+		// A1: a failed or timed out turn that wrote something and is the
+		// latest goes on, as a paused one does (A2).
 		ok := t.Status == domain.TurnPaused || domain.Continuable(t.Status, t.ErrorCode, t.Wrote, t.Latest)
 		if !ok {
 			return TurnState{}, domain.ErrTurnState
@@ -188,7 +191,7 @@ func (s *Agent) steerOfKey(ctx context.Context, caller authn.ConsoleMember, key 
 
 // Answer gives a turn that waits on the agent's clarifying questions the
 // member's answers, and the run goes on; answers that do not fit the
-// questions are agent_answers_invalid.
+// questions are agent_answers_invalid. It is UC-MOD-08 A4.
 func (s *Agent) Answer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, answers Answers) (TurnState, error) {
 	t, err := s.visibleTurn(ctx, caller, turn)
 	if err != nil {

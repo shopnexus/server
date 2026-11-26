@@ -66,6 +66,7 @@ func TestWatchPutKeepsOnePerKey(t *testing.T) {
 }
 
 // Twenty-one watches racing: twenty are stored.
+// UC-DSC-03 E5 · BR-DSC-03.
 func TestWatchLimit(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

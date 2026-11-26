@@ -11,6 +11,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
+// UC-DEAL-01 A4.
 func TestSearch(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -31,6 +32,7 @@ func TestSearch(t *testing.T) {
 	}
 }
 
+// UC-DEAL-01 A4.
 func TestSearchRefusesAnEmptyQuery(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

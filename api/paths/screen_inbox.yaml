@@ -39,6 +39,7 @@ screenInbox:
 screenInboxSearch:
   get:
     operationId: searchInbox
+    x-uc: [UC-DEAL-01]
     summary: Search the caller's conversations and messages.
     description: |
       q is split into words, lowercase with accents folded (đ as d); every

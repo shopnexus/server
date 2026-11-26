@@ -29,39 +29,61 @@ import (
 type Service interface {
 	// Open opens a ticket of account's under key, or returns the ticket the
 	// key, or for not_received the order, has already, with existed true.
+	//
+	// UC-MOD-09 · NFR-IDEM-01 · NFR-DUR-01
 	Open(ctx context.Context, account, key uuid.UUID, in OpenInput) (TicketView, bool, error)
 	// Mine lists account's tickets, open first, each with its chat's last
 	// message and account's unread count.
+	//
+	// UC-MOD-09
 	Mine(ctx context.Context, account uuid.UUID) ([]TicketListItem, error)
 	// Summary counts account's open tickets and unread replies.
 	Summary(ctx context.Context, account uuid.UUID) (SummaryView, error)
 	// OfOrder reads account's ticket of an order; domain.ErrNotFound for none.
+	//
+	// UC-MOD-09 A1
 	OfOrder(ctx context.Context, account, order uuid.UUID) (TicketView, error)
 	// OfConversation reads the ticket of a support chat of account's; false
 	// for any other chat.
 	OfConversation(ctx context.Context, account, conversation uuid.UUID) (TicketView, bool, error)
 	// Messaged records a message of a support chat at at: the person's
 	// message reopens a resolved ticket, ShopNexus's marks it answered.
+	//
+	// UC-MOD-09 A2
 	Messaged(ctx context.Context, conversation, message uuid.UUID, fromPerson bool, at time.Time) error
 	// AccountDeleted resolves a deleted account's open tickets; event is the
 	// account.deleted event's ID, from which the tickets' events derive.
+	//
+	// UC-MOD-09 A5
 	AccountDeleted(ctx context.Context, account, event uuid.UUID, at time.Time) error
 	// Queue lists tickets of status, of kind when kind is set, newest
 	// activity first, for console members.
+	//
+	// UC-MOD-09
 	Queue(ctx context.Context, status domain.Status, kind *domain.Kind, p page.Request) (page.Page[ConsoleTicket], error)
 	// Detail reads a ticket with its person, order, other tickets and the
 	// first page of its chat.
+	//
+	// UC-MOD-09
 	Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail, error)
 	// Messages reads a page of a ticket's chat, each ShopNexus message with
 	// the member who wrote it.
+	//
+	// UC-MOD-09
 	Messages(ctx context.Context, id uuid.UUID, p page.Request) (page.Page[ConsoleMessage], error)
 	// Reply sends a message as ShopNexus in a ticket's chat for member by,
 	// once per key.
+	//
+	// UC-MOD-09 · UC-SHR-02
 	Reply(ctx context.Context, id, key uuid.UUID, in ReplyInput, by audit.Actor) (ConsoleMessage, error)
 	// Resolve marks a ticket resolved; a carrier request's chat gets
 	// "Đã ghi nhận hãng <name>.".
+	//
+	// UC-MOD-09 A3 · UC-SHR-02
 	Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error)
 	// Reopen opens a resolved ticket again.
+	//
+	// UC-MOD-09 A2 · UC-SHR-02
 	Reopen(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error)
 	// TicketsOf lists, for console members, the newest tickets account
 	// opened and those on orders it sold, at most TicketsOfLimit.

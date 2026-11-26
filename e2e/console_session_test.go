@@ -7,6 +7,7 @@ import (
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
+// UC-MOD-10 A4.
 func TestConsoleMeAndLogout(t *testing.T) {
 	t.Parallel()
 	s := signInMember(t, consoledomain.RoleAdmin)
@@ -24,6 +25,7 @@ func TestConsoleMeAndLogout(t *testing.T) {
 	expectStatus(t, consoleCall(t, s, "GET", "/v1/console/me", nil), 401) // the cookie after logout
 }
 
+// UC-MOD-10 A4.
 func TestConsoleChangePassword(t *testing.T) {
 	t.Parallel()
 	s := signInMember(t, consoledomain.RoleModerator)

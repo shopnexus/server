@@ -24,6 +24,7 @@ type HistoryItem struct {
 	SearchedAt time.Time `json:"searched_at"`
 }
 
+// History is UC-DSC-01 A6.
 func (d *Discovery) History(ctx context.Context, account uuid.UUID) (HistoryView, error) {
 	entries, err := d.d.History.List(ctx, account)
 	if err != nil {
@@ -40,6 +41,7 @@ func (d *Discovery) History(ctx context.Context, account uuid.UUID) (HistoryView
 	return out, nil
 }
 
+// ForgetSearch is UC-DSC-01 A6.
 func (d *Discovery) ForgetSearch(ctx context.Context, account, id uuid.UUID) error {
 	if err := d.d.History.Forget(ctx, account, id); err != nil {
 		return fmt.Errorf("forget search: %w", err)
@@ -47,6 +49,7 @@ func (d *Discovery) ForgetSearch(ctx context.Context, account, id uuid.UUID) err
 	return nil
 }
 
+// ClearHistory is UC-DSC-01 A6.
 func (d *Discovery) ClearHistory(ctx context.Context, account uuid.UUID) error {
 	if err := d.d.History.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear history: %w", err)

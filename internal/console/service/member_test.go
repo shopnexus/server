@@ -15,6 +15,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
+// UC-MOD-04 E2, E5 · BR-MOD-04.
 func TestAdminCannotTouchAnAdmin(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -36,6 +37,7 @@ func TestAdminCannotTouchAnAdmin(t *testing.T) {
 }
 
 // A repeated disable or enable writes no second audit row.
+// UC-MOD-04 A1, A4 · UC-SHR-02 A1.
 func TestDisableAndEnableOnlyOnce(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -61,6 +63,7 @@ FROM console_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": v.ID}).Sc
 	}
 }
 
+// UC-MOD-04 A2.
 func TestResetsEndSessionsAndStartOver(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -82,6 +85,7 @@ func TestResetsEndSessionsAndStartOver(t *testing.T) {
 	}
 }
 
+// UC-MOD-04 A3.
 func TestUnlockAndList(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -106,6 +110,7 @@ func TestUnlockAndList(t *testing.T) {
 	}
 }
 
+// UC-MOD-04 A3, E4.
 func TestRenameAndLastSignIn(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

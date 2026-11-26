@@ -10,7 +10,7 @@ import (
 )
 
 // A repeated Idempotency-Key answers the first request's conversation,
-// turn, steer and skill, and starts no second run. UC-MOD-08.
+// turn, steer and skill, and starts no second run. UC-MOD-08 A5.
 func TestRequestKeysAnswerTheFirst(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

@@ -157,7 +157,8 @@ func (s *Agent) checkModels(ctx context.Context, a repository.Agent) error {
 // CreateAgent makes a console agent with one caller, its slug: the row,
 // its first version and its caller, then Bifrost from the rows. The same
 // create again finds the row and reconciles again, so a create Bifrost
-// failed is retried; the periodic reconcile also writes it.
+// failed is retried; the periodic reconcile also writes it. It is
+// UC-MOD-12 A1.
 func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in NewAgent) (AgentView, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
@@ -189,6 +190,7 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 		return AgentView{}, fmt.Errorf("list the agents: %w", err)
 	}
 	if i := slices.IndexFunc(all, func(o repository.Agent) bool { return o.Name == a.Name || o.Slug == a.Slug }); i >= 0 {
+		// E5
 		if !sameAgent(all[i], a) {
 			return AgentView{}, domain.ErrAgentTaken
 		}
@@ -232,7 +234,8 @@ func sameAgent(stored, made repository.Agent) bool {
 // limits, a budget and its callers' rate limits only. The row is saved
 // first; a change Bifrost carries (model, fallbacks, budget, callers, on
 // or off) then reconciles it, and new instructions are a new version. A
-// new model drops the request fields of the old one (extra_body).
+// new model drops the request fields of the old one (extra_body). It is
+// UC-MOD-12 steps 2 to 4.
 func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in AgentPatch) (AgentView, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
@@ -240,6 +243,7 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	if err != nil {
 		return AgentView{}, err
 	}
+	// E3
 	if a.Kind == domain.AgentApp && (in.Name != nil || in.Icon != nil || in.Purpose != nil || in.RequiredTags != nil ||
 		in.Instructions != nil || in.Tools != nil || in.Enabled != nil) {
 		return AgentView{}, domain.ErrAppAgentFixed
@@ -273,6 +277,7 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	if in.Enabled != nil {
 		a.Enabled, details["enabled"] = *in.Enabled, *in.Enabled
 	}
+	// A3
 	newVersion := in.Instructions != nil && *in.Instructions != a.Instructions
 	if newVersion {
 		a.Instructions = *in.Instructions
@@ -290,6 +295,7 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 		}
 		details["fallbacks"] = names
 	}
+	// E1, E2, E4
 	if in.Model != nil || in.Fallbacks != nil || in.RequiredTags != nil {
 		if err = s.checkModels(ctx, a); err != nil {
 			return AgentView{}, err
@@ -324,6 +330,7 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 		}
 		details["callers"] = *in.Callers
 	}
+	// 3. The row and its audit entry, under the write it read.
 	by := caller.MemberID
 	a.UpdatedBy, a.UpdatedAt, a.WriteID = &by, s.d.Now(), uuid.NewV7()
 	err = s.d.Settings.SaveAgent(ctx, a, read, newVersion, audit.Entry{
@@ -337,6 +344,7 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	case err != nil:
 		return AgentView{}, fmt.Errorf("save the agent: %w", err)
 	}
+	// 4. Bifrost from the rows; A2 when it cannot be reached.
 	if in.Model != nil || in.Fallbacks != nil || in.MonthlyBudgetUSD.Set || in.Callers != nil || in.Enabled != nil {
 		if err = s.Reconcile(ctx); err != nil {
 			return AgentView{}, err

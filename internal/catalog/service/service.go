@@ -37,7 +37,7 @@ type Service interface {
 	// Edit replaces a listing's content; the same content again writes the
 	// same listing.
 	//
-	// UC-LST-02 · NFR-IDEM-01
+	// UC-LST-02 · NFR-IDEM-01 · NFR-CONC-01
 	Edit(ctx context.Context, seller, id uuid.UUID, d domain.ListingInput, t locale.Tag) (ListingView, error)
 	// Hide takes the seller's active listing off sale.
 	//
@@ -45,7 +45,7 @@ type Service interface {
 	Hide(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// Unhide puts the seller's hidden listing back on sale.
 	//
-	// UC-LST-02
+	// UC-LST-02 E5
 	Unhide(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// MarkSold records a sale made off the app; UnmarkSold undoes it.
 	//
@@ -53,7 +53,7 @@ type Service interface {
 	MarkSold(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// UnmarkSold puts a listing marked sold back on sale.
 	//
-	// UC-LST-02 A2
+	// UC-LST-02 A2, E6
 	UnmarkSold(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// Delete deletes the seller's listing.
 	//
@@ -61,11 +61,13 @@ type Service interface {
 	Delete(ctx context.Context, seller, id uuid.UUID) error
 	// Reprice sets the price of the seller's listing alone, for a listing
 	// that follows the seller's listing elsewhere.
+	//
+	// UC-LST-04 A3
 	Reprice(ctx context.Context, seller, id uuid.UUID, price int64) error
 	// PutDraft writes the caller's draft id, the last write winning, and
 	// returns it as stored and whether it was created.
 	//
-	// UC-LST-01 A4
+	// UC-LST-01 A4, E9
 	PutDraft(ctx context.Context, account, id uuid.UUID, c domain.DraftContent) (DraftView, bool, error)
 	// ListDrafts lists the caller's drafts in full, last written first.
 	//
@@ -74,7 +76,7 @@ type Service interface {
 	// GetDraft reads one of the caller's drafts in full; another
 	// account's, an expired one or none is domain.ErrDraftNotFound.
 	//
-	// UC-LST-01
+	// UC-LST-01 A4
 	GetDraft(ctx context.Context, account, id uuid.UUID) (DraftView, error)
 	// DeleteDraft deletes one of the caller's drafts; none changes nothing.
 	//
@@ -171,6 +173,8 @@ type Service interface {
 	Categories(ctx context.Context, t locale.Tag) ([]domain.Category, error)
 	// GuessCategory is the subcategory a listing's title and description
 	// read as; "" when both are blank or the text model is off.
+	//
+	// UC-LST-01 A1
 	GuessCategory(ctx context.Context, title, description string) (string, error)
 	// Search runs s and returns its listings as cards, in order.
 	Search(ctx context.Context, s domain.Search) ([]SearchCard, error)

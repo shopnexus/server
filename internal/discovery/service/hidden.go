@@ -9,14 +9,17 @@ import (
 	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
+// Hide is UC-DSC-02 A2.
 func (d *Discovery) Hide(ctx context.Context, account, listing uuid.UUID) error {
 	l, ok, err := d.d.Catalog.Summary(ctx, listing)
 	if err != nil {
 		return fmt.Errorf("read listing: %w", err)
 	}
 	switch {
+	// E7
 	case !ok || l.Status == catalogdomain.StatusDeleted:
 		return catalogdomain.ErrNotFound
+	// E6
 	case l.SellerID == account:
 		return domain.ErrOwnListing
 	default:
@@ -27,6 +30,7 @@ func (d *Discovery) Hide(ctx context.Context, account, listing uuid.UUID) error 
 	return nil
 }
 
+// Unhide is UC-DSC-02 A2.
 func (d *Discovery) Unhide(ctx context.Context, account, listing uuid.UUID) error {
 	if err := d.d.Hidden.Unhide(ctx, account, listing); err != nil {
 		return fmt.Errorf("unhide: %w", err)
@@ -35,7 +39,8 @@ func (d *Discovery) Unhide(ctx context.Context, account, listing uuid.UUID) erro
 }
 
 // exclusions are the listings account hid and the accounts on either side
-// of its blocks, which its searches and its watches' sweeps leave out.
+// of its blocks, which its searches and its watches' sweeps leave out
+// (BR-DSC-02).
 func (d *Discovery) exclusions(ctx context.Context, account uuid.UUID) (listings, sellers []uuid.UUID, err error) {
 	if listings, err = d.d.Hidden.List(ctx, account); err != nil {
 		return nil, nil, fmt.Errorf("read hides: %w", err)

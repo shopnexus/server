@@ -25,56 +25,91 @@ import (
 type Service interface {
 	// Save keeps someone else's listing on sale or being shipped, with its
 	// price; saving it again changes nothing.
+	//
+	// UC-DSC-03
 	Save(ctx context.Context, account, listing uuid.UUID) error
+	// Unsave forgets account's save of listing; one not saved is fine.
+	//
+	// UC-DSC-03
 	Unsave(ctx context.Context, account, listing uuid.UUID) error
 	// IsSaved reports whether account saved listing.
 	IsSaved(ctx context.Context, account, listing uuid.UUID) (bool, error)
 	// Saved lists the account's saves, those of listings still on sale
 	// first, each newest first.
+	//
+	// UC-DSC-03
 	Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error)
 	// Search finds active listings; viewer, nil when signed out, sees which
 	// they saved.
+	//
+	// UC-DSC-01 · UC-DSC-02 · UC-DSC-03 · UC-DSC-05 · NFR-PERF-01
 	Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error)
 	// SellerListings lists what anyone sees of a seller's listings as
 	// search items, newest first, with the cursor rules of a page.Request:
 	// each measured from near when it names a position. A signed-in
 	// viewer's items leave out the listings they hid and are marked saved.
+	//
+	// UC-DSC-04
 	SellerListings(ctx context.Context, viewer *uuid.UUID, seller uuid.UUID, near catalogdomain.Near, p page.Request) (page.Page[SearchItem], error)
 	// ForYou is Home's Dành cho bạn page and its Vì bạn đã xem gần đây rail
 	// for viewer, nil when signed out, each card measured from near when it
 	// names a position.
+	//
+	// UC-DSC-05
 	ForYou(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near) (ForYou, error)
 	// History is the account's last domain.MaxHistory text searches,
 	// newest first.
+	//
+	// UC-DSC-01
 	History(ctx context.Context, account uuid.UUID) (HistoryView, error)
 	// ForgetSearch deletes one entry of the account's history; an unknown
 	// one is fine.
+	//
+	// UC-DSC-01
 	ForgetSearch(ctx context.Context, account, id uuid.UUID) error
 	// ClearHistory empties the account's history.
+	//
+	// UC-DSC-01
 	ClearHistory(ctx context.Context, account uuid.UUID) error
 	// SetAlert sets the price below which account hears of listing, saving
 	// it first when it is not saved, with Save's refusals.
+	//
+	// UC-DSC-03
 	SetAlert(ctx context.Context, account, listing uuid.UUID, below int64) error
 	// ClearAlert removes the save's own level; the save stays and tells
 	// below its saved price.
+	//
+	// UC-DSC-03
 	ClearAlert(ctx context.Context, account, listing uuid.UUID) error
 	// PriceMoved weighs every save of listing against its current price;
 	// the worker calls it on listing.updated and listing.published.
+	//
+	// UC-DSC-03
 	PriceMoved(ctx context.Context, listing uuid.UUID) error
 	// PriceDropFacts is what notification tells of a save's price drop.
 	PriceDropFacts(ctx context.Context, id uuid.UUID) (PriceDropFacts, bool, error)
 	// Watch follows a text search with its filters from a commune: a new
 	// key is a new watch and starts its sweeps; a key the account watches
 	// takes the new filters. created reports a new watch.
+	//
+	// UC-DSC-03
 	Watch(ctx context.Context, account uuid.UUID, in WatchInput) (v WatchView, created bool, err error)
 	// Watches lists the account's watches, newest first.
+	//
+	// UC-DSC-03
 	Watches(ctx context.Context, account uuid.UUID) (WatchList, error)
 	// SetWatchAlert mutes or unmutes a watch of the account's.
+	//
+	// UC-DSC-03
 	SetWatchAlert(ctx context.Context, account, id uuid.UUID, on bool) error
 	// Unwatch forgets a watch; an unknown one is fine.
+	//
+	// UC-DSC-03
 	Unwatch(ctx context.Context, account, id uuid.UUID) error
 	// Sweep weighs the listings that arrived since the watch's last sweep;
 	// the worker calls it.
+	//
+	// UC-DSC-03 · NFR-DUR-01
 	Sweep(ctx context.Context, id uuid.UUID) (Swept, error)
 	// ListingArrived records a listing's first publication for the sweeps.
 	ListingArrived(ctx context.Context, listing uuid.UUID) error
@@ -82,8 +117,12 @@ type Service interface {
 	WatchFacts(ctx context.Context, id uuid.UUID) (WatchFacts, bool, error)
 	// Hide leaves someone else's listing out of account's searches;
 	// hiding it again makes it the newest hide.
+	//
+	// UC-DSC-02
 	Hide(ctx context.Context, account, listing uuid.UUID) error
 	// Unhide shows it again; a listing not hidden is fine.
+	//
+	// UC-DSC-02
 	Unhide(ctx context.Context, account, listing uuid.UUID) error
 	// Watchers lists the live watches a listing of seller's matching q
 	// would match, muted ones too, oldest first, at most

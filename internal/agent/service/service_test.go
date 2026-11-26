@@ -268,7 +268,8 @@ func TestAskRunsTheTurn(t *testing.T) {
 }
 
 // A refused run, a busy conversation and the input guard reach the member
-// as their codes, and a refused run leaves no turn and no title. UC-MOD-08.
+// as their codes, and a refused run leaves no turn and no title.
+// UC-MOD-08 E2, E3, E4, E6, E7.
 func TestAskRefusals(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -388,7 +389,7 @@ func TestBrokenRunContinues(t *testing.T) {
 
 // Pause, stop and a steer to a running turn wait in its control queue,
 // which the agent polls; a steer.read marks the steer read; the stream
-// follows the run live and ends at turn.finished. UC-MOD-08.
+// follows the run live and ends at turn.finished. UC-MOD-08 A2, A3.
 func TestControlQueueAndLiveStream(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -463,7 +464,7 @@ func TestControlQueueAndLiveStream(t *testing.T) {
 }
 
 // A turn waiting on questions takes answers that fit them and goes on with
-// their text, or ends cancelled. UC-MOD-08.
+// their text, or ends cancelled. UC-MOD-08 A2, A4.
 func TestAnswersAndEnd(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

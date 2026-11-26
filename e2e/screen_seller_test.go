@@ -65,6 +65,7 @@ func cards(t *testing.T, name string, got page[searchCard], seller string, near 
 // The seller view counts the reserved listing on sale and the sold one,
 // leaves the hidden one out of both, and shows the avatars of the seller
 // and of the reviewing buyer.
+// UC-DSC-04.
 func TestSellerScreen(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)

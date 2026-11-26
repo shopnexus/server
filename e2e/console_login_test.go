@@ -9,6 +9,7 @@ import (
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
+// UC-MOD-10 A1, A2, E4, E5.
 func TestConsoleFirstSignIn(t *testing.T) {
 	t.Parallel()
 	_, email, temp := newMember(t, consoledomain.RoleModerator)
@@ -59,6 +60,7 @@ func TestConsoleFirstSignIn(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 E1, E2.
 func TestConsoleLoginRefusals(t *testing.T) {
 	t.Parallel()
 	_, email, temp := newMember(t, consoledomain.RoleModerator)
@@ -84,6 +86,7 @@ func TestConsoleLoginRefusals(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 E2, E3.
 func TestConsoleWrongCodesLock(t *testing.T) {
 	t.Parallel()
 	s := signInMember(t, consoledomain.RoleModerator)

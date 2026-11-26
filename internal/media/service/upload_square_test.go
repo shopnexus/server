@@ -15,6 +15,8 @@ import (
 
 // Square attaches the upload, waits for its processing and returns the key
 // of a 400 px square without EXIF; asked again, it returns the same key.
+//
+// UC-SHR-01 A2.
 func TestSquare(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
+// UC-MOD-10 A4, E4.
 func TestChangePasswordEndsEverySession(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -56,6 +57,7 @@ func TestChangePasswordRefusesADisabledMember(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 A4.
 func TestLogout(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

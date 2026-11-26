@@ -61,6 +61,7 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	if err != nil {
 		return EditResult{}, err
 	}
+	// E4 · BR-LST-02
 	status, err := restate.Run(ctx, func(rc restate.RunContext) (accountdomain.Status, error) {
 		return s.Accounts.Status(rc, in.Seller)
 	})
@@ -75,6 +76,7 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 		return EditResult{}, fmt.Errorf("load listing: %w", err)
 	}
 	l := ld.Listing
+	// E2
 	if !ld.Found || l.SellerID() != in.Seller {
 		return EditResult{Refused: domain.ErrNotFound}, nil
 	}
@@ -83,16 +85,19 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 		return EditResult{}, err
 	}
 	before := l.Uploads()
+	// E1, E3 · BR-LST-03: a state that takes no edit, or a field that breaks a rule.
 	if err = l.Edit(in.Listing, refs, at); err != nil {
 		return EditResult{Refused: apperr.From(err)}, nil
 	}
 	added := slices.DeleteFunc(slices.Clone(in.Listing.Photos), func(u uuid.UUID) bool { return slices.Contains(before, u) })
+	// E7: an added upload that is not the seller's, or not waiting.
 	if len(added) > 0 {
 		refused, attachErr := attach(ctx, s.Media, in.Seller, in.ID, added, restatex.NewID(ctx, at))
 		if attachErr != nil || refused != nil {
 			return EditResult{Refused: refused}, attachErr
 		}
 	}
+	// 3. Save the content.
 	w, evID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
 	lost, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		l := l // Save sets the write ID on its copy; l outside stays as journaled
@@ -102,6 +107,7 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	if err != nil {
 		return EditResult{}, fmt.Errorf("save listing: %w", err)
 	}
+	// E8 · NFR-CONC-01
 	if lost {
 		if len(added) > 0 {
 			restate.ServiceSend(ctx, s.ServiceName(), "Tidy").Send(TidyInput{ID: in.ID, Uploads: added}, restate.WithDelay(tidyAfter))

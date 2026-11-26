@@ -35,7 +35,7 @@ type agentTurn struct {
 // A turn's run streams back from the agent into the turn, its tool call,
 // its document and its events; the controls pause, steer, answer, end and
 // continue it, the agent polls pause and steer from the control endpoint,
-// and the skills are the server's. UC-MOD-08 A1.
+// and the skills are the server's. UC-MOD-08 A1, A2, A3, A4, E5.
 func TestConsoleAgentRuns(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)

@@ -23,6 +23,7 @@ func ids(v service.SearchView) []uuid.UUID {
 
 // A hidden listing and a blocked seller's listing leave the viewer's
 // searches, browsing and the nearby feed; unhiding brings the listing back.
+// UC-DSC-02 A2 · BR-DSC-02.
 func TestHideAndBlockLeaveSearch(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -67,6 +68,7 @@ func TestHideAndBlockLeaveSearch(t *testing.T) {
 	}
 }
 
+// UC-DSC-02 E6, E7.
 func TestHideRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

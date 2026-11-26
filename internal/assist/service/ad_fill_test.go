@@ -13,6 +13,8 @@ import (
 // FillAd writes a link read's draft and adds the condition and the specs
 // the listing states, keyed for its category; a condition it does not
 // state is used and guessed.
+//
+// UC-LST-04.
 func TestFillAd(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

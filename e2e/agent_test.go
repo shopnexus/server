@@ -23,7 +23,7 @@ type agentTurnStarted struct {
 
 // A record's conversation is shared by every member; one without a record
 // is the member's own. Each question goes out with the member who asked.
-// UC-MOD-08 A1.
+// UC-MOD-08.
 func TestConsoleAgentConversations(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)

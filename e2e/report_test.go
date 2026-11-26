@@ -17,6 +17,7 @@ type report struct {
 	Status         string `json:"status"`
 }
 
+// UC-MOD-01 A2, A3, E1, E2, E3, E4, E6.
 func TestReports(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
@@ -91,7 +92,7 @@ func TestReports(t *testing.T) {
 }
 
 // The app blocks, then reports with the conversation; another pair's
-// conversation is refused.
+// conversation is refused. UC-MOD-01 A1, E3.
 func TestReportFromAConversation(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)

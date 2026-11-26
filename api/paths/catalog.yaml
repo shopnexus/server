@@ -98,11 +98,11 @@ listing:
       The body is the whole listing, as when posting. Photos not in the
       listing yet take it back to processing until they are processed; an
       edit of a rejected listing does too. Sold listings cannot be edited.
+      It takes no Idempotency-Key: a retry writes the same content again.
     tags: [catalog]
     security:
       - bearerAuth: []
     parameters:
-      - $ref: "../parameters/common.yaml#/IdempotencyKey"
       - name: id
         in: path
         required: true

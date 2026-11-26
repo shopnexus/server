@@ -187,6 +187,8 @@ WHERE subject_id = @id AND kind = 'listing.published' ORDER BY id`, pgx.StrictNa
 
 // A lower price shows on the listing and its card with the price before;
 // a raise after it shows none.
+//
+// UC-LST-02 A4.
 func TestEditShowsAPriceDrop(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -236,7 +238,7 @@ func TestEditRefusesABadListing(t *testing.T) {
 // Each transition records its event; one the state does not allow is a
 // conflict, and another seller's listing is not found.
 //
-// UC-LST-02 E1, E2.
+// UC-LST-02 A2, E1, E2.
 func TestTransitions(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -521,6 +523,8 @@ func TestCopiedPhotosAreMarked(t *testing.T) {
 
 // A member's hold hides an active listing, refuses the seller's unhide and
 // writes listing.hide; lifting it puts the listing back on sale.
+//
+// UC-LST-02 E5.
 func TestHoldAndLift(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -130,6 +130,7 @@ func TestSearch(t *testing.T) {
 
 // One guest address gets a burst of 30 searches with q; browsing and a
 // signed-in caller from it are not limited.
+// UC-DSC-01 E5.
 func TestSearchLimitsAGuest(t *testing.T) {
 	t.Parallel()
 	from := newClient()

@@ -16,18 +16,23 @@ import (
 // carries its URL; a retry with the same upload gets the same square. It is
 // a write, so a suspended account gets ErrSuspended even while its access
 // token is still valid.
+//
+// Update is UC-ACC-06, steps 2 and 3.
 func (s *Account) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (AccountView, error) {
 	now := s.d.Now()
 	a, err := s.load(ctx, id)
 	if err != nil {
 		return AccountView{}, err
 	}
+	// E3
 	if err = a.CanWrite(now); err != nil {
 		return AccountView{}, err
 	}
+	// E1. Every broken field is named in one error.
 	if err = a.Edit(in.DisplayName, in.Bio, now); err != nil {
 		return AccountView{}, err
 	}
+	// A1. Away mode; E1 an end outside the next 30 days.
 	switch {
 	case in.ClearAway:
 		a.ClearAway(now)
@@ -39,8 +44,10 @@ func (s *Account) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Acc
 	}
 	switch {
 	case in.RemoveAvatar:
+		// A2
 		a.SetAvatar("", now)
 	case in.Avatar != nil:
+		// E2. Media refuses an upload that is no photo or not the caller's.
 		key, squareErr := s.d.Media.Square(ctx, id, id, *in.Avatar)
 		if squareErr != nil {
 			return AccountView{}, fmt.Errorf("make the avatar: %w", squareErr)
@@ -48,10 +55,12 @@ func (s *Account) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Acc
 		a.SetAvatar(key, now)
 	default: // the avatar stays as it is
 	}
+	// 3. Save and tell the other modules.
 	err = s.d.Accounts.Save(ctx, &a, uuid.NewV7(), nil, events.Event{
 		ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: id, OccurredAt: now,
 	})
 	if err != nil {
+		// E4 · NFR-CONC-01
 		if errors.Is(err, repository.ErrConflict) {
 			return AccountView{}, apperr.ErrTryAgain
 		}

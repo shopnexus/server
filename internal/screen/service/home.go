@@ -41,10 +41,9 @@ type HomeViewed struct {
 	Items    []discoverysvc.SearchItem `json:"items"`
 }
 
-// Home reads the category tree, the active listings under each root and in
-// each subcategory, the first page of the search sorted SortNearby around
-// near within radiusKm (the search's own radius when 0), and discovery's
-// ForYou measured from near. Without a position the nearby feed is empty;
+// Home reads the category tree, the first page of the search sorted
+// SortNearby around near within radiusKm (the search's own radius when 0),
+// and discovery's ForYou measured from near, with its recently viewed row. Without a position the nearby feed is empty;
 // radiusKm without one is the search's
 // discoverydomain.ErrPositionRequired. Categories are named in t.
 func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int, t locale.Tag) (HomeScreen, error) {

@@ -59,6 +59,8 @@ type Service interface {
 	WatchRead(ctx context.Context, account, id uuid.UUID, emit func(ReadEvent) error) error
 	// FillAd writes the listing draft of a seller's Chợ Tốt listing, for
 	// module chotot's import, and stores nothing.
+	//
+	// UC-LST-04
 	FillAd(ctx context.Context, ad chotot.Ad) (AdFill, error)
 	// PriceGuide prices a draft against the listings most like it and the
 	// search watches it would match, and stores nothing.

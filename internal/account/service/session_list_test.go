@@ -10,6 +10,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
+// UC-ACC-02.
 func TestListSessionsPagesNewestFirst(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

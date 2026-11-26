@@ -18,6 +18,7 @@ func fieldsOf(err error) map[string]string {
 	return nil
 }
 
+// UC-MOD-09 E4.
 func TestNewTicketChecksEachKind(t *testing.T) {
 	t.Parallel()
 	order := uuid.NewV7()
@@ -60,6 +61,7 @@ func TestCarrierKeyFoldsMarksCaseAndSpaces(t *testing.T) {
 	}
 }
 
+// UC-MOD-09 E2, E3.
 func TestMayReport(t *testing.T) {
 	t.Parallel()
 	buyer, now := uuid.NewV7(), time.Now()

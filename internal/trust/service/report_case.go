@@ -19,7 +19,7 @@ import (
 // ReportCases lists one page of cases: the open ones by their latest
 // report, with their count, or the resolved ones by their resolution, each
 // newest first. Each case shows its account and its most reported listing,
-// read in one query each.
+// read in one query each. It is UC-MOD-02 step 1.
 func (s *Trust) ReportCases(ctx context.Context, status domain.CaseStatus, p page.Request) (CaseList, error) {
 	var (
 		out CaseList
@@ -74,8 +74,9 @@ func (s *Trust) ReportCases(ctx context.Context, status domain.CaseStatus, p pag
 
 // ReportCase reads account's open case or, without one, its latest
 // resolved case; an account nobody has reported, withdrawn reports aside,
-// is domain.ErrCaseNotFound.
+// is domain.ErrCaseNotFound. It is UC-MOD-02 step 2.
 func (s *Trust) ReportCase(ctx context.Context, account uuid.UUID) (CaseDetail, error) {
+	// E1
 	c, rs, err := s.d.Cases.Current(ctx, account)
 	if errors.Is(err, repository.ErrNotFound) {
 		return CaseDetail{}, domain.ErrCaseNotFound
@@ -123,8 +124,9 @@ func (s *Trust) ReportCase(ctx context.Context, account uuid.UUID) (CaseDetail, 
 // by, recording report.dismiss or report.resolve in the same transaction.
 // Without an open case it answers the latest resolved one when that has
 // outcome (a retry), else domain.ErrCaseNotOpen; the ShopNexus account is
-// accountdomain.ErrSystemAccount.
+// accountdomain.ErrSystemAccount. It is UC-MOD-02 step 4 and A1.
 func (s *Trust) ResolveReportCase(ctx context.Context, account uuid.UUID, outcome domain.Outcome, by audit.Actor) (CaseDetail, error) {
+	// E6
 	if account == accountdomain.ShopNexusID {
 		return CaseDetail{}, accountdomain.ErrSystemAccount
 	}
@@ -133,6 +135,8 @@ func (s *Trust) ResolveReportCase(ctx context.Context, account uuid.UUID, outcom
 	if outcome == domain.OutcomeDismissed {
 		action = audit.ReportDismiss
 	}
+	// 4. A1 closes the case as no violation. E2 without an open case,
+	// unless the latest resolution has this outcome (A4, a retry).
 	id := uuid.NewV7()
 	err := s.d.Cases.Resolve(ctx, account, repository.Resolution{ID: id, Outcome: outcome, MemberID: by.MemberID, At: now}, audit.Entry{
 		Actor: by, Action: action, Target: audit.Account(account), Details: map[string]any{"resolution_id": id}, At: now,
@@ -147,11 +151,13 @@ func (s *Trust) ResolveReportCase(ctx context.Context, account uuid.UUID, outcom
 // its reports join the account's open case, and report.reopen is recorded
 // in the same transaction. Without a resolution it is
 // domain.ErrCaseNotResolved; the ShopNexus account is
-// accountdomain.ErrSystemAccount.
+// accountdomain.ErrSystemAccount. It is UC-MOD-02 A2.
 func (s *Trust) ReopenReportCase(ctx context.Context, account uuid.UUID, by audit.Actor) (CaseDetail, error) {
+	// E6
 	if account == accountdomain.ShopNexusID {
 		return CaseDetail{}, accountdomain.ErrSystemAccount
 	}
+	// A2. E3 without a resolved case.
 	now := s.d.Now()
 	err := s.d.Cases.Reopen(ctx, account, now, audit.Entry{Actor: by, Action: audit.ReportReopen, Target: audit.Account(account), At: now})
 	if errors.Is(err, repository.ErrConflict) {

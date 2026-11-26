@@ -19,6 +19,8 @@ import (
 // A frame the server saves is a waiting photo upload of the seller's: it is
 // read back as a search-sized JPEG, a listing attaches and processes it,
 // and a retried save neither fails nor brings its original back.
+//
+// UC-SHR-01 A3.
 func TestSavePhoto(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -103,6 +105,8 @@ func TestPresignPhoto(t *testing.T) {
 // A read holds one video of its reader's, opens it, and consumes it at the
 // end; nothing else holds it, MediaExpire leaves it, and once consumed it is
 // gone for good.
+//
+// UC-SHR-01 A5.
 func TestHoldOpenConsumeVideo(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -155,6 +155,7 @@ func actions(t *testing.T, db *pgxpool.Pool) []string {
 // with its budget, a key per caller with its model, fallbacks and rate
 // limits, and an override per price. It deletes what the server wrote that
 // nothing names, keeps what others wrote, and a second run writes nothing.
+// UC-MOD-12.
 func TestReconcile(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -229,6 +230,7 @@ func TestReconcile(t *testing.T) {
 	}
 }
 
+// UC-MOD-12 E1, E2, E3, E4.
 func TestAgentRules(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -364,7 +366,7 @@ func sameModels(got []string, want ...string) bool {
 }
 
 // The models are those agents use, priced or tagged, each with its catalog
-// price; a price is saved, then written into Bifrost.
+// price; a price is saved, then written into Bifrost. UC-MOD-12.
 func TestModelsAndPrices(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -485,7 +487,7 @@ func TestProviders(t *testing.T) {
 
 // Spend sums Bifrost's cost by UTC day and agent over windows Bifrost
 // answers by the day; usage counts an app agent's requests by its team and
-// a console agent's turns.
+// a console agent's turns. UC-MOD-12 A4.
 func TestSpendUsageToolsAndGuardrails(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

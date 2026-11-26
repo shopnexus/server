@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/events"
 )
 
+// UC-ACC-06.
 func TestUpdate(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
@@ -30,6 +31,7 @@ func TestUpdate(t *testing.T) {
 }
 
 // A name and a bio that break their rules are named together.
+// UC-ACC-06 E1.
 func TestUpdateRefusesTextRules(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
@@ -40,6 +42,7 @@ func TestUpdateRefusesTextRules(t *testing.T) {
 	}
 }
 
+// UC-ACC-06 E3.
 func TestUpdateRefusedWhileSuspended(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
@@ -54,6 +57,7 @@ func TestUpdateRefusedWhileSuspended(t *testing.T) {
 
 // Away mode is stored, read back while in force, gone once it lapses, and
 // cleared with ClearAway.
+// UC-ACC-06 A1, E1.
 func TestUpdateSetsAndClearsAway(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -92,6 +96,7 @@ func (conflicting) Save(context.Context, *domain.Account, uuid.UUID, *audit.Entr
 }
 
 // A lost race reaches the client as try_again, as in every module.
+// UC-ACC-06 E4 · NFR-CONC-01.
 func TestUpdateReportsAConflict(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)

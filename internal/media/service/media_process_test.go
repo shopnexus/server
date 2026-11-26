@@ -103,6 +103,7 @@ func longSide(t *testing.T, b []byte) int {
 	return max(cfg.Width, cfg.Height)
 }
 
+// UC-SHR-01.
 func TestProcessJPEGPNGWebP(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -135,6 +136,7 @@ func TestProcessJPEGPNGWebP(t *testing.T) {
 	}
 }
 
+// UC-SHR-01 · NFR-PRIV-01.
 func TestProcessDropsExif(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -150,6 +152,7 @@ func TestProcessDropsExif(t *testing.T) {
 	}
 }
 
+// UC-SHR-01 E3.
 func TestProcessRefusesHugeImages(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -160,6 +163,7 @@ func TestProcessRefusesHugeImages(t *testing.T) {
 	}
 }
 
+// UC-SHR-01 E3.
 func TestProcessRefusesWrongContent(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

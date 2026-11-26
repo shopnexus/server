@@ -54,6 +54,7 @@ func (e *refreshEnv) revoked(t *testing.T) bool {
 	return s.RevokedAt() != nil
 }
 
+// UC-ACC-02 A3.
 func TestRefreshRotatesAndKeepsAuthTime(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
@@ -71,6 +72,7 @@ func TestRefreshRotatesAndKeepsAuthTime(t *testing.T) {
 	}
 }
 
+// UC-ACC-02 E5 · NFR-SEC-01.
 func TestRefreshReplayRevokes(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
@@ -83,6 +85,7 @@ func TestRefreshReplayRevokes(t *testing.T) {
 	}
 }
 
+// UC-ACC-02 E4, E6, E7.
 func TestRefreshRefusals(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
@@ -102,6 +105,7 @@ func TestRefreshRefusals(t *testing.T) {
 // answer; the client's retry with the same token is still told of the
 // suspension, and only of it while the suspension lasts. A session that
 // ended for another reason keeps answering session_revoked.
+// UC-ACC-02 E7.
 func TestRefreshOfASuspendedAccountAnswersItsRetries(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
@@ -147,6 +151,7 @@ func (l losingSave) Save(ctx context.Context, s *domain.Session, w uuid.UUID) er
 	return l.Sessions.Save(ctx, s, w)
 }
 
+// UC-ACC-02 E5.
 func TestRefreshThatLosesARaceRevokes(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
@@ -225,6 +230,7 @@ func TestRefreshThatLosesToDeleteOtherSessionsIsNotReuse(t *testing.T) {
 // TestParallelRefreshRevokes is the spec's parallel-refresh attack: one token
 // used five times at once yields at most one success, and afterwards the
 // session no longer refreshes.
+// UC-ACC-02 E5.
 func TestParallelRefreshRevokes(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
@@ -267,6 +273,7 @@ func TestParallelRefreshRevokes(t *testing.T) {
 
 // A session a sign-in issued while Erase ran, which Erase never saw, does
 // not refresh: it is revoked.
+// UC-ACC-02 E5.
 func TestRefreshRevokesASessionOfADeletedAccount(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)

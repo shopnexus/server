@@ -32,6 +32,7 @@ type PriceGuideInput struct {
 // guide without a comparison; the watchers still answer.
 func (a *Assist) PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuideInput) (PriceGuideView, error) {
 	started := a.d.Now()
+	// E1 · BR-LST-02
 	status, err := a.d.Accounts.Status(ctx, account)
 	if err != nil {
 		return PriceGuideView{}, fmt.Errorf("read account status: %w", err)

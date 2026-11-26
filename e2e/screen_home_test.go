@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// UC-DSC-05 A1, E1, E2.
 func TestHomeScreen(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)

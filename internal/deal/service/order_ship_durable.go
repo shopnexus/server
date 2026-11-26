@@ -51,11 +51,13 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	if err != nil || m.Refused != nil || m.Moved {
 		return FlowResult{Refused: m.Refused}, err
 	}
+	// E8: the order must be the deal's pending one, and the caller its seller.
 	d := domain.RestoreDeal(m.Deal)
 	if err = d.Shippable(m.By, in.OrderID, facts(m.Listing)); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
 	draft := *in.Draft
+	// E9: a saved pickup the seller has not saved.
 	if in.SavedPickup {
 		resolved, pickupErr := restate.Run(ctx, func(rc restate.RunContext) (resolvedPickup, error) {
 			p, stepErr := s.Deals.d.Shipping.SavedPickup(rc, in.Caller)
@@ -114,7 +116,8 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	if err != nil {
 		return FlowResult{}, fmt.Errorf("create the shipment at %s: %w", draft.Carrier, err)
 	}
-	// E4: a refused shipment is not made, and the listing goes back.
+	// E2, E3, E4, E10: a refusal of shipping's or the carrier's makes no
+	// shipment, and the listing goes back.
 	if made.Refused != nil {
 		if err = releaseStep(ctx, s.Deals.d.Catalog, m.Listing.ID, in.OrderID); err != nil {
 			return FlowResult{}, err
@@ -169,7 +172,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	shipped := cur.ID == in.OrderID && cur.Status == domain.OrderShipped
 	switch {
 	case refused.Code == domain.ErrCarrierNotLinked.Code:
-		// The seller's account there no longer reaches the parcel.
+		// E3: the seller's account there no longer reaches the parcel.
 		s.Deals.d.Log.WarnContext(ctx, "shipment made at a shop the seller no longer links; not called off",
 			"seller", in.Caller, "carrier", mine.Carrier, "shop", mine.ShopCode, "tracking_code", mine.TrackingCode)
 	case !shipped || cur.Shipment == nil || cur.Shipment.TrackingCode != mine.TrackingCode:

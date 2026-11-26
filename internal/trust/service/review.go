@@ -20,13 +20,15 @@ import (
 // order closed with a delivery or a failed one.
 var reviewable = []dealdomain.OrderStatus{dealdomain.OrderCompleted, dealdomain.OrderFailed}
 
-// PutReview checks that the caller may write and is a party to the
-// order, then creates their review of the other party, once the order is
-// delivered or failed, or edits it within 7 days and before a reply. Its
-// new photos are attached to the order in media and processed first; nil
-// tags or photos keep the review's. A review that already holds the
-// request, as a retry or a double tap finds it, is answered as it is.
+// PutReview is UC-TRS-01 steps 1 to 3 and A1's edit. It checks that the
+// caller may write and is a party to the order, then creates their review
+// of the other party, once the order is delivered or failed, or edits it
+// while it is hidden, within 7 days and before a reply. Its new photos
+// are attached to the order in media and processed first; nil tags or
+// photos keep the review's. A review that already holds the request, as a
+// retry or a double tap finds it, is answered as it is.
 func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, tags []domain.Tag, photos []uuid.UUID) (ReviewView, error) {
+	// E1 · BR-MOD-02
 	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("read account status: %w", err)
@@ -34,6 +36,7 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 	if r := status.Refusal(); r != nil {
 		return ReviewView{}, r
 	}
+	// 2. The caller is a party to the order; E4 otherwise.
 	o, role, subject, err := s.partyOrder(ctx, caller, order)
 	if err != nil {
 		return ReviewView{}, err
@@ -43,14 +46,17 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 	found := err == nil
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
+		// E5
 		if !slices.Contains(reviewable, o.Status) || o.ClosedAt == nil {
 			return ReviewView{}, domain.ErrNotDelivered
 		}
 	case err != nil:
 		return ReviewView{}, fmt.Errorf("get review: %w", err)
 	case r.Holds(stars, text, tags, photos):
+		// A2 · NFR-IDEM-01
 		return s.reviewView(ctx, caller, r)
 	default:
+		// A1: an edit while hidden; E6, E7 otherwise.
 		if err = r.CanChange(now); err != nil {
 			return ReviewView{}, err
 		}
@@ -70,6 +76,7 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 			}
 		}
 		var processed map[uuid.UUID]mediasvc.ProcessResult
+		// E3: media refuses an upload that is not the caller's.
 		if len(fresh) > 0 {
 			if processed, err = s.d.Media.Photos(ctx, caller, order, fresh); err != nil {
 				return ReviewView{}, fmt.Errorf("process the photos: %w", err)
@@ -87,6 +94,8 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 	if tags == nil {
 		tags = r.Tags()
 	}
+	// 3. Save the review, hidden until the other side reviews or the window
+	// ends; E2 when it breaks a rule.
 	if !found {
 		_, otherErr := s.d.Reviews.ByOrder(ctx, order, role.Other())
 		if otherErr != nil && !errors.Is(otherErr, repository.ErrNotFound) {
@@ -103,6 +112,7 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 		}
 		err = s.d.Reviews.Save(ctx, &r, uuid.NewV7())
 	}
+	// E9 · NFR-CONC-01
 	if errors.Is(err, repository.ErrConflict) {
 		// A double tap's twin may have written the same review.
 		if again, getErr := s.d.Reviews.ByOrder(ctx, order, role); getErr == nil && again.Holds(stars, text, tags, photos) {
@@ -125,10 +135,12 @@ func (s *Trust) reviewView(ctx context.Context, caller uuid.UUID, r domain.Revie
 	return views[0], nil
 }
 
-// DeleteReview takes the caller's review of an order down within 7 days of
-// its first submission and before a reply; a review posted again later
-// keeps that start. The caller's review deleted already is done (a retry).
+// DeleteReview is UC-TRS-01 A1's delete. It takes the caller's review of
+// an order down while it is hidden, within 7 days of its first submission
+// and before a reply; a review posted again later keeps that start. The
+// caller's review deleted already is done (a retry).
 func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error {
+	// E1 · BR-MOD-02
 	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return fmt.Errorf("read account status: %w", err)
@@ -136,24 +148,29 @@ func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error
 	if r := status.Refusal(); r != nil {
 		return r
 	}
+	// E4
 	_, role, _, err := s.partyOrder(ctx, caller, order)
 	if err != nil {
 		return err
 	}
 	r, err := s.d.Reviews.ByOrder(ctx, order, role)
+	// E8
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.ReviewerID() != caller) {
 		return domain.ErrNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("get review: %w", err)
 	}
+	// A2 · NFR-IDEM-01
 	if r.Deleted() {
 		return nil
 	}
+	// A1: a delete while hidden; E6, E7 otherwise.
 	if err = r.Delete(s.d.Now()); err != nil {
 		return err
 	}
 	err = s.d.Reviews.Save(ctx, &r, uuid.NewV7())
+	// E9 · NFR-CONC-01
 	if errors.Is(err, repository.ErrConflict) {
 		if again, getErr := s.d.Reviews.ByOrder(ctx, order, role); getErr == nil && again.Deleted() {
 			return nil
@@ -166,10 +183,12 @@ func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error
 	return nil
 }
 
-// ReplyReview writes the subject's one reply to a visible review, which
-// closes it. Anyone but the subject gets review_not_found. The same reply
-// there already is answered as it is (a retry).
+// ReplyReview is UC-TRS-01 step 4. It writes the subject's one reply to a
+// visible review, which closes it. Anyone but the subject gets
+// review_not_found. The same reply there already is answered as it is (a
+// retry).
 func (s *Trust) ReplyReview(ctx context.Context, caller, id uuid.UUID, text string) (ReviewView, error) {
+	// E1 · BR-MOD-02
 	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("read account status: %w", err)
@@ -178,19 +197,23 @@ func (s *Trust) ReplyReview(ctx context.Context, caller, id uuid.UUID, text stri
 		return ReviewView{}, r
 	}
 	r, err := s.d.Reviews.Get(ctx, id)
+	// E12
 	if errors.Is(err, repository.ErrNotFound) {
 		return ReviewView{}, domain.ErrNotFound
 	}
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("get review: %w", err)
 	}
+	// 4. The subject's one reply; E2, E10, E11, E12 from the review.
 	if err = r.Reply(caller, text, s.d.Now()); err != nil {
+		// A2 · NFR-IDEM-01
 		if errors.Is(err, domain.ErrReplied) && r.HasReply(text) {
 			return s.reviewView(ctx, caller, r)
 		}
 		return ReviewView{}, err
 	}
 	err = s.d.Reviews.Save(ctx, &r, uuid.NewV7())
+	// E9 · NFR-CONC-01
 	if errors.Is(err, repository.ErrConflict) {
 		if again, getErr := s.d.Reviews.Get(ctx, id); getErr == nil && again.SubjectID() == caller && again.HasReply(text) {
 			return s.reviewView(ctx, caller, again)

@@ -9,12 +9,13 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
-// SellerListings lists what anyone sees of a seller's listings as search
-// items, newest first: each measured from near when it names a position.
-// A signed-in viewer's items leave out the listings they hid, as their
-// searches do, and are marked saved.
+// SellerListings is UC-DSC-04, step 3. It lists what anyone sees of a
+// seller's listings as search items, newest first: each measured from near
+// when it names a position. A signed-in viewer's items leave out the
+// listings they hid, as their searches do, and are marked saved.
 func (d *Discovery) SellerListings(ctx context.Context, viewer *uuid.UUID, seller uuid.UUID, near catalogdomain.Near, p page.Request) (page.Page[SearchItem], error) {
 	var hidden []uuid.UUID
+	// A1
 	if viewer != nil {
 		var err error
 		if hidden, err = d.d.Hidden.List(ctx, *viewer); err != nil {

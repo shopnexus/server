@@ -13,7 +13,7 @@ import (
 
 // An agent's row is saved before Bifrost: a create Bifrost fails is kept,
 // and the same create again reconciles it; a refused change leaves the
-// row and Bifrost as they were.
+// row and Bifrost as they were. UC-MOD-12 A1, A2, E5.
 func TestAgentRowBeforeBifrost(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -103,6 +103,7 @@ func TestModelTagsTakeTurns(t *testing.T) {
 
 // A reconcile goes on past an object Bifrost fails: the other callers'
 // keys are still written, and the failure comes back as unavailable.
+// UC-MOD-12 A2.
 func TestReconcileGoesOnPastAFailure(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

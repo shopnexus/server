@@ -1,6 +1,7 @@
 addresses:
   get:
     operationId: listAddresses
+    x-uc: [UC-ACC-07]
     summary: List the caller's addresses, the default first, then the newest.
     tags: [account]
     security:
@@ -16,6 +17,7 @@ addresses:
         $ref: "../responses/common.yaml#/Unauthorized"
   post:
     operationId: createAddress
+    x-uc: [UC-ACC-07]
     summary: Add an address; the first becomes the default.
     description: |
       With is_default true the address becomes the default in the same
@@ -59,6 +61,7 @@ addresses:
 address:
   put:
     operationId: updateAddress
+    x-uc: [UC-ACC-07]
     summary: Replace an address of the caller's.
     description: |
       With is_default true the address also becomes the default; without
@@ -111,6 +114,7 @@ address:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: deleteAddress
+    x-uc: [UC-ACC-07]
     summary: Delete an address of the caller's.
     description: |
       When it was the default, the newest remaining address becomes the
@@ -141,6 +145,7 @@ address:
 addressDefault:
   post:
     operationId: setDefaultAddress
+    x-uc: [UC-ACC-07]
     summary: Make an address of the caller's the default.
     tags: [account]
     security:

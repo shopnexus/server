@@ -12,10 +12,10 @@ import (
 	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
-// Extend keeps owner's photos for their drafts, all or none: each must be
-// owner's photo, waiting before its expiry and put to the store with the
-// type and size it declared. Each then expires domain.ExtendFor from now,
-// or later if it did already.
+// Extend is UC-SHR-01 A1: it keeps owner's photos for their drafts, all or
+// none: each must be owner's photo, waiting before its expiry and put to
+// the store with the type and size it declared. Each then expires
+// domain.ExtendFor from now, or later if it did already.
 func (m *Media) Extend(ctx context.Context, owner uuid.UUID, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil

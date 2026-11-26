@@ -99,9 +99,9 @@ type filled struct {
 	Reason  string         `json:"reason,omitempty"`
 }
 
-// Start checks the account, inserts the read under the daily cap and
-// holds the video, each a step, then sends Run and the delayed Expire. A
-// video the hold refuses deletes the read again.
+// Start is UC-LST-01, step 2: it checks the account, inserts the read under
+// the daily cap and holds the video, each a step, then sends Run and the
+// delayed Expire. A video the hold refuses deletes the read again.
 func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error) {
 	o, err := s.openRead(ctx, in.Account, in.Key, func(id uuid.UUID, at time.Time) domain.ListingRead {
 		return domain.NewVideoRead(id, in.Account, in.Video, at)
@@ -113,6 +113,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 		return *o.Answer, nil
 	}
 	id, at := o.ID, o.At
+	// E8: a video that is not the seller's, or that another read holds.
 	holdWrite := restatex.NewID(ctx, at)
 	held, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		holdErr := s.Media.HoldVideo(rc, in.Account, id, in.Video, holdWrite)

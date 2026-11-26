@@ -19,6 +19,8 @@ import (
 // A holder's release deletes an unprocessed photo's original at once and
 // a processed one's public copies at the purge; another holder's upload,
 // and one the holder still shows, stay.
+//
+// UC-SHR-01 A6.
 func TestReleaseDeletesTheHoldersObjects(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

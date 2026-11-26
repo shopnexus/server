@@ -15,7 +15,7 @@ import (
 // SearchThreads caps the conversations an inbox search lists.
 const SearchThreads = 20
 
-// Search splits q with the index's tokenizer, the last word matching as a
+// Search is UC-DEAL-01 A4: it splits q with the index's tokenizer, the last word matching as a
 // prefix, reads the threads on the first page and a page of messages, and
 // shows each with its other member.
 func (c *Chat) Search(ctx context.Context, account uuid.UUID, q string, p page.Request) (SearchResult, error) {

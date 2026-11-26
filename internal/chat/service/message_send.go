@@ -10,13 +10,16 @@ import (
 	"github.com/shopnexus/server/internal/chat/repository"
 )
 
-// Open checks the first message; a key the buyer sent a message with
-// already answers that message's conversation (NFR-IDEM-01), otherwise it
-// runs MessageSend. Then it reads the conversation.
+// Open is UC-DEAL-01, steps 1 and 2: it checks the first message; a key
+// the buyer sent a message with already answers that message's
+// conversation (NFR-IDEM-01), otherwise it runs MessageSend. Then it reads
+// the conversation.
 func (c *Chat) Open(ctx context.Context, buyer, key uuid.UUID, in OpenInput) (ConversationView, error) {
+	// E7
 	if _, err := domain.NewMessage(uuid.UUID{}, uuid.UUID{}, buyer, in.Text, in.Photos, &in.ListingID, nil, false, c.d.Now()); err != nil {
 		return ConversationView{}, err
 	}
+	// A2
 	m, err := c.d.Chats.MessageByKey(ctx, buyer, key)
 	if err == nil {
 		return c.Get(ctx, buyer, m.ConversationID())
@@ -33,14 +36,16 @@ func (c *Chat) Open(ctx context.Context, buyer, key uuid.UUID, in OpenInput) (Co
 	return c.Get(ctx, buyer, res.ConversationID)
 }
 
-// Send checks the message; a key the sender sent a message with already
-// answers that message (NFR-IDEM-01), otherwise it runs MessageSend. Then
-// it reads the message back.
+// Send is UC-DEAL-01, step 3: it checks the message; a key the sender
+// sent a message with already answers that message (NFR-IDEM-01),
+// otherwise it runs MessageSend. Then it reads the message back.
 func (c *Chat) Send(ctx context.Context, sender, conversation, key uuid.UUID, in SendInput) (MessageView, error) {
+	// E7
 	if _, err := domain.NewMessage(uuid.UUID{}, conversation, sender, in.Text, in.Photos, in.ListingID, in.ReplyTo,
 		in.OpensTicket, c.d.Now()); err != nil {
 		return MessageView{}, err
 	}
+	// A2
 	m, err := c.d.Chats.MessageByKey(ctx, sender, key)
 	if errors.Is(err, repository.ErrNotFound) {
 		res, callErr := c.send.Call(ctx, SendFlowInput{

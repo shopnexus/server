@@ -38,6 +38,7 @@ func revokedIn(t *testing.T, s repository.Sessions, id uuid.UUID) bool {
 	return got.RevokedAt() != nil
 }
 
+// UC-ACC-02.
 func TestDeleteCurrentSessionRevokesOnlyIt(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -53,6 +54,7 @@ func TestDeleteCurrentSessionRevokesOnlyIt(t *testing.T) {
 
 // Signing out the other devices keeps the caller's session and leaves
 // other accounts alone; it needs a recent sign-in.
+// UC-ACC-02 A1, E2 · BR-ACC-04.
 func TestDeleteOtherSessions(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -77,6 +79,7 @@ func TestDeleteOtherSessions(t *testing.T) {
 	}
 }
 
+// UC-ACC-02 E1.
 func TestDeleteSessionChecksTheOwner(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

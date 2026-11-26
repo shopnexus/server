@@ -39,9 +39,9 @@ type filledPhoto struct {
 	Reason  string         `json:"reason,omitempty"`
 }
 
-// Start checks the account, inserts the read under the daily cap and
-// checks the photo, each a step, then sends Run and the delayed Expire. A
-// photo the check refuses deletes the read again.
+// Start is UC-LST-01, step 2: it checks the account, inserts the read under
+// the daily cap and checks the photo, each a step, then sends Run and the
+// delayed Expire. A photo the check refuses deletes the read again.
 func (s PhotoRead) Start(ctx restate.Context, in StartPhotoInput) (StartResult, error) {
 	o, err := s.openRead(ctx, in.Account, in.Key, func(id uuid.UUID, at time.Time) domain.ListingRead {
 		return domain.NewPhotoRead(id, in.Account, in.Photo, at)
@@ -53,8 +53,8 @@ func (s PhotoRead) Start(ctx restate.Context, in StartPhotoInput) (StartResult, 
 		return *o.Answer, nil
 	}
 	id := o.ID
-	// The photo must be the caller's, waiting, before its expiry and in the
-	// store as declared: what a search by photo takes.
+	// E8: the photo must be the caller's, waiting, before its expiry and in
+	// the store as declared: what a search by photo takes.
 	checked, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		_, queryErr := s.Media.QueryUpload(rc, in.Account, in.Photo)
 		return restatex.AsRefusal(queryErr)

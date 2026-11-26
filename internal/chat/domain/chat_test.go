@@ -26,6 +26,7 @@ func newMessage(body string, photos []uuid.UUID) (domain.Message, error) {
 	return domain.NewMessage(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), body, photos, nil, nil, false, now)
 }
 
+// UC-DEAL-01 E7.
 func TestNewMessage(t *testing.T) {
 	t.Parallel()
 	m, err := newMessage("  Còn không bạn?  ", nil)

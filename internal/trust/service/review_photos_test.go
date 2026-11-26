@@ -15,6 +15,7 @@ import (
 // A review's photos are processed when it is written and keep their order;
 // leaving them out keeps them, [] removes them, and another person's upload
 // is refused.
+// UC-TRS-01 E3.
 func TestReviewPhotos(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

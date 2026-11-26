@@ -12,6 +12,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/audit"
 )
 
+// UC-MOD-10 A1, A2, E1, E3, E4, E5.
 func TestFirstSignIn(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -56,6 +57,7 @@ func TestFirstSignIn(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 E1.
 func TestLoginRefusesAlike(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -77,6 +79,7 @@ func TestLoginRefusesAlike(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 E2.
 func TestUnknownEmailLocksLikeAKnownOne(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -141,6 +144,7 @@ func TestLoginCountsConcurrentFailures(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 E2, E3.
 func TestWrongCodesLock(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

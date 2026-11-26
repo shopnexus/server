@@ -216,6 +216,8 @@ func TestRequestCodRefusals(t *testing.T) {
 
 // A COD request waits for the seller to come back from away mode; an order
 // placed before goes on.
+//
+// UC-DEAL-03 E7.
 func TestRequestCodRefusedWhileTheSellerIsAway(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -239,7 +241,7 @@ func TestRequestCodRefusedWhileTheSellerIsAway(t *testing.T) {
 	}
 }
 
-// UC-DEAL-06 · UC-DEAL-05 E1.
+// UC-DEAL-06.
 func TestCancelAPendingOrder(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

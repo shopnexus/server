@@ -16,6 +16,8 @@ import (
 type Service interface {
 	// DeleteAccount deletes the caller's account after a recent sign-in,
 	// unless an order of theirs is requested or shipped.
+	//
+	// UC-ACC-09 · BR-ACC-04
 	DeleteAccount(ctx context.Context, p authn.Principal) error
 }
 

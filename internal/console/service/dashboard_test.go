@@ -35,6 +35,7 @@ func (e env) open(t *testing.T, host, ticket string) string {
 	return out.Token
 }
 
+// UC-MOD-10 A3, E6.
 func TestDashboardTicketFloors(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -64,6 +65,7 @@ func TestDashboardTicketFloors(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 A3, E7.
 func TestOpenDashboardTakesTheTicketOnce(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -90,6 +92,7 @@ func TestOpenDashboardTakesTheTicketOnce(t *testing.T) {
 	}
 }
 
+// UC-MOD-10 E7.
 func TestDashboardTicketExpires(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -209,7 +212,7 @@ func TestDashboardSessionsEndWithTheConsoleSession(t *testing.T) {
 // its floor is admin, both for a ticket and on the dashboard session the
 // moderator already holds, and let in once an admin lowers it; raising it
 // again refuses the same session on its next request. Each change is a
-// console action.
+// console action. UC-MOD-10 A5, E6 · UC-SHR-02.
 func TestDashboardFloorsAreTheTables(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

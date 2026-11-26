@@ -15,6 +15,7 @@ type followedAccount struct {
 	At          string `json:"at"`
 }
 
+// UC-DSC-04 A2, E3, E5.
 func TestFollows(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
@@ -56,6 +57,7 @@ func TestFollows(t *testing.T) {
 }
 
 // A follower hears when the seller first puts a listing on sale.
+// UC-DSC-04 A2.
 func TestFollowerHearsOfANewListing(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
@@ -68,6 +70,7 @@ func TestFollowerHearsOfANewListing(t *testing.T) {
 	}
 }
 
+// UC-DSC-04 E2, E4.
 func TestFollowRefusals(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)

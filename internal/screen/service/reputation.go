@@ -54,15 +54,17 @@ type Cap struct {
 	Max  int `json:"max"`
 }
 
-// Reputation reads the Uy tín của bạn view: the caller's ratings as a
-// seller and as a buyer, sales, join date, followers and reply rate, its COD figures as a
-// buyer, and the listing and COD caps with the caller's use. A deleted
-// account is accountdomain.ErrSessionRevoked, from Me.
+// Reputation is UC-TRS-04. It reads the Uy tín của bạn view: the caller's
+// ratings as a seller and as a buyer, sales, join date, followers and
+// reply rate, its COD figures as a buyer, and the listing and COD caps
+// with the caller's use. A deleted account is
+// accountdomain.ErrSessionRevoked, from Me.
 func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationScreen, error) {
 	me, err := s.d.Accounts.Me(ctx, account)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the account: %w", err)
 	}
+	// 2. The figures; A1 when a role has no visible review.
 	rating, err := s.d.Trust.Rating(ctx, account, trustdomain.RoleSeller)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the rating: %w", err)
@@ -79,6 +81,7 @@ func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationS
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("count the followers: %w", err)
 	}
+	// A2 · BR-TRS-05: chat leaves the rate out under 5 threads.
 	reply, err := s.d.Chats.ReplyRate(ctx, account)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the reply rate: %w", err)
@@ -87,6 +90,7 @@ func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationS
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("count the orders: %w", err)
 	}
+	// 3. The caps every account has, with the caller's use.
 	out := ReputationScreen{
 		Rating: reputationRating(rating), BuyerRating: reputationRating(buyerRating), Sold: counts.Sold, JoinedAt: me.CreatedAt, Followers: followers,
 		Reply: reply, Figures90d: BuyerFigures{CodOrders: orders.Placed, Failed: orders.Failed},
@@ -98,7 +102,8 @@ func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationS
 	return out, nil
 }
 
-// reputationRating is r with a null average without reviews.
+// reputationRating is UC-TRS-04 A1: r with a null average without
+// reviews.
 func reputationRating(r trustsvc.Rating) ReputationRating {
 	out := ReputationRating{Count: r.Count}
 	if r.Count > 0 {

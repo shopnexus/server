@@ -40,6 +40,7 @@ func TestVerifyGoogleToken(t *testing.T) {
 	}
 }
 
+// UC-ACC-01 E2.
 func TestVerifyGoogleTokenRefuses(t *testing.T) {
 	t.Parallel()
 	i := issuer(t)

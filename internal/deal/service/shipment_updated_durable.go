@@ -100,8 +100,8 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 			if refused != nil {
 				continue // the deal moved meanwhile: read it again
 			}
-			// E2 · BR-DEAL-08: a parcel refused at the door, or lost after
-			// the pickup, fails the order and puts the listing back on sale.
+			// E2 · BR-DEAL-08, and E4: a parcel refused at the door, or lost
+			// after the pickup, fails the order and puts the listing back on sale.
 			after := d.Order().Shipment
 			switch {
 			case d.Order().Status == domain.OrderFailed:

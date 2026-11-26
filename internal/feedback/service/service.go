@@ -22,8 +22,12 @@ import (
 type Service interface {
 	// Send stores account's feedback under key, or returns the feedback
 	// the key made already, with existed true.
+	//
+	// UC-MOD-11 · NFR-IDEM-01
 	Send(ctx context.Context, account, key uuid.UUID, in domain.Draft) (FeedbackView, bool, error)
 	// Mine lists account's newest feedback, at most MineLimit.
+	//
+	// UC-MOD-11
 	Mine(ctx context.Context, account uuid.UUID) ([]FeedbackView, error)
 	// Facts reads what notification tells of a feedback; false for none.
 	Facts(ctx context.Context, id uuid.UUID) (Facts, bool, error)
@@ -31,22 +35,36 @@ type Service interface {
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
 	// Queue lists feedback of status and kind, any when nil, newest first,
 	// for staff.
+	//
+	// UC-MOD-11
 	Queue(ctx context.Context, status *domain.Status, kind *domain.Kind, p page.Request) (page.Page[ConsoleFeedback], error)
 	// Detail reads id with the rest of its group, newest first, at most
 	// GroupLimit.
+	//
+	// UC-MOD-11
 	Detail(ctx context.Context, id uuid.UUID) (ConsoleFeedbackDetail, error)
 	// Groups lists the groups of kind, any when nil, largest first, at most
 	// GroupsLimit.
+	//
+	// UC-MOD-11
 	Groups(ctx context.Context, kind *domain.Kind) ([]GroupView, error)
 	// Summary counts the feedback of the last SummaryDays days.
 	Summary(ctx context.Context) (SummaryView, error)
 	// SetStatus sets a status, note and version on id's whole group.
+	//
+	// UC-MOD-11 · UC-SHR-02
 	SetStatus(ctx context.Context, id uuid.UUID, in StatusInput, by audit.Actor) (ConsoleFeedback, error)
 	// Reply sets ShopNexus's one reply to id; a second call replaces it.
+	//
+	// UC-MOD-11 · UC-SHR-02
 	Reply(ctx context.Context, id uuid.UUID, text string, by audit.Actor) (ConsoleFeedback, error)
 	// Heart sets whether staff hearted id.
+	//
+	// UC-MOD-11 · UC-SHR-02
 	Heart(ctx context.Context, id uuid.UUID, hearted bool, by audit.Actor) (ConsoleFeedback, error)
 	// SameAs joins id to other's group.
+	//
+	// UC-MOD-11 · UC-SHR-02
 	SameAs(ctx context.Context, id, other uuid.UUID, by audit.Actor) (ConsoleFeedback, error)
 }
 

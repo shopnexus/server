@@ -44,7 +44,7 @@ func newService(t *testing.T, photos bool) (*service.Feedback, func() uuid.UUID,
 }
 
 // Send stores feedback once per key and lists it; a mood or a text is
-// needed, and the day's limit holds.
+// needed, and the day's limit holds. UC-MOD-11 A1, E1, E2.
 func TestSendAndMine(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -89,7 +89,7 @@ func TestSendAndMine(t *testing.T) {
 }
 
 // Feedback from the website keeps its page and a browser without an app
-// version, for staff.
+// version, for staff. UC-MOD-11 A3.
 func TestSendFromTheWebsite(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -134,7 +134,7 @@ func TestSendPhotos(t *testing.T) {
 }
 
 // Staff move a group, reply, heart and join; Facts reads what a notice
-// says, and a deleted account's feedback leaves its group.
+// says, and a deleted account's feedback leaves its group. UC-MOD-11.
 func TestStaff(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

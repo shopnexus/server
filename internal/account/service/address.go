@@ -60,6 +60,7 @@ func (s *Account) owned(ctx context.Context, owner, id uuid.UUID) (domain.Addres
 	return a, nil
 }
 
+// Addresses is UC-ACC-07, step 1.
 func (s *Account) Addresses(ctx context.Context, owner uuid.UUID) ([]AddressView, error) {
 	list, err := s.d.Addresses.List(ctx, owner)
 	if err != nil {
@@ -84,19 +85,23 @@ func (s *Account) Address(ctx context.Context, owner, id uuid.UUID) (AddressView
 	return addressView(a, place), nil
 }
 
+// CreateAddress is UC-ACC-07, steps 2 and 3.
 func (s *Account) CreateAddress(ctx context.Context, owner, key uuid.UUID, d domain.AddressDraft, makeDefault bool) (AddressView, error) {
 	place, found, err := s.commune(ctx, d.CommuneCode)
 	if err != nil {
 		return AddressView{}, err
 	}
 	id := uuid.NewV7()
+	// E1
 	a, err := domain.NewAddress(id, owner, d, found, s.d.Now())
 	if err != nil {
 		return AddressView{}, err
 	}
+	// 3. Save; the first address is the default. E2 at the cap; A2 as the default.
 	if err = s.d.Addresses.Insert(ctx, key, &a, makeDefault); err != nil {
 		return AddressView{}, fmt.Errorf("insert address: %w", err)
 	}
+	// A4 · NFR-IDEM-01
 	if a.ID() != id {
 		// A retried request: a is the address its first try added, which
 		// may name another commune if the body changed.
@@ -110,7 +115,10 @@ func (s *Account) CreateAddress(ctx context.Context, owner, key uuid.UUID, d dom
 // UpdateAddress saves under the address's write ID, so an edit that lost a
 // race with another edit or a move of the default is apperr.ErrTryAgain.
 // With makeDefault the save also makes the address the default.
+//
+// UpdateAddress is UC-ACC-07 A1 and A2.
 func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d domain.AddressDraft, makeDefault bool) (AddressView, error) {
+	// E3 · BR-ACC-02
 	a, err := s.owned(ctx, owner, id)
 	if err != nil {
 		return AddressView{}, err
@@ -119,9 +127,11 @@ func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d doma
 	if err != nil {
 		return AddressView{}, err
 	}
+	// E1
 	if err = a.Edit(d, found); err != nil {
 		return AddressView{}, err
 	}
+	// E4 · NFR-CONC-01
 	err = s.d.Addresses.Save(ctx, &a, uuid.NewV7(), makeDefault)
 	if errors.Is(err, repository.ErrConflict) {
 		return AddressView{}, apperr.ErrTryAgain
@@ -132,8 +142,10 @@ func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d doma
 	return addressView(a, place), nil
 }
 
+// SetDefaultAddress is UC-ACC-07 A2.
 func (s *Account) SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) error {
 	err := s.d.Addresses.SetDefault(ctx, owner, id, uuid.NewV7())
+	// E3 · BR-ACC-02
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrAddressNotFound
 	}
@@ -143,8 +155,10 @@ func (s *Account) SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) er
 	return nil
 }
 
+// DeleteAddress is UC-ACC-07 A3.
 func (s *Account) DeleteAddress(ctx context.Context, owner, id uuid.UUID) error {
 	err := s.d.Addresses.Delete(ctx, owner, id, uuid.NewV7())
+	// E3 · BR-ACC-02
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrAddressNotFound
 	}

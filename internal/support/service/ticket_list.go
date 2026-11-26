@@ -84,6 +84,7 @@ func (s *Support) OfConversation(ctx context.Context, account, conversation uuid
 	return v, err == nil, err
 }
 
+// Messaged is UC-MOD-09 A2.
 func (s *Support) Messaged(ctx context.Context, conversation, message uuid.UUID, fromPerson bool, at time.Time) error {
 	from := domain.FromShopNexus
 	if fromPerson {

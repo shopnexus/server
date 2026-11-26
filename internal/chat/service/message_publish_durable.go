@@ -29,8 +29,8 @@ type loadedMessage struct {
 	Found   bool                `json:"found"`
 }
 
-// Run processes the message's uploads through MediaProcess with the upload
-// ID as idempotency key. A message gone or no longer processing is left as
+// Run is UC-DEAL-01 A1: it processes the message's uploads through
+// MediaProcess with the upload ID as idempotency key. A message gone or no longer processing is left as
 // it is.
 func (s MessagePublish) Run(ctx restate.Context, id uuid.UUID) error {
 	ld, err := restate.Run(ctx, func(rc restate.RunContext) (loadedMessage, error) {

@@ -38,26 +38,32 @@ type SavedListing struct {
 	Status      catalogdomain.Status `json:"status"`
 }
 
+// Save is UC-DSC-03, step 1.
 func (d *Discovery) Save(ctx context.Context, account, listing uuid.UUID) error {
 	l, ok, err := d.d.Catalog.Summary(ctx, listing)
 	if err != nil {
 		return fmt.Errorf("read listing: %w", err)
 	}
 	switch {
+	// E3
 	case !ok:
 		return catalogdomain.ErrNotFound
+	// E1
 	case l.SellerID == account:
 		return domain.ErrOwnListing
+	// E2
 	case l.Status != catalogdomain.StatusActive && l.Status != catalogdomain.StatusReserved:
 		return domain.ErrListingUnavailable
 	default:
 	}
+	// 1. The save keeps today's price; E4 past domain.MaxSaved.
 	if err = d.d.Saves.Save(ctx, uuid.NewV7(), account, listing, l.Price, d.d.Now()); err != nil {
 		return fmt.Errorf("save: %w", err)
 	}
 	return nil
 }
 
+// Unsave is UC-DSC-03 A5.
 func (d *Discovery) Unsave(ctx context.Context, account, listing uuid.UUID) error {
 	if err := d.d.Saves.Remove(ctx, account, listing); err != nil {
 		return fmt.Errorf("unsave: %w", err)
@@ -81,8 +87,9 @@ var takenDown = []catalogdomain.Status{catalogdomain.StatusHidden, catalogdomain
 // sold, or its seller took it down.
 var ended = []catalogdomain.Status{catalogdomain.StatusSold, catalogdomain.StatusHidden, catalogdomain.StatusDeleted}
 
-// Saved reads one page of saves, those of listings still on sale first,
-// their listings and the communes of the listings it shows, one call each.
+// Saved is UC-DSC-03, step 4: it reads one page of saves, those of
+// listings still on sale first, their listings and the communes of the
+// listings it shows, one call each.
 func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error) {
 	rows, err := d.d.Saves.List(ctx, account, ended, p)
 	if err != nil {

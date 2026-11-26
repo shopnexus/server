@@ -42,6 +42,7 @@ func insert(t *testing.T, db *pgxpool.Pool, entries ...audit.Entry) {
 	}
 }
 
+// UC-SHR-02 · UC-MOD-05.
 func TestListFiltersAndPages(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

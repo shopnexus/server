@@ -77,8 +77,8 @@ type processed struct {
 	Failure  string `json:"failure"`
 }
 
-// Run processes the upload once; run again, it returns what the first run
-// decided.
+// Run is UC-SHR-01, step 4: it processes the upload once; run again, it
+// returns what the first run decided (NFR-DUR-01).
 func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
@@ -147,6 +147,7 @@ func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, err
 	if err != nil {
 		return ProcessResult{}, fmt.Errorf("process the photo: %w", err)
 	}
+	// E3: content that is not the declared image, or too large to decode.
 	if out.Failure != "" {
 		u.Failed(out.Failure, at)
 	} else {

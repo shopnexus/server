@@ -17,6 +17,8 @@ import (
 // refreshes sign. The refresh token is not rotated: an app that lost the
 // reply would still hold the old one, and a refresh token presented after
 // its rotation signs the session out.
+//
+// Reauthenticate is UC-ACC-02 A2.
 func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (domain.AccessToken, error) {
 	now := s.d.Now()
 	a, err := s.load(ctx, in.Caller.AccountID)
@@ -56,7 +58,7 @@ func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (d
 		return domain.AccessToken{}, err
 	}
 
-	// auth_time only moves forward, so a retry of the request is harmless.
+	// A2. Move the sign-in time forward. auth_time only moves forward, so a retry of the request is harmless.
 	// The session must still be usable at res.At, the time the proof was
 	// checked, which is later than now.
 	renewed, err := s.d.Sessions.Reauthenticate(ctx, sess.ID(), res.At)

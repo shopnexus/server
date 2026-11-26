@@ -62,12 +62,14 @@ const (
 	valueTaken saveOutcome = "taken"
 )
 
+// Run is UC-ACC-08, steps 2 and 3.
 func (s AddIdentity) Run(ctx restate.Context, in AddIdentityRun) (AddIdentityResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
 		return AddIdentityResult{}, err
 	}
 	var addr contact.Address
+	// A1. Judge the code; E5 one that expired or is another account's.
 	if in.Guess != nil {
 		proved, refused, judgeErr := judgeGuess(ctx, s.Challenges, *in.Guess, domain.PurposeAddIdentity, &in.AccountID, in.Key, at)
 		if judgeErr != nil || refused != nil {
@@ -102,9 +104,11 @@ func (s AddIdentity) Run(ctx restate.Context, in AddIdentityRun) (AddIdentityRes
 	if in.Key != uuid.Nil() {
 		w = restatex.DerivedID("identity-add", in.AccountID.String(), in.Key.String())
 	}
+	// A2 · NFR-IDEM-01
 	if c.WriteID() == w {
 		return AddIdentityResult{Identities: identitiesOf(c)}, nil
 	}
+	// 3. Add the identity; E3 a kind the account has · BR-ACC-05.
 	if added := c.Add(domain.NewIdentity(restatex.NewID(ctx, at), addr, at)); added != nil {
 		return AddIdentityResult{Refused: apperr.From(added)}, nil
 	}
@@ -127,8 +131,10 @@ func (s AddIdentity) Run(ctx restate.Context, in AddIdentityRun) (AddIdentityRes
 	}
 	switch outcome {
 	case lostRace:
+		// E6
 		return AddIdentityResult{Refused: apperr.ErrTryAgain}, nil
 	case valueTaken:
+		// E4 · BR-ACC-05
 		return AddIdentityResult{Refused: domain.ErrIdentityTaken}, nil
 	case saved:
 	default:

@@ -52,6 +52,10 @@ func TestPutDraftCreatesAndReplaces(t *testing.T) {
 	}
 }
 
+// A PUT refuses another account's photo and a 21st draft; a replace at
+// the limit passes.
+//
+// UC-LST-01 E9.
 func TestPutDraftRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

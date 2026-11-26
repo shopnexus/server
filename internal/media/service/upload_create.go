@@ -17,11 +17,13 @@ const (
 	putTTL = 15 * time.Minute
 )
 
-// CreateUpload starts an upload and returns a presigned PUT for it. The
-// expiry is scheduled with Restate before the row exists, so no upload is
-// left without one; an expiry that finds no row does nothing.
+// CreateUpload is UC-SHR-01, steps 1 and 2: it starts an upload and returns
+// a presigned PUT for it. The expiry is scheduled with Restate before the
+// row exists, so no upload is left without one; an expiry that finds no row
+// does nothing.
 func (m *Media) CreateUpload(ctx context.Context, owner uuid.UUID, contentType string, size int64) (UploadTicket, error) {
 	now := m.d.Now()
+	// E1: a type or size the server does not take.
 	u, err := domain.NewUpload(uuid.NewV7(), owner, contentType, size, domain.OriginApp, now)
 	if err != nil {
 		return UploadTicket{}, err
@@ -33,6 +35,7 @@ func (m *Media) CreateUpload(ctx context.Context, owner uuid.UUID, contentType s
 	if err = m.d.Uploads.Create(ctx, u); err != nil {
 		return UploadTicket{}, fmt.Errorf("create upload: %w", err)
 	}
+	// 2. A PUT that fixes the type and size, valid putTTL.
 	url, headers, err := m.d.Store.PresignPut(ctx, u.Key(), contentType, size, putTTL)
 	if err != nil {
 		return UploadTicket{}, fmt.Errorf("presign the upload: %w", err)

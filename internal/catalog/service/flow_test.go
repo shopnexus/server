@@ -118,7 +118,7 @@ func (s *loseFirstEdit) Save(ctx context.Context, l *domain.Listing, writeID uui
 // An edit that added a photo and then lost a race is refused with
 // try_again, and the seller's next try attaches the same photo again.
 //
-// UC-LST-02 · NFR-CONC-01.
+// UC-LST-02 E8 · NFR-CONC-01.
 func TestEditAfterALostRace(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(d *service.Deps) { d.Listings = &loseFirstEdit{Listings: d.Listings} })
@@ -139,7 +139,7 @@ func TestEditAfterALostRace(t *testing.T) {
 
 // Unmarking a sale counts toward the cap.
 //
-// UC-LST-02 A2 · BR-LST-02.
+// UC-LST-02 E6 · BR-LST-02.
 func TestUnmarkSoldHoldsTheCap(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

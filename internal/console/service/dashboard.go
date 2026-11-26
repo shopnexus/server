@@ -17,7 +17,8 @@ import (
 
 // CreateDashboardTicket gives the caller's session a ticket that opens app
 // once within domain.DashboardTicketTTL. The member's role must reach the
-// app's floor, and DASHBOARD_HOSTS must give the app a host.
+// app's floor, and DASHBOARD_HOSTS must give the app a host. It is
+// UC-MOD-10 A3.
 func (s *Console) CreateDashboardTicket(ctx context.Context, caller authn.ConsoleMember, app domain.App) (DashboardTicket, error) {
 	host, configured := s.d.DashboardHosts[string(app)]
 	if !configured {
@@ -27,6 +28,7 @@ func (s *Console) CreateDashboardTicket(ctx context.Context, caller authn.Consol
 	if err != nil {
 		return DashboardTicket{}, err
 	}
+	// E6
 	if !domain.Role(caller.Role).AtLeast(floor) {
 		return DashboardTicket{}, domain.ErrConsoleForbidden
 	}
@@ -46,7 +48,8 @@ func (s *Console) CreateDashboardTicket(ctx context.Context, caller authn.Consol
 // OpenDashboard spends ticket at host, the callback request's Host, and
 // starts a dashboard session that ends with the ticket's console session. A
 // ticket that is unknown, used, expired, for another dashboard or of a
-// console session that has ended is domain.ErrInvalidDashboardTicket.
+// console session that has ended is domain.ErrInvalidDashboardTicket. It
+// is UC-MOD-10 A3.
 func (s *Console) OpenDashboard(ctx context.Context, host, ticket string) (DashboardOpened, error) {
 	app, ok := s.dashboardAt(host)
 	if !ok {
@@ -54,6 +57,7 @@ func (s *Console) OpenDashboard(ctx context.Context, host, ticket string) (Dashb
 	}
 	now := s.d.Now()
 	tok, hash := token.NewOpaque("ds_")
+	// E7
 	expiresAt, err := s.d.Dashboards.Redeem(ctx, token.Hash(ticket), hash, app, now)
 	if errors.Is(err, repository.ErrNotFound) {
 		return DashboardOpened{}, domain.ErrInvalidDashboardTicket

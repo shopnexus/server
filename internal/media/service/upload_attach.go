@@ -13,15 +13,17 @@ import (
 	"github.com/shopnexus/server/internal/platform/objectstore"
 )
 
-// Attach gives owner's uploads to holder as photos, all or none.
+// Attach is UC-SHR-01, step 3: it gives owner's uploads to holder as
+// photos, all or none.
 func (m *Media) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID, writeID uuid.UUID) error {
 	return m.attachAs(ctx, owner, holder, domain.ShapePhoto, ids, writeID)
 }
 
-// attachAs gives owner's uploads to holder in shape, all or none. Each must
-// be owner's and either held by holder in shape already or waiting and put
-// to the store with the type and size it declared. The changed uploads
-// save under writeID, which the caller mints so a retry sends the same.
+// attachAs is UC-SHR-01, step 3: it gives owner's uploads to holder in
+// shape, all or none. Each must be owner's and either held by holder in
+// shape already or waiting and put to the store with the type and size it
+// declared. The changed uploads save under writeID, which the caller mints
+// so a retry sends the same.
 func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape domain.Shape, ids []uuid.UUID, writeID uuid.UUID) error {
 	now := m.d.Now()
 	ids = slices.Clone(ids)
@@ -31,6 +33,8 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 	if err != nil {
 		return fmt.Errorf("get uploads: %w", err)
 	}
+	// E2: an unknown upload, another owner's, another holder's, expired,
+	// never put or put with another type or size.
 	if len(found) != len(ids) {
 		return domain.ErrInvalidUpload
 	}
@@ -41,6 +45,7 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 		if attachErr != nil {
 			return attachErr
 		}
+		// A4 · NFR-IDEM-01: an upload holder already holds passes.
 		if !changed {
 			continue
 		}

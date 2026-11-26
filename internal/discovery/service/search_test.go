@@ -75,6 +75,7 @@ func (e env) put(t *testing.T, title, category string, p catalogdomain.Point) uu
 	})
 }
 
+// UC-DSC-01.
 func TestSearchUnderstands(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -105,6 +106,7 @@ func TestSearchUnderstands(t *testing.T) {
 
 // A guest's query skips the model and the embedding: the raw words search
 // through BM25, with no chips, and the cursor keeps the next pages on them.
+// UC-DSC-01 A4.
 func TestSearchGuestSkipsTheModel(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -142,6 +144,7 @@ func TestSearchGuestSkipsTheModel(t *testing.T) {
 
 // Past the day's model calls a signed-in search runs on the raw words; a
 // cached answer still serves.
+// UC-DSC-01 A1 · BR-DSC-03.
 func TestSearchStopsAtTheDaysModelCalls(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -163,6 +166,7 @@ func TestSearchStopsAtTheDaysModelCalls(t *testing.T) {
 	}
 }
 
+// UC-DSC-01 A1.
 func TestSearchWithoutTheModel(t *testing.T) {
 	t.Parallel()
 	for name, set := range map[string]func(*fakeModel){
@@ -215,6 +219,7 @@ func TestSearchSharesTheModelCall(t *testing.T) {
 
 // The pages of a search the model did not answer stay on the raw words
 // after the model comes back.
+// UC-DSC-01 A1.
 func TestSearchPinsTheRawWords(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -240,6 +245,7 @@ func TestSearchPinsTheRawWords(t *testing.T) {
 	}
 }
 
+// UC-DSC-02 E1, E2, E3, E4.
 func TestSearchRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -268,6 +274,7 @@ func TestSearchRefusals(t *testing.T) {
 	}
 }
 
+// UC-DSC-02.
 func TestSearchPagesAndSaves(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -307,6 +314,7 @@ func TestSearchPagesAndSaves(t *testing.T) {
 }
 
 // A province keeps its listings, with the other filters.
+// UC-DSC-02.
 func TestSearchProvince(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -331,6 +339,7 @@ func TestSearchProvince(t *testing.T) {
 
 // A seller keeps that seller's listings; the search keeps no history,
 // names no watch and goes without watch.
+// UC-DSC-02 A3.
 func TestSearchSeller(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -368,6 +377,7 @@ func TestSearchSeller(t *testing.T) {
 	}
 }
 
+// UC-DSC-05 E1.
 func TestSearchNearby(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -422,6 +432,7 @@ func (e env) vec(t *testing.T, id uuid.UUID, text, photo []float32) {
 	}
 }
 
+// UC-DSC-01.
 func TestSearchFindsByMeaning(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -499,6 +510,7 @@ func TestSearchHungEmbeddingsFallBackQuickly(t *testing.T) {
 	}
 }
 
+// UC-DSC-01 A5.
 func TestSearchByPhoto(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -524,6 +536,7 @@ func TestSearchByPhoto(t *testing.T) {
 	}
 }
 
+// UC-DSC-01 E1, E2, E3, E4.
 func TestSearchByPhotoRefuses(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -553,6 +566,7 @@ func TestSearchByPhotoRefuses(t *testing.T) {
 	}
 }
 
+// UC-DSC-02 A1, E5.
 func TestSearchLike(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -581,6 +595,7 @@ func TestSearchLike(t *testing.T) {
 
 // With the image model off, a photo search is unavailable and q runs without
 // the visual list; with the text model off, q runs without the text list.
+// UC-DSC-01 E4.
 func TestSearchWithAnEmbedderOff(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

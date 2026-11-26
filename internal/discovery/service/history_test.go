@@ -12,6 +12,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
+// UC-DSC-01 A6.
 func TestSearchRemembersTheFirstPage(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

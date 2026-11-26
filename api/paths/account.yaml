@@ -1,6 +1,7 @@
 me:
   get:
     operationId: getMyAccount
+    x-uc: [UC-ACC-06]
     summary: Read the caller's account.
     tags: [account]
     security:
@@ -18,6 +19,7 @@ me:
         $ref: "../responses/common.yaml#/NotFound"
   patch:
     operationId: updateMyAccount
+    x-uc: [UC-ACC-06]
     summary: Change the display name, the bio, the avatar or away mode.
     description: |
       A new avatar is processed before the reply, which carries its URL.
@@ -59,6 +61,7 @@ me:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: deleteMyAccount
+    x-uc: [UC-ACC-09]
     summary: Delete the caller's account.
     description: |
       Needs a sign-in within 15 minutes. The account's listings, profile,
@@ -89,6 +92,7 @@ me:
 myIdentities:
   post:
     operationId: addMyIdentity
+    x-uc: [UC-ACC-08]
     summary: Add the phone or email the caller's account lacks.
     description: |
       A phone_token adds a phone to an account that has only an email;
@@ -141,6 +145,7 @@ myIdentities:
 myEmailCodes:
   post:
     operationId: sendMyEmailCode
+    x-uc: [UC-ACC-08]
     x-rate-limit: code
     summary: Mail a six-digit code that adds this email address to the caller's account.
     description: |
@@ -189,6 +194,7 @@ myEmailCodes:
 blocks:
   post:
     operationId: blockAccount
+    x-uc: [UC-ACC-05]
     summary: Block an account.
     description: |
       Neither the caller nor the account may then message the other, open a
@@ -230,6 +236,7 @@ blocks:
               $ref: "../schemas/error.yaml#/Error"
   get:
     operationId: listBlocks
+    x-uc: [UC-ACC-05]
     summary: List the accounts the caller blocks, newest block first.
     tags: [account]
     security:
@@ -251,6 +258,7 @@ blocks:
 block:
   delete:
     operationId: unblockAccount
+    x-uc: [UC-ACC-05]
     summary: Lift a block; an absent one is fine.
     tags: [account]
     security:
@@ -272,6 +280,7 @@ block:
 follows:
   post:
     operationId: followAccount
+    x-uc: [UC-DSC-04]
     summary: Follow an account.
     description: |
       The caller hears when the account first publishes a listing.
@@ -319,6 +328,7 @@ follows:
               $ref: "../schemas/error.yaml#/Error"
   get:
     operationId: listFollows
+    x-uc: [UC-DSC-04]
     summary: List the accounts the caller follows, newest follow first.
     tags: [account]
     security:
@@ -340,6 +350,7 @@ follows:
 follow:
   delete:
     operationId: unfollowAccount
+    x-uc: [UC-DSC-04]
     summary: Stop following an account; an absent follow is fine.
     tags: [account]
     security:

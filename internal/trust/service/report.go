@@ -17,8 +17,9 @@ import (
 // Report checks that the reporter may write and names one target that
 // exists, takes a listing's seller as the account reported, checks that a
 // named conversation is the pair's, then opens the report or updates the
-// open one.
+// open one. It is UC-MOD-01.
 func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) (ReportView, bool, error) {
+	// E1 · BR-MOD-02
 	status, err := s.d.Accounts.Status(ctx, reporter)
 	if err != nil {
 		return ReportView{}, false, fmt.Errorf("read account status: %w", err)
@@ -26,12 +27,16 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 	if r := status.Refusal(); r != nil {
 		return ReportView{}, false, r
 	}
+	// 1. One target. E3 without exactly one.
 	if (in.ListingID == uuid.UUID{}) == (in.AccountID == uuid.UUID{}) {
 		return ReportView{}, false, domain.ErrInvalidReport.WithField("target", apperr.OneOf, "exactly one of listing_id and account_id")
 	}
+	// E5
 	if in.AccountID == accountdomain.ShopNexusID {
 		return ReportView{}, false, accountdomain.ErrSystemAccount
 	}
+	// 3. A listing's report is about its seller. E4 for a deleted
+	// listing; A4: a hidden, reserved or sold one can be reported.
 	account := in.AccountID
 	if in.ListingID != (uuid.UUID{}) {
 		l, found, lerr := s.d.Catalog.Summary(ctx, in.ListingID)
@@ -45,6 +50,7 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 	} else if _, err = s.d.Accounts.Get(ctx, account); err != nil {
 		return ReportView{}, false, fmt.Errorf("read account: %w", err)
 	}
+	// A1, and E3 for a conversation that is not the pair's.
 	if in.ConversationID != (uuid.UUID{}) && in.ListingID == (uuid.UUID{}) {
 		pair, cerr := s.d.Chats.ConversationWith(ctx, reporter, account)
 		if cerr != nil {
@@ -54,10 +60,14 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 			return ReportView{}, false, domain.ErrInvalidReport.WithField("conversation_id", apperr.NotAllowed, "the reporter's conversation with the account")
 		}
 	}
+	// 2. E2 for oneself or one's own listing, E3 for a reason or note
+	// that breaks a rule.
 	r, err := domain.NewReport(uuid.NewV7(), reporter, account, in.ListingID, in.ConversationID, in.Reason, in.Note, s.d.Now())
 	if err != nil {
 		return ReportView{}, false, err
 	}
+	// A2: the open report of the same target takes the new reason, note
+	// and conversation.
 	r, added, err := s.d.Reports.Open(ctx, r)
 	if err != nil {
 		return ReportView{}, false, fmt.Errorf("open report: %w", err)
@@ -65,7 +75,8 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 	return reportView(r), added, nil
 }
 
-// MyReports lists a page of the reporter's reports, newest first.
+// MyReports lists a page of the reporter's reports, newest first. It is
+// UC-MOD-01 step 4.
 func (s *Trust) MyReports(ctx context.Context, reporter uuid.UUID, p page.Request) (page.Page[ReportView], error) {
 	rows, err := s.d.Reports.ListMine(ctx, reporter, p)
 	if err != nil {
@@ -80,8 +91,9 @@ func (s *Trust) MyReports(ctx context.Context, reporter uuid.UUID, p page.Reques
 }
 
 // WithdrawReport withdraws the reporter's report; anyone else's, or an
-// unknown ID, is domain.ErrReportNotFound.
+// unknown ID, is domain.ErrReportNotFound. It is UC-MOD-01 A3.
 func (s *Trust) WithdrawReport(ctx context.Context, reporter, id uuid.UUID) error {
+	// E1
 	status, err := s.d.Accounts.Status(ctx, reporter)
 	if err != nil {
 		return fmt.Errorf("read account status: %w", err)
@@ -89,6 +101,7 @@ func (s *Trust) WithdrawReport(ctx context.Context, reporter, id uuid.UUID) erro
 	if refusal := status.Refusal(); refusal != nil {
 		return refusal
 	}
+	// E6
 	r, err := s.d.Reports.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.ReporterID() != reporter) {
 		return domain.ErrReportNotFound

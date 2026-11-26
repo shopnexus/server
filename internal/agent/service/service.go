@@ -64,13 +64,21 @@ type Service interface {
 	// UC-MOD-08
 	Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string, emit func(TurnEvent) error) error
 	// Control pauses, stops, continues or ends a turn's run.
+	//
+	// UC-MOD-08 A1, A2
 	Control(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, c Control) (TurnState, error)
 	// Steer gives a run text to read before its next model call; a key
 	// caller used answers its steer.
+	//
+	// UC-MOD-08 A3
 	Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string, key *uuid.UUID) (Steering, error)
 	// Turn reads a turn.
+	//
+	// UC-MOD-08
 	Turn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Turn, error)
 	// Answer answers a turn's clarifying questions.
+	//
+	// UC-MOD-08 A4
 	Answer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, answers Answers) (TurnState, error)
 	// TurnControl is what a running segment polls through the MCP
 	// listener: the turn's pauses, stops and steers after a seq.
@@ -103,32 +111,58 @@ type Service interface {
 	// The AI settings, an admin's. Each change is a console action.
 
 	// Providers lists the providers Bifrost runs, with their status.
+	//
+	// UC-MOD-12
 	Providers(ctx context.Context) ([]Provider, error)
 	// ProviderModels lists a provider's catalog in Bifrost.
+	//
+	// UC-MOD-12
 	ProviderModels(ctx context.Context, name string) ([]CatalogModel, error)
 	// Models lists the models agents use or that have a price or tags.
+	//
+	// UC-MOD-12
 	Models(ctx context.Context) (ModelList, error)
 	// SetModelTags replaces a model's tags.
+	//
+	// UC-MOD-12 · UC-SHR-02
 	SetModelTags(ctx context.Context, caller authn.ConsoleMember, in ModelTags) (ModelTags, error)
 	// SetModelPrice writes a model's price.
+	//
+	// UC-MOD-12 · UC-SHR-02
 	SetModelPrice(ctx context.Context, caller authn.ConsoleMember, in ModelPrice) (ModelPrice, error)
 	// Agents lists the app and console agents.
+	//
+	// UC-MOD-12
 	Agents(ctx context.Context) ([]AgentView, error)
 	// CreateAgent makes a console agent.
+	//
+	// UC-MOD-12 A1 · UC-SHR-02
 	CreateAgent(ctx context.Context, caller authn.ConsoleMember, in NewAgent) (AgentView, error)
 	// UpdateAgent changes an agent.
+	//
+	// UC-MOD-12 · UC-SHR-02 · NFR-CONC-01
 	UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in AgentPatch) (AgentView, error)
 	// AgentVersions lists an agent's instructions' versions.
+	//
+	// UC-MOD-12 A3
 	AgentVersions(ctx context.Context, id uuid.UUID) ([]AgentVersion, error)
 	// Reconcile writes the agents, their callers and the prices into
 	// Bifrost and hands the key ring the keys.
+	//
+	// UC-MOD-12
 	Reconcile(ctx context.Context) error
 	// Spend reads the daily spend from one date to another, in all and by
 	// agent.
+	//
+	// UC-MOD-12 A4
 	Spend(ctx context.Context, caller authn.ConsoleMember, from, to string) (Spend, error)
 	// AgentUsage counts each agent's requests over a range.
+	//
+	// UC-MOD-12 A4
 	AgentUsage(ctx context.Context, caller authn.ConsoleMember, rng string) ([]AgentUsage, error)
 	// Tools reads the agent's tool calls over a range.
+	//
+	// UC-MOD-12 A4
 	Tools(ctx context.Context, caller authn.ConsoleMember, rng string) (ToolStats, error)
 	// Order reads an order for the console's order page, recording the
 	// read of its tickets for caller.
@@ -137,6 +171,8 @@ type Service interface {
 	// the read of its reports for caller.
 	Listing(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConsoleListing, error)
 	// Guardrails reads the agent's guardrail notices over a range.
+	//
+	// UC-MOD-12 A4
 	Guardrails(ctx context.Context, caller authn.ConsoleMember, rng string) (GuardrailStats, error)
 	// RecordRead records that an MCP tool read personal data of subject
 	// for member.

@@ -82,7 +82,7 @@ func TestSellerTimeoutCancels(t *testing.T) {
 	}
 }
 
-// UC-DEAL-06 A2.
+// UC-DEAL-06 A2 · UC-DEAL-05 E1.
 func TestPickupTimeoutCancels(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -256,7 +256,7 @@ func (r reading) Lookup(ctx context.Context, a carrier.Account, code string) (ca
 // parcel, or reports it lost, and puts the listing back; a parcel still
 // moving moves the order and keeps it.
 //
-// UC-DEAL-05 E2.
+// UC-DEAL-05 E4.
 func TestTransitTimeout(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

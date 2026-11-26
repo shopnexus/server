@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
+// UC-ACC-09.
 func TestErase(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -40,6 +41,7 @@ func TestErase(t *testing.T) {
 	}
 }
 
+// UC-ACC-09 E3.
 func TestEraseRefusesASuspension(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

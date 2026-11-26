@@ -1,6 +1,7 @@
 feedback:
   get:
     operationId: listMyFeedback
+    x-uc: [UC-MOD-11]
     summary: The caller's feedback, newest first.
     tags: [feedback]
     security:
@@ -16,6 +17,7 @@ feedback:
         $ref: "../responses/common.yaml#/Unauthorized"
   post:
     operationId: sendFeedback
+    x-uc: [UC-MOD-11]
     summary: Send feedback to ShopNexus.
     description: |
       Feedback needs no answer, unlike a ticket. It needs a mood or a text.

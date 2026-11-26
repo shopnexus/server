@@ -70,6 +70,7 @@ var (
 // An admin reads the providers and catalogs, prices and tags a model,
 // makes a console agent on it and changes it; Bifrost takes each change,
 // every change is in the audit log, and a moderator gets none of it.
+// UC-MOD-12 A1, A3, E1, E2, E3, E5, E6.
 func TestAISettings(t *testing.T) {
 	t.Parallel()
 	minh := signInMember(t, consoledomain.RoleAdmin)
@@ -349,6 +350,7 @@ func settingsCalls(agent string) []settingsCall {
 // and agent_unavailable on a question; the agents without their spend,
 // the tags, versions, tools, guardrails and skills are the server's. The
 // second server has a database and an admin of its own.
+// UC-MOD-12 A2.
 func TestAISettingsDown(t *testing.T) {
 	t.Parallel()
 	cfg := serverConfig

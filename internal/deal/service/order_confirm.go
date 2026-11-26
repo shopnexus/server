@@ -5,8 +5,8 @@ import (
 	"uuid"
 )
 
-// ConfirmReceipt is UC-DEAL-05 A2: it finds the caller's order, runs
-// DealConfirm on it, then reads the order's deal.
+// ConfirmReceipt is UC-DEAL-05, step 4, and A2: it finds the caller's
+// order, runs DealConfirm on it, then reads the order's deal.
 func (s *Deals) ConfirmReceipt(ctx context.Context, caller, order, key uuid.UUID) (DealView, error) {
 	deal, err := s.orderDeal(ctx, caller, order)
 	if err != nil {

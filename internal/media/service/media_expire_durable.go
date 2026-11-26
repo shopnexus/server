@@ -38,12 +38,12 @@ type loadedUpload struct {
 	Found  bool          `json:"found"`
 }
 
-// Run expires the upload when it is still waiting at its expiry and
-// deletes its object. A waiting upload whose expiry a draft moved out sends
-// this run again for that moment; an attached, processed or unknown upload
-// is left as it is. A save that loses to another write reads the upload
-// again and goes on from what it finds, so the chain never ends while the
-// upload waits.
+// Run is UC-SHR-01 E4: it expires the upload when it is still waiting at
+// its expiry and deletes its object. A waiting upload whose expiry a draft
+// moved out sends this run again for that moment; an attached, processed or
+// unknown upload is left as it is. A save that loses to another write reads
+// the upload again and goes on from what it finds, so the chain never ends
+// while the upload waits.
 func (s MediaExpire) Run(ctx restate.Context, id uuid.UUID) error {
 	for {
 		at, err := restatex.Now(ctx, s.Now)

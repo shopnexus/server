@@ -46,8 +46,9 @@ type checked struct {
 	New         []int64   `json:"new,omitempty"`
 }
 
-// Run checks the link in one step; with auto_import, it brings the new
-// listings over, waiting for each, and announces how many it listed.
+// Run is UC-LST-04 A3: it checks the link in one step; with auto_import, it
+// brings the new listings over, waiting for each, and announces how many it
+// listed.
 func (s ChototSync) Run(ctx restate.Context, in SyncInput) error {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {

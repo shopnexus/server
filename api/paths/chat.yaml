@@ -1,11 +1,12 @@
 conversations:
   post:
     operationId: openConversation
+    x-uc: [UC-DEAL-01]
     summary: Open the conversation with a listing's seller, or reuse the pair's, and send the first message.
     description: |
       One conversation per pair of people, whatever their roles. Checks, in
-      order: account_suspended, the listing exists, own_listing,
-      listing_unavailable, blocked, then the message.
+      order: account_suspended, phone_required, the listing exists,
+      own_listing, listing_unavailable, blocked, then the message.
     tags: [chat]
     security:
       - bearerAuth: []
@@ -90,6 +91,7 @@ conversationMessages:
               $ref: "../schemas/error.yaml#/Error"
   post:
     operationId: sendMessage
+    x-uc: [UC-DEAL-01]
     summary: Send a message.
     description: |
       A photo message is processing until its photos are processed; only
@@ -151,6 +153,7 @@ conversationMessages:
 conversationRead:
   post:
     operationId: readConversation
+    x-uc: [UC-DEAL-01]
     summary: Mark the conversation read up to a message.
     description: |
       A message older than the caller's marker moves nothing. Every read
@@ -187,6 +190,7 @@ conversationRead:
 conversationUnread:
   post:
     operationId: markConversationUnread
+    x-uc: [UC-DEAL-01]
     summary: Mark a conversation unread until the caller reads it.
     description: |
       The conversation counts at least 1 in the inbox row's unread and in
@@ -224,6 +228,7 @@ conversationUnread:
 conversationArchive:
   post:
     operationId: archiveConversation
+    x-uc: [UC-DEAL-01]
     summary: Archive a conversation; the next message someone writes brings it back, a deal's move does not.
     tags: [chat]
     security:
@@ -257,6 +262,7 @@ conversationArchive:
 conversationUnarchive:
   post:
     operationId: unarchiveConversation
+    x-uc: [UC-DEAL-01]
     summary: Unarchive a conversation.
     tags: [chat]
     security:
@@ -290,6 +296,7 @@ conversationUnarchive:
 conversationIgnore:
   post:
     operationId: ignoreConversation
+    x-uc: [UC-DEAL-01]
     summary: Ignore a conversation; the other member is not told.
     description: |
       The conversation lists only under GET /v1/screens/inbox?ignored=true, counts as unread nowhere, and its
@@ -327,6 +334,7 @@ conversationIgnore:
 conversationUnignore:
   post:
     operationId: unignoreConversation
+    x-uc: [UC-DEAL-01]
     summary: Hear of an ignored conversation again.
     tags: [chat]
     security:
@@ -407,6 +415,7 @@ quickReplies:
         $ref: "../responses/common.yaml#/Unauthorized"
   put:
     operationId: putQuickReplies
+    x-uc: [UC-DEAL-01]
     summary: Replace the caller's quick replies.
     description: |
       The list replaces the saved one whole, in the order given; an empty

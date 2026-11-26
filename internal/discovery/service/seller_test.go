@@ -16,6 +16,7 @@ import (
 // A seller's listings come as search items, newest first: saved for the
 // viewer who saved one, without the ones the viewer hid, and measured only
 // when a position is given.
+// UC-DSC-04 A1.
 func TestSellerListings(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

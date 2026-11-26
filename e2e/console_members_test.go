@@ -9,6 +9,7 @@ import (
 
 var memberOps = []string{"disable", "enable", "unlock", "reset-password", "reset-totp"}
 
+// UC-MOD-04 A1, A2, A3, E3.
 func TestConsoleManagesModerators(t *testing.T) {
 	t.Parallel()
 	admin := signInMember(t, consoledomain.RoleAdmin)
@@ -56,6 +57,7 @@ func TestConsoleManagesModerators(t *testing.T) {
 	}
 }
 
+// UC-MOD-04 E1, E2, E5.
 func TestConsoleMemberOpsForbidden(t *testing.T) {
 	t.Parallel()
 	admin := signInMember(t, consoledomain.RoleAdmin)

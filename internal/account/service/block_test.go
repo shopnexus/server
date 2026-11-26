@@ -10,6 +10,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
+// UC-ACC-05 A2, E1, E4.
 func TestBlock(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
@@ -40,6 +41,7 @@ func TestBlock(t *testing.T) {
 	}
 }
 
+// UC-ACC-05 E3.
 func TestBlockADeletedAccount(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
@@ -54,6 +56,7 @@ func TestBlockADeletedAccount(t *testing.T) {
 	}
 }
 
+// UC-ACC-05 E2.
 func TestShopNexusCannotBeBlocked(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)

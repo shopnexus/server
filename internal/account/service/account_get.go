@@ -35,6 +35,8 @@ func (s *Account) GetMany(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]A
 
 // Me reads the caller's account and its sign-in methods. A deleted account
 // has none, and its access token answers session_revoked.
+//
+// Me is UC-ACC-06, step 1.
 func (s *Account) Me(ctx context.Context, id uuid.UUID) (MeView, error) {
 	a, err := s.load(ctx, id)
 	if err != nil {

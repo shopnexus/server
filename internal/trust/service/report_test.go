@@ -17,6 +17,7 @@ import (
 	"github.com/shopnexus/server/internal/trust/service"
 )
 
+// UC-MOD-01 A2, A3, E1, E2, E3, E6.
 func TestReport(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -91,6 +92,7 @@ func TestReport(t *testing.T) {
 }
 
 // A deleted listing cannot be reported; a hidden one can.
+// UC-MOD-01 A4, E4.
 func TestReportListingStates(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -114,7 +116,7 @@ func TestReportListingStates(t *testing.T) {
 
 // A report of an account may name the pair's conversation, also after the
 // reporter blocked the account; another pair's conversation or one beside a
-// listing is invalid_report.
+// listing is invalid_report. UC-MOD-01 A1, E3.
 func TestReportFromAConversation(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -144,6 +146,7 @@ func TestReportFromAConversation(t *testing.T) {
 	}
 }
 
+// UC-MOD-01 E5.
 func TestReportingShopNexusIsRefused(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

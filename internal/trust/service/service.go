@@ -34,11 +34,17 @@ type Service interface {
 	// PutReview creates the caller's review of the other party to an
 	// order, or edits it within its 7 days and before a reply. photos are
 	// upload IDs in order; nil tags or photos keep the review's.
+	//
+	// UC-TRS-01 · NFR-IDEM-01 · NFR-CONC-01
 	PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, tags []domain.Tag, photos []uuid.UUID) (ReviewView, error)
 	// DeleteReview removes the caller's review of an order within its 7
 	// days and before a reply.
+	//
+	// UC-TRS-01
 	DeleteReview(ctx context.Context, caller, order uuid.UUID) error
 	// ReplyReview is the subject's one reply to a visible review.
+	//
+	// UC-TRS-01
 	ReplyReview(ctx context.Context, caller, review uuid.UUID, text string) (ReviewView, error)
 	// ReviewFacts reads a review for its notifications; false for an
 	// unknown or deleted one.
@@ -49,8 +55,12 @@ type Service interface {
 	Reviews(ctx context.Context, viewer *uuid.UUID, subject uuid.UUID, role domain.Role, p page.Request) (page.Page[ReviewView], error)
 	// MarkHelpful records that the caller found a visible review helpful;
 	// its reviewer and subject cannot.
+	//
+	// UC-TRS-05
 	MarkHelpful(ctx context.Context, caller, review uuid.UUID) error
 	// UnmarkHelpful takes the caller's helpful mark back.
+	//
+	// UC-TRS-05
 	UnmarkHelpful(ctx context.Context, caller, review uuid.UUID) error
 	// Rating reads the average, count and tag counts over a person's
 	// visible reviews in one role.
@@ -58,36 +68,54 @@ type Service interface {
 	// Report opens the reporter's report of a listing or an account, or
 	// replaces the reason, note and conversation of their open report of it;
 	// the bool is whether it opened one.
+	//
+	// UC-MOD-01 · BR-MOD-02
 	Report(ctx context.Context, reporter uuid.UUID, in ReportInput) (ReportView, bool, error)
 	// MyReports lists the reporter's reports, newest first, withdrawn and
 	// resolved ones included.
+	//
+	// UC-MOD-01
 	MyReports(ctx context.Context, reporter uuid.UUID, p page.Request) (page.Page[ReportView], error)
 	// WithdrawReport withdraws one of the reporter's reports; a withdrawn
 	// one is fine.
+	//
+	// UC-MOD-01
 	WithdrawReport(ctx context.Context, reporter, id uuid.UUID) error
 	// ReportCases lists the open report cases, latest report first and with
 	// their count, or the resolved ones, latest resolution first, for
 	// console members.
+	//
+	// UC-MOD-02
 	ReportCases(ctx context.Context, status domain.CaseStatus, p page.Request) (CaseList, error)
 	// ReportCase reads account's open report case or, without one, its
 	// latest resolved case.
+	//
+	// UC-MOD-02
 	ReportCase(ctx context.Context, account uuid.UUID) (CaseDetail, error)
 	// CountReportCases counts the open cases with a report made at or after
 	// since and the cases resolved at or after since, the zero time for all.
 	CountReportCases(ctx context.Context, since time.Time) (map[domain.CaseStatus]int, error)
 	// ResolveReportCase closes account's open report case with outcome for
 	// the console member by.
+	//
+	// UC-MOD-02 · BR-MOD-01 · NFR-IDEM-01
 	ResolveReportCase(ctx context.Context, account uuid.UUID, outcome domain.Outcome, by audit.Actor) (CaseDetail, error)
 	// ReopenReportCase undoes account's latest resolution for the console
 	// member by; its reports join the open case.
+	//
+	// UC-MOD-02
 	ReopenReportCase(ctx context.Context, account uuid.UUID, by audit.Actor) (CaseDetail, error)
 	// ScamWarnings reads account's scam warnings in the conversations
 	// given, keyed by conversation, with the signals' text in t; one
 	// without a warning is left out.
+	//
+	// FR-TRS-04 · BR-TRS-06
 	ScamWarnings(ctx context.Context, account uuid.UUID, conversations []uuid.UUID, t locale.Tag) (map[uuid.UUID]ScamWarningView, error)
 	// DismissScamWarning dismisses account's warning in a conversation of
 	// account's, and answers chat's conversation_not_found to anyone but a
 	// member. Without a warning, or dismissed already, it changes nothing.
+	//
+	// FR-TRS-04 · BR-TRS-06
 	DismissScamWarning(ctx context.Context, account, conversation uuid.UUID) error
 	// ClearAccount deletes a deleted account's own scam warnings and helpful
 	// marks, and withdraws its unresolved reports with their notes blanked.

@@ -36,6 +36,7 @@ func revealReviews(t *testing.T, order string) {
 	}
 }
 
+// UC-TRS-01 E2, E4, E5, E6, E7, E8, E10, E11, E12.
 func TestReviews(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)

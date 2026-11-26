@@ -27,17 +27,17 @@ type ViewedRail struct {
 	Items    []SearchItem
 }
 
-// ForYou reads the first page of Dành cho bạn, page.DefaultLimit cards like
-// the nearby feed's, and the Vì bạn đã xem gần đây rail. The signals are
-// the viewer's newest domain.MaxSaveSignals saves and
-// domain.MaxViewSignals marks since domain.ForYouSince, and the entries of
-// their search history, at most domain.MaxHistory, searched since then.
-// The feed is every active listing nationwide in catalogdomain.SortBlend
-// order under domain.ForYouBoosts of those signals; with no viewer or no
-// signal it is the newest listings. The rail
-// is the newest listings of domain.ViewedCategory outside the marks read.
-// Both leave out the viewer's own listings and the ones search leaves out,
-// and measure each card from near when it names a position.
+// ForYou is UC-DSC-05, steps 3 and 4. It reads the first page of Dành cho
+// bạn, page.DefaultLimit cards like the nearby feed's, and the Vì bạn đã xem
+// gần đây rail. The signals are the viewer's newest domain.MaxSaveSignals
+// saves and domain.MaxViewSignals marks since domain.ForYouSince, and the
+// entries of their search history, at most domain.MaxHistory, searched since
+// then. The feed is every active listing nationwide in
+// catalogdomain.SortBlend order under domain.ForYouBoosts of those signals;
+// with no viewer or no signal it is the newest listings. The rail is the
+// newest listings of domain.ViewedCategory outside the marks read. Both
+// leave out the viewer's own listings and the ones search leaves out, and
+// measure each card from near when it names a position.
 func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near) (ForYou, error) {
 	origin, originErr := d.d.Catalog.Origin(ctx, near)
 	if originErr != nil {
@@ -47,6 +47,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 		Filters: catalogdomain.Filters{Origin: origin}, Sort: catalogdomain.SortBlend, Limit: overfetch * page.DefaultLimit,
 	}
 	var rail catalogdomain.Search
+	// A2: with no viewer, or no signal, the feed is the newest listings.
 	if viewer != nil {
 		hidden, sellers, err := d.exclusions(ctx, *viewer)
 		if err != nil {
@@ -89,8 +90,10 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 			marks[i].Category = listings[marks[i].Listing].CategoryCode
 			openedIn[i] = marks[i].Category
 		}
+		// 3. Saves, searches and opens weigh their subcategories.
 		feed.Boosts = domain.ForYouBoosts(savedIn, searchedIn, openedIn)
 		feed.ExcludeListings, feed.ExcludeSellers = hidden, sellers
+		// 4.
 		if category, ok := domain.ViewedCategory(marks); ok {
 			rail = catalogdomain.Search{
 				Filters: catalogdomain.Filters{CategoryCode: category, Origin: origin}, Sort: catalogdomain.SortNewest,
@@ -108,6 +111,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 	if out.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
 		return ForYou{}, err
 	}
+	// A3
 	if rail.Filters.CategoryCode == "" {
 		return out, nil
 	}

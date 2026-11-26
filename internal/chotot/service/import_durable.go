@@ -72,12 +72,15 @@ type ChototImport struct{ Deps }
 
 func (s ChototImport) ServiceName() string { return s.Prefix + ImportService }
 
-// Start starts the imports in one step, then sends Run for each it started.
+// Start is UC-LST-04, step 5: it starts the imports in one step, then sends
+// Run for each it started.
 func (s ChototImport) Start(ctx restate.Context, in StartInput) (StartResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
 		return StartResult{}, err
 	}
+	// E6; A5 · NFR-IDEM-01: an import already settled, or still running,
+	// answers as it is and runs no second time.
 	started, ids, err := s.startImports(ctx, in.Account, in.ListIDs, at)
 	if err != nil || started.Refused != nil {
 		return started, err
@@ -153,10 +156,11 @@ type copiedPhotos struct {
 	Reason  string             `json:"reason,omitempty"`
 }
 
-// Run brings one listing over: it checks the seller may post, reads the
-// listing and fills the draft, copies the photos, then posts it as POST
-// /v1/listings does under the import's ID as the key. A listing the rules
-// refuse stays a draft; any other refusal skips it.
+// Run is UC-LST-04, step 5: it brings one listing over. It checks the
+// seller may post, reads the listing and fills the draft, copies the
+// photos, then posts it as POST /v1/listings does under the import's ID as
+// the key. A listing the rules refuse stays a draft; any other refusal
+// skips it.
 func (s ChototImport) Run(ctx restate.Context, id uuid.UUID) (ImportResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
@@ -180,6 +184,8 @@ func (s ChototImport) Run(ctx restate.Context, id uuid.UUID) (ImportResult, erro
 	if !loaded.Found || imp.State != domain.Importing {
 		return ImportResult{State: imp.State}, nil
 	}
+	// E7: another profile's listing, a seller who may not post, a listing
+	// gone or unreadable, or Chợ Tốt not answering skips the import.
 	if !loaded.Linked {
 		return s.end(ctx, imp, domain.Skipped, domain.ReasonNotYours, at)
 	}
@@ -227,7 +233,8 @@ func (s ChototImport) Run(ctx restate.Context, id uuid.UUID) (ImportResult, erro
 	case res.Refused == nil:
 		imp.Listed(res.ListingID, filled.Guessed, filled.AdPrice, at)
 	case errors.Is(res.Refused, catalogdomain.ErrInvalidListing):
-		// The photos wait for the seller as long as the draft does.
+		// A1 · BR-LST-03: the photos wait for the seller as long as the
+		// draft does.
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
 			return restatex.Ignore(s.Media.Extend(rc, imp.AccountID, draft.Photos), mediadomain.ErrInvalidUpload)
 		}); err != nil {
@@ -392,9 +399,9 @@ func (d Deps) copyPhotos(ctx context.Context, imp domain.Import, images []string
 	}
 }
 
-// PostDraft posts an import left as a draft with the seller's listing, under
-// the import's ID as the key, and lists the import. A listed import answers
-// as it is.
+// PostDraft is UC-LST-04 A1: it posts an import left as a draft with the
+// seller's listing, under the import's ID as the key, and lists the import.
+// A listed import answers as it is.
 func (s ChototImport) PostDraft(ctx restate.Context, in DraftInput) (DraftResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
@@ -410,6 +417,7 @@ func (s ChototImport) PostDraft(ctx restate.Context, in DraftInput) (DraftResult
 			return DraftResult{}, stepErr //nolint:wrapcheck // wrapped below
 		case found && imp.State == domain.Listed:
 			return DraftResult{Import: imp}, nil
+		// E8
 		case !found || imp.State != domain.Drafted || !imp.Settled(at):
 			return DraftResult{Refused: domain.ErrDraftNotFound}, nil
 		}

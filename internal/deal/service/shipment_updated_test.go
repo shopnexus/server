@@ -202,7 +202,7 @@ func TestAnOlderReportChangesNothing(t *testing.T) {
 // A parcel the carrier lost after the pickup fails the order and puts the
 // listing back on sale; one lost before it stays for the pickup timeout.
 //
-// UC-DEAL-05 E2.
+// UC-DEAL-05 E4.
 func TestALostParcelFailsAnOrderPickedUp(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -247,7 +247,7 @@ func (a atShop) Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier,
 // the shipment, which the seller's account no longer reaches, is left to
 // the seller at that shop.
 //
-// UC-DEAL-04 E7.
+// UC-DEAL-04 E3.
 func TestAShipmentAtAShopNoLongerLinkedIsRefused(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

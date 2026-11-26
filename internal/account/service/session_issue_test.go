@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
+// UC-ACC-01 A3.
 func TestIssueSessionCreatesThenRotates(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -36,6 +37,7 @@ func TestIssueSessionCreatesThenRotates(t *testing.T) {
 	}
 }
 
+// UC-ACC-01 E11.
 func TestIssueSessionRefusesASignedOutSession(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

@@ -282,6 +282,7 @@ turnEvents:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   get:
     operationId: streamConsoleAgentTurnEvents
+    x-uc: [UC-MOD-08]
     summary: A turn's run as server-sent events, replayed after Last-Event-ID and then live.
     description: |
       text/event-stream. Each event has `id:` its seq and `data:` one
@@ -326,6 +327,7 @@ turnPause:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
     operationId: pauseConsoleAgentTurn
+    x-uc: [UC-MOD-08]
     summary: Pause a run before its next model call.
     description: "The model call in flight and the tools it asked for finish, so no tool is cut halfway. The turn goes paused (turn.pausing, then turn.paused) and keeps its state, so any agent replica can continue it."
     tags: [console, internal]
@@ -350,6 +352,7 @@ turnStop:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
     operationId: stopConsoleAgentTurn
+    x-uc: [UC-MOD-08]
     summary: Stop a run now.
     description: "Ends the model call in flight at once (Stop now). The turn goes paused with reason stop_now and keeps what it wrote; it can be continued."
     tags: [console, internal]
@@ -374,6 +377,7 @@ turnContinue:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
     operationId: continueConsoleAgentTurn
+    x-uc: [UC-MOD-08]
     summary: Continue a paused, failed, timed out or stopped turn.
     description: "Resumes the same turn with no new message, its counters carried on (turn.resumed with by continue). A spent budget or a guardrail block cannot be continued."
     tags: [console, internal]
@@ -400,6 +404,7 @@ turnEnd:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
     operationId: endConsoleAgentTurn
+    x-uc: [UC-MOD-08]
     summary: End a paused turn.
     description: "A paused turn, or one awaiting input, ends cancelled and writes nothing more."
     tags: [console, internal]
@@ -424,6 +429,7 @@ turnSteer:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
     operationId: steerConsoleAgentTurn
+    x-uc: [UC-MOD-08]
     summary: Steer a run, or continue a paused one with a message.
     description: |
       The text waits on the turn's control stream and the run reads it
@@ -466,6 +472,7 @@ turnInput:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
     operationId: answerConsoleAgentTurn
+    x-uc: [UC-MOD-08]
     summary: Answer the clarifying questions a turn waits on.
     description: The turn is awaiting_input after a clarify event; the answers go to the run and it goes on.
     tags: [console, internal]

@@ -71,6 +71,7 @@ type MessageSend struct{ Chat *Chat }
 
 func (s MessageSend) ServiceName() string { return s.Chat.d.Prefix + messageSend }
 
+// Run is UC-DEAL-01, steps 2 and 3.
 func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, error) {
 	at, err := restatex.Now(ctx, s.Chat.d.Now)
 	if err != nil {
@@ -138,24 +139,31 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	toSupport := f.Conversation != nil && f.Conversation.Kind == domain.KindSupport
 	var refused *apperr.Error
 	switch {
+	// E3
 	case f.Status.Refusal() != nil && (f.Status != accountdomain.StatusSuspended || !toSupport):
 		refused = f.Status.Refusal()
+	// E2 · BR-ACC-03
 	case in.Opening && !f.HasPhone:
 		refused = accountdomain.ErrPhoneRequired
 	case in.Opening && f.Listing == nil:
 		refused = catalogdomain.ErrNotFound
+	// E4
 	case in.Opening && f.Listing.SellerID == in.Sender:
 		refused = domain.ErrOwnListing
+	// E5
 	case in.Opening && f.Listing.Status != catalogdomain.StatusActive:
 		refused = domain.ErrListingUnavailable
 	case !in.Opening && f.Conversation == nil:
 		refused = domain.ErrNotFound
+	// E7
 	case !in.Opening && in.ListingID != nil && (f.Listing == nil || !f.Conversation.Has(f.Listing.SellerID)):
 		refused = domain.ErrInvalidMessage.WithField("listing_id", apperr.NotAllowed, "a listing of either member")
 	case in.ReplyTo != nil && !f.ReplyOK:
 		refused = domain.ErrInvalidMessage.WithField("reply_to", apperr.NotAllowed, "a sent message of this conversation, not a deal message")
+	// E1 · BR-ACC-01
 	case f.Blocked:
 		refused = accountdomain.ErrBlocked
+	// E6
 	case f.OtherDeleted:
 		refused = accountdomain.ErrAccountDeleted
 	default:
@@ -164,6 +172,7 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		return SendResult{Refused: refused}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
 	}
 	conv := f.Conversation
+	// 2.
 	if in.Opening {
 		opened, openErr := restate.Run(ctx, func(rc restate.RunContext) (domain.Conversation, error) {
 			return s.Chat.d.Chats.OpenPair(rc, domain.NewConversation(newConversation, in.Sender, f.Listing.SellerID, at))
@@ -178,8 +187,8 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	if err != nil {
 		return SendResult{Refused: apperr.From(err)}, nil
 	}
-	// A racing retry of this request may have sent its message: that one
-	// is the answer, and its run attaches the photos (NFR-IDEM-01).
+	// 3. A2: a racing retry of this request may have sent its message: that
+	// one is the answer, and its run attaches the photos (NFR-IDEM-01).
 	added, err := restate.Run(ctx, func(rc restate.RunContext) (uuid.UUID, error) {
 		return s.Chat.d.Chats.AddMessage(rc, msg, in.Key)
 	})
@@ -189,6 +198,7 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	if added != msg.ID() {
 		return SendResult{ConversationID: conv.ID, MessageID: added}, nil
 	}
+	// A1
 	if len(in.Photos) > 0 {
 		attachWrite := restatex.NewID(ctx, at)
 		attached, attachErr := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
@@ -197,6 +207,7 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		if attachErr != nil {
 			return SendResult{}, fmt.Errorf("attach photos: %w", attachErr)
 		}
+		// E8
 		if attached.Refusal != nil {
 			if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Chat.d.Chats.DeleteMessage(rc, msg.ID()) }); err != nil {
 				return SendResult{}, fmt.Errorf("delete message: %w", err)

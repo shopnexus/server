@@ -15,6 +15,7 @@ type consoleAccount struct {
 	Reason string `json:"suspend_reason"`
 }
 
+// UC-MOD-02.
 func TestConsoleFindsAccounts(t *testing.T) {
 	t.Parallel()
 	mod := signInMember(t, consoledomain.RoleModerator)
@@ -110,6 +111,7 @@ func TestConsoleListsSuspendedAccounts(t *testing.T) {
 	expectStatus(t, consoleCall(t, mod, "GET", "/v1/console/accounts?status=active", nil), 400)
 }
 
+// UC-MOD-02 A3, E4, E5 · BR-MOD-02 · UC-MOD-05 A1.
 func TestConsoleSuspendsAnAccount(t *testing.T) {
 	t.Parallel()
 	mod := signInMember(t, consoledomain.RoleModerator)

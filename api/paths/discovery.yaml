@@ -1,6 +1,7 @@
 saved:
   get:
     operationId: listSaved
+    x-uc: [UC-DSC-03]
     summary: List the caller's saved listings, those still on sale first.
     description: |
       The saves of listings that are not sold, hidden or deleted come first,
@@ -27,6 +28,7 @@ saved:
 savedListing:
   put:
     operationId: saveListing
+    x-uc: [UC-DSC-03]
     summary: Save someone else's listing on sale or being shipped; saving again changes nothing.
     tags: [discovery]
     security:
@@ -59,6 +61,7 @@ savedListing:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: unsaveListing
+    x-uc: [UC-DSC-03]
     summary: Forget a saved listing; an absent one is fine.
     tags: [discovery]
     security:
@@ -80,6 +83,7 @@ savedListing:
 search:
   get:
     operationId: search
+    x-uc: [UC-DSC-01, UC-DSC-02, UC-DSC-03, UC-DSC-05]
     summary: Search active listings; without q, browse them.
     description: |
       Three ways to search, all under the person's filters and sorts. With q
@@ -222,6 +226,7 @@ search:
 sellerListings:
   get:
     operationId: listSellerListings
+    x-uc: [UC-DSC-04]
     summary: A seller's listings that anyone sees, active and reserved, newest first, as search cards.
     description: |
       The seller view's load more, with the view's next_cursor. Each card
@@ -268,6 +273,7 @@ sellerListings:
 searchHistory:
   get:
     operationId: getSearchHistory
+    x-uc: [UC-DSC-01]
     summary: The caller's last 10 text searches, newest first.
     tags: [discovery]
     security:
@@ -283,6 +289,7 @@ searchHistory:
         $ref: "../responses/common.yaml#/Unauthorized"
   delete:
     operationId: clearSearchHistory
+    x-uc: [UC-DSC-01]
     summary: Empty the caller's search history.
     tags: [discovery]
     security:
@@ -295,6 +302,7 @@ searchHistory:
 searchHistoryItem:
   delete:
     operationId: deleteSearchHistoryItem
+    x-uc: [UC-DSC-01]
     summary: Forget one search; an unknown one is fine.
     tags: [discovery]
     security:
@@ -316,6 +324,7 @@ searchHistoryItem:
 hiddenListing:
   put:
     operationId: hideFromSearch
+    x-uc: [UC-DSC-02]
     summary: Leave someone else's listing out of the caller's searches, Home and the nearby feed; hiding again makes it the newest hide.
     description: The caller keeps the 1,000 newest hides; one more shows the oldest again. Saved listings, the seller page and the listing itself still show it.
     tags: [discovery]
@@ -349,6 +358,7 @@ hiddenListing:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: unhideFromSearch
+    x-uc: [UC-DSC-02]
     summary: Show a hidden listing again; a listing not hidden is fine.
     tags: [discovery]
     security:
@@ -397,6 +407,7 @@ viewedListing:
 savedAlert:
   put:
     operationId: setSavedAlert
+    x-uc: [UC-DSC-03]
     summary: Hear when the listing's price falls below a level; a listing not saved is saved first.
     description: The caller hears at each new low below the level. A price back at or above it starts over, and setting a level forgets the price last told.
     tags: [discovery]
@@ -436,6 +447,7 @@ savedAlert:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: clearSavedAlert
+    x-uc: [UC-DSC-03]
     summary: Remove the save's own level; the save stays, and a listing not saved is fine.
     description: Without a level of its own, a save tells at each new low below its saved price.
     tags: [discovery]
@@ -458,6 +470,7 @@ savedAlert:
 searchWatches:
   post:
     operationId: createSearchWatch
+    x-uc: [UC-DSC-03]
     summary: Follow a text search with its filters; the same words again replace the filters.
     description: |
       One watch per query, folded as the search history folds it. A GPS
@@ -503,6 +516,7 @@ searchWatches:
               $ref: "../schemas/error.yaml#/Error"
   get:
     operationId: listSearchWatches
+    x-uc: [UC-DSC-03]
     summary: The caller's watches, newest first.
     tags: [discovery]
     security:
@@ -519,6 +533,7 @@ searchWatches:
 searchWatch:
   delete:
     operationId: deleteSearchWatch
+    x-uc: [UC-DSC-03]
     summary: Stop following a search; an unknown watch is fine.
     tags: [discovery]
     security:
@@ -535,6 +550,7 @@ searchWatch:
 searchWatchMute:
   post:
     operationId: muteSearchWatch
+    x-uc: [UC-DSC-03]
     summary: Keep counting the watch's new listings without telling the caller.
     tags: [discovery]
     security:
@@ -557,6 +573,7 @@ searchWatchMute:
 searchWatchUnmute:
   post:
     operationId: unmuteSearchWatch
+    x-uc: [UC-DSC-03]
     summary: Tell the caller of the watch's new listings again.
     tags: [discovery]
     security:

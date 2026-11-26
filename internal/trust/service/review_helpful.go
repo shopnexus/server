@@ -10,10 +10,12 @@ import (
 	"github.com/shopnexus/server/internal/trust/repository"
 )
 
-// MarkHelpful records that the caller found a visible review helpful. Its
-// reviewer and its subject get domain.ErrOwnReview; a hidden, deleted or
-// unknown review is domain.ErrNotFound.
+// MarkHelpful is UC-TRS-05 step 2. It records that the caller found a
+// visible review helpful. Its reviewer and its subject get
+// domain.ErrOwnReview; a hidden, deleted or unknown review is
+// domain.ErrNotFound.
 func (s *Trust) MarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
+	// E1 · BR-MOD-02
 	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return fmt.Errorf("read account status: %w", err)
@@ -29,12 +31,15 @@ func (s *Trust) MarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
 		return fmt.Errorf("get review: %w", err)
 	}
 	now := s.d.Now()
+	// E2
 	if r.Deleted() || !r.Visible(now) {
 		return domain.ErrNotFound
 	}
+	// E3
 	if caller == r.ReviewerID() || caller == r.SubjectID() {
 		return domain.ErrOwnReview
 	}
+	// 2. A second mark changes nothing.
 	err = s.d.Reviews.MarkHelpful(ctx, id, caller, now)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrNotFound
@@ -45,9 +50,10 @@ func (s *Trust) MarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
 	return nil
 }
 
-// UnmarkHelpful takes the caller's helpful mark back; without one it
-// changes nothing.
+// UnmarkHelpful is UC-TRS-05 A1. It takes the caller's helpful mark back;
+// without one it changes nothing.
 func (s *Trust) UnmarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
+	// E1 · BR-MOD-02
 	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return fmt.Errorf("read account status: %w", err)

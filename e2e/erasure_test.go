@@ -54,6 +54,7 @@ func TestDeletedSellersListingsGo(t *testing.T) {
 	})
 }
 
+// UC-DSC-04 E1.
 func TestDeletedAccountInOthersViews(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)

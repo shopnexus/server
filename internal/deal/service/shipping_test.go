@@ -281,6 +281,8 @@ func TestThePollIgnoresAStatusThatMovesNothing(t *testing.T) {
 
 // The poll moves a shipped order as the carrier reads it, does nothing when
 // a report came first, and stops once the order is closed.
+//
+// UC-DEAL-05 A1.
 func TestThePollMovesAShipmentAndStopsWhenItCloses(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -347,6 +349,8 @@ func TestOpenShipmentsAtAndQuoteFacts(t *testing.T) {
 
 // A parcel the carrier picked up after the last poll is not cancelled when
 // the pickup wait ends: the timeout reads it first and moves the order.
+//
+// UC-DEAL-06 A2.
 func TestPickupTimeoutReadsTheCarrierFirst(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -376,6 +380,8 @@ func TestPickupTimeoutReadsTheCarrierFirst(t *testing.T) {
 
 // A carrier's refusal ends the shipment at once with the carrier's reason
 // and gives the listing back; it is not tried again.
+//
+// UC-DEAL-04 E10.
 func TestACarriersRefusalGivesTheListingBack(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -395,6 +401,10 @@ func TestACarriersRefusalGivesTheListingBack(t *testing.T) {
 	}
 }
 
+// A retry with the same key answers from the order, though the saved
+// pickup it used is gone.
+//
+// UC-DEAL-04 A1 · NFR-IDEM-01.
 func TestSavedPickupShipmentReplayAfterPreferenceRemoval(t *testing.T) {
 	t.Parallel()
 	for _, removeAddress := range []bool{false, true} {

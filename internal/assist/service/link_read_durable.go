@@ -55,8 +55,8 @@ type readListing struct {
 	Reason         string         `json:"reason,omitempty"`
 }
 
-// Start checks the account and inserts the read under the daily cap, each
-// a step, then sends Run and the delayed Expire.
+// Start is UC-LST-01 A2: it checks the account and inserts the read under
+// the daily cap, each a step, then sends Run and the delayed Expire.
 func (s LinkRead) Start(ctx restate.Context, in StartLinkInput) (StartResult, error) {
 	o, err := s.openRead(ctx, in.Account, in.Key, func(id uuid.UUID, at time.Time) domain.ListingRead {
 		return domain.NewLinkRead(id, in.Account, in.Link, at)

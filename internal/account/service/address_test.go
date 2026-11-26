@@ -28,6 +28,7 @@ func onBook(addresses repository.Addresses) *service.Account {
 	return service.New(service.Deps{Addresses: addresses, Now: func() time.Time { return now }, Log: discard})
 }
 
+// UC-ACC-07 A1, A2, A3, A4, E3.
 func TestAddressBook(t *testing.T) {
 	t.Parallel()
 	s, book := newBook(t)
@@ -90,6 +91,7 @@ func TestAddressBook(t *testing.T) {
 	}
 }
 
+// UC-ACC-07 E1, E2.
 func TestAddressRefusals(t *testing.T) {
 	t.Parallel()
 	s, book := newBook(t)
@@ -132,6 +134,7 @@ func (s staleAddress) Get(context.Context, uuid.UUID, uuid.UUID) (domain.Address
 	return s.stale, nil
 }
 
+// UC-ACC-07 E4 · NFR-CONC-01.
 func TestUpdateAddressLosesARace(t *testing.T) {
 	t.Parallel()
 	s, book := newBook(t)

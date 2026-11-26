@@ -15,9 +15,9 @@ import (
 	"github.com/shopnexus/server/internal/provider/llm"
 )
 
-// FillAd writes the draft of a seller's Chợ Tốt listing as a link read's
-// fill does, with the condition and the specs the listing states. It keeps
-// no read and relays nothing.
+// FillAd is UC-LST-04, step 5: it writes the draft of a seller's Chợ Tốt
+// listing as a link read's fill does, with the condition and the specs the
+// listing states. It keeps no read and relays nothing.
 func (a *Assist) FillAd(ctx context.Context, ad chotot.Ad) (AdFill, error) {
 	started := time.Now()
 	modelCtx, cancel := context.WithTimeout(ctx, a.d.CallTimeout)

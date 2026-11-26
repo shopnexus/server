@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server/internal/shipping/service"
 )
 
+// UC-ACC-04 E6, E7.
 func TestSavedPickupFollowsAddressAndClearsPhoneOnDelete(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -79,6 +80,8 @@ func (s *spy) Create(ctx context.Context, a carrier.Account, in carrier.CreateIn
 }
 
 // A shop joined by a code ships from the saved pickup when none is asked.
+//
+// UC-DEAL-04 E9.
 func TestAJoinedShopShipsFromTheSavedPickup(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

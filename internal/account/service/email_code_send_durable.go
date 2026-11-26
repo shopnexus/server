@@ -79,12 +79,13 @@ const emailCodeSendService = "EmailCodeSend"
 
 func (s EmailCodeSend) ServiceName() string { return s.Prefix + emailCodeSendService }
 
+// Run is UC-ACC-01 A1 and UC-ACC-08 A1.
 func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
 		return EmailCodeResult{}, err
 	}
-	// The client address goes first, so an address over its limit cannot
+	// E3, E4 · NFR-SEC-01. The client address goes first, so an address over its limit cannot
 	// spend the quota of the mailboxes it names. A quota that admitted the
 	// send stays spent even when a later step fails, and a retry of the key
 	// that finds its own save spends nothing (K2).
@@ -152,6 +153,7 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 	if err != nil {
 		return EmailCodeResult{}, fmt.Errorf("send code: %w", err)
 	}
+	// E5
 	if mailed == mailRefused {
 		return EmailCodeResult{Refused: contact.ErrInvalidEmail}, nil
 	}

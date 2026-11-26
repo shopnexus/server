@@ -39,6 +39,7 @@ func openTicket(t *testing.T, token string, body map[string]any, status int) tic
 	return expect[ticketBody](t, call(t, "POST", "/v1/support/tickets", body, bearer(token), newKey()), status)
 }
 
+// UC-MOD-09 A1, E2.
 func TestSupportFromReportToReply(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
@@ -173,6 +174,7 @@ func TestSupportFromReportToReply(t *testing.T) {
 	}
 }
 
+// UC-MOD-09 A3.
 func TestCarrierRequestGetsItsNote(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
@@ -256,6 +258,7 @@ func TestReplyBySwipeQuotes(t *testing.T) {
 }
 
 // TestSupportStatuses walks the statuses the other tests leave out.
+// UC-MOD-09 A2, E3.
 func TestSupportStatuses(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)

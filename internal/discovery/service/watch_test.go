@@ -45,6 +45,7 @@ func (e env) matched(t *testing.T, watch uuid.UUID) int {
 	return n
 }
 
+// UC-DSC-03 A1, A2, A3, A4, A5.
 func TestWatchAndSweep(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -116,6 +117,7 @@ func TestWatchAndSweep(t *testing.T) {
 	}
 }
 
+// UC-DSC-03 A2.
 func TestSweepFullBatch(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(d *service.Deps) { d.SweepBatch = 2 })
@@ -141,6 +143,7 @@ func TestSweepFullBatch(t *testing.T) {
 	}
 }
 
+// UC-DSC-03 E6, E7, E8, E9, E10.
 func TestWatchRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
