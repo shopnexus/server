@@ -32,22 +32,39 @@ const overridePrefix = "server:"
 // rateWindow is the window of every caller's rate limits.
 const rateWindow = "1m"
 
-// gatewayError is what a member sees of a Bifrost failure: its refusal as
-// ai_gateway_refused with the detail logged, anything else as
-// ai_gateway_unavailable.
+// gatewayError is what a member sees of a Bifrost failure: a refusal of
+// the request itself as ai_gateway_refused with the detail logged; anything
+// else, the admin password refused (401, 403) and 5xx included, as
+// ai_gateway_unavailable. Joined errors are a refusal only when each is.
 func gatewayError(err error) error {
-	if errors.Is(err, bifrost.ErrRefused) {
+	if refusedAll(err) {
 		return domain.ErrGatewayRefused.WithCause(err)
 	}
 	return domain.ErrGatewayUnavailable.WithCause(err)
 }
 
+// refusedAll says whether err, or each error it joins, is a refusal.
+func refusedAll(err error) bool {
+	j, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		return errors.Is(err, bifrost.ErrRefused)
+	}
+	for _, e := range j.Unwrap() {
+		if !refusedAll(e) {
+			return false
+		}
+	}
+	return true
+}
+
 // Reconcile writes the AI policy into Bifrost: a team per agent with its
 // monthly budget, a virtual key per caller with its agent's models and its
 // rate limits, and a pricing override per priced model. It deletes the
-// keys and overrides the server wrote that nothing names any more, turns
-// off the keys of agents turned off, and hands the ring the keys. One
-// process at a time runs it.
+// keys and overrides the server wrote that nothing names any more, and
+// turns off the keys of agents turned off. An object Bifrost fails is
+// skipped and the rest goes on; the errors come back joined. It always
+// ends by handing the ring the keys Bifrost has. One process at a time
+// runs it.
 func (s *Agent) Reconcile(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
@@ -60,96 +77,106 @@ func (s *Agent) Reconcile(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("read the prices: %w", err)
 		}
-		teams, err := s.d.Gateway.Teams(ctx)
-		if err != nil {
-			return gatewayError(err)
+		var errs []error
+		if err = s.writePolicy(ctx, agents, prices); err != nil {
+			errs = append(errs, err)
 		}
-		keys, err := s.d.Gateway.VirtualKeys(ctx)
-		if err != nil {
-			return gatewayError(err)
+		if keys, keysErr := s.d.Gateway.VirtualKeys(ctx); keysErr != nil {
+			errs = append(errs, keysErr)
+		} else {
+			s.d.Ring.Set(keys)
 		}
-		overrides, err := s.d.Gateway.PricingOverrides(ctx)
-		if err != nil {
-			return gatewayError(err)
+		if len(errs) > 0 {
+			return gatewayError(errors.Join(errs...))
 		}
-		// Teams are named after the agents' slugs. An agent is never
-		// deleted, so no team is.
-		callers := map[string]bool{}
-		for i := range agents {
-			a := &agents[i]
-			j := slices.IndexFunc(teams, func(t bifrost.Team) bool { return t.Name == a.Slug })
-			var team bifrost.Team
-			switch {
-			case j < 0:
-				if team, err = s.d.Gateway.CreateTeam(ctx, a.Slug, a.MonthlyBudgetUSD); err != nil {
-					return gatewayError(err)
-				}
-			case !teamHas(teams[j], a.MonthlyBudgetUSD):
-				team = teams[j]
-				if err = s.d.Gateway.UpdateTeam(ctx, team.ID, a.Slug, a.MonthlyBudgetUSD); err != nil {
-					return gatewayError(err)
-				}
-			default:
-				team = teams[j]
-			}
-			for _, c := range a.Callers {
-				callers[c.Name] = true
-				want := keyOf(*a, c, team.ID)
-				k := slices.IndexFunc(keys, func(v bifrost.VirtualKey) bool { return v.Name == c.Name })
-				switch {
-				case k < 0:
-					_, err = s.d.Gateway.CreateVirtualKey(ctx, want)
-				case !keyHas(keys[k], want):
-					err = s.d.Gateway.UpdateVirtualKey(ctx, keys[k].ID, want)
-				default: // as Bifrost has it
-				}
-				if err != nil {
-					return gatewayError(err)
-				}
-			}
-		}
-		for _, k := range keys {
-			if k.Metadata[bifrost.MetaOwner] == bifrost.OwnerServer && !callers[k.Name] {
-				if err = s.d.Gateway.DeleteVirtualKey(ctx, k.ID); err != nil {
-					return gatewayError(err)
-				}
-			}
-		}
-		priced := map[string]bool{}
-		for _, p := range prices {
-			name := overridePrefix + p.Model.String()
-			priced[name] = true
-			price := bifrost.Price{Input: p.Input, Output: p.Output, CacheRead: p.CacheRead, CacheWrite: p.CacheWrite}
-			o := slices.IndexFunc(overrides, func(v bifrost.PricingOverride) bool { return v.Name == name })
-			switch {
-			case o < 0:
-				err = s.d.Gateway.CreatePricingOverride(ctx, name, p.Model.Provider, p.Model.Model, price)
-			case overrides[o].Provider != p.Model.Provider || overrides[o].Pattern != p.Model.Model ||
-				!maps.Equal(overrides[o].Patch, bifrost.PricePatch(price)):
-				err = s.d.Gateway.UpdatePricingOverride(ctx, overrides[o].ID, name, p.Model.Provider, p.Model.Model, price)
-			default: // as Bifrost has it
-			}
-			if err != nil {
-				return gatewayError(err)
-			}
-		}
-		for _, o := range overrides {
-			if strings.HasPrefix(o.Name, overridePrefix) && !priced[o.Name] {
-				if err = s.d.Gateway.DeletePricingOverride(ctx, o.ID); err != nil {
-					return gatewayError(err)
-				}
-			}
-		}
-		if keys, err = s.d.Gateway.VirtualKeys(ctx); err != nil {
-			return gatewayError(err)
-		}
-		s.d.Ring.Set(keys)
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("reconcile Bifrost: %w", err)
 	}
 	return nil
+}
+
+// writePolicy is Reconcile's writes, each object on its own.
+func (s *Agent) writePolicy(ctx context.Context, agents []repository.Agent, prices []repository.Price) error {
+	teams, err := s.d.Gateway.Teams(ctx)
+	if err != nil {
+		return fmt.Errorf("read the teams: %w", err)
+	}
+	keys, err := s.d.Gateway.VirtualKeys(ctx)
+	if err != nil {
+		return fmt.Errorf("read the keys: %w", err)
+	}
+	overrides, err := s.d.Gateway.PricingOverrides(ctx)
+	if err != nil {
+		return fmt.Errorf("read the overrides: %w", err)
+	}
+	var errs []error
+	fail := func(what string, err error) {
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", what, err))
+		}
+	}
+	// Teams are named after the agents' slugs. An agent is never deleted,
+	// so no team is. An agent whose team failed keeps its keys as they are.
+	callers := map[string]bool{}
+	for i := range agents {
+		a := &agents[i]
+		for _, c := range a.Callers {
+			callers[c.Name] = true
+		}
+		j := slices.IndexFunc(teams, func(t bifrost.Team) bool { return t.Name == a.Slug })
+		var team bifrost.Team
+		if j < 0 {
+			if team, err = s.d.Gateway.CreateTeam(ctx, a.Slug, a.MonthlyBudgetUSD); err != nil {
+				fail("team "+a.Slug, err)
+				continue
+			}
+		} else {
+			team = teams[j]
+			if !teamHas(team, a.MonthlyBudgetUSD) {
+				fail("team "+a.Slug, s.d.Gateway.UpdateTeam(ctx, team.ID, a.Slug, a.MonthlyBudgetUSD))
+			}
+		}
+		for _, c := range a.Callers {
+			want := keyOf(*a, c, team.ID)
+			k := slices.IndexFunc(keys, func(v bifrost.VirtualKey) bool { return v.Name == c.Name })
+			switch {
+			case k < 0:
+				_, err = s.d.Gateway.CreateVirtualKey(ctx, want)
+				fail("key "+c.Name, err)
+			case !keyHas(keys[k], want):
+				fail("key "+c.Name, s.d.Gateway.UpdateVirtualKey(ctx, keys[k].ID, want))
+			default: // as Bifrost has it
+			}
+		}
+	}
+	for _, k := range keys {
+		if k.Metadata[bifrost.MetaOwner] == bifrost.OwnerServer && !callers[k.Name] {
+			fail("key "+k.Name, s.d.Gateway.DeleteVirtualKey(ctx, k.ID))
+		}
+	}
+	priced := map[string]bool{}
+	for _, p := range prices {
+		name := overridePrefix + p.Model.String()
+		priced[name] = true
+		price := bifrost.Price{Input: p.Input, Output: p.Output, CacheRead: p.CacheRead, CacheWrite: p.CacheWrite}
+		o := slices.IndexFunc(overrides, func(v bifrost.PricingOverride) bool { return v.Name == name })
+		switch {
+		case o < 0:
+			fail("override "+name, s.d.Gateway.CreatePricingOverride(ctx, name, p.Model.Provider, p.Model.Model, price))
+		case overrides[o].Provider != p.Model.Provider || overrides[o].Pattern != p.Model.Model ||
+			!maps.Equal(overrides[o].Patch, bifrost.PricePatch(price)):
+			fail("override "+name, s.d.Gateway.UpdatePricingOverride(ctx, overrides[o].ID, name, p.Model.Provider, p.Model.Model, price))
+		default: // as Bifrost has it
+		}
+	}
+	for _, o := range overrides {
+		if strings.HasPrefix(o.Name, overridePrefix) && !priced[o.Name] {
+			fail("override "+o.Name, s.d.Gateway.DeletePricingOverride(ctx, o.ID))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // teamHas says whether t carries monthly as its one calendar-aligned

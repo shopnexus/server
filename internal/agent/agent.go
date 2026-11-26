@@ -41,6 +41,11 @@ const (
 	stopWait = 10 * time.Second
 	// turnSweepEvery is how often turns stuck running are closed.
 	turnSweepEvery = time.Minute
+	// A failed reconcile is tried again after retryFirst, doubling up to
+	// retryMax; a key the ring misses asks for one at most every missGap.
+	retryFirst = 2 * time.Second
+	retryMax   = time.Minute
+	missGap    = time.Minute
 )
 
 // Settings is what agent's Mount takes beyond module.Deps.
@@ -63,6 +68,8 @@ type Mounted struct {
 	listener net.Listener
 	mcp      http.Handler
 	d        module.Deps
+	// missed is a reconcile the ring asked for, when it lacked a caller.
+	missed chan struct{}
 }
 
 // Mount registers the console's agent endpoints behind moderator, console's
@@ -91,13 +98,22 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 		Support: support, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping, Trust: trust,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin, Now: d.Now, Log: d.Log,
 	})
+	missed := make(chan struct{}, 1)
+	if s.Ring != nil {
+		s.Ring.OnMiss(func(string) {
+			select {
+			case missed <- struct{}{}:
+			default:
+			}
+		})
+	}
 	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", s.Config.MCPAddr)
 	if err != nil {
 		return nil, fmt.Errorf("listen for MCP at AGENT_MCP_ADDR: %w", err)
 	}
 	return &Mounted{
 		Service: svc, Services: []restate.ServiceDefinition{restate.Reflect(watch)}, listener: l,
-		mcp: httpx.Trace(d.Log)(httpx.Recover(d.Log)(h)), d: d,
+		mcp: httpx.Trace(d.Log)(httpx.Recover(d.Log)(h)), d: d, missed: missed,
 	}, nil
 }
 
@@ -106,9 +122,11 @@ func (m *Mounted) Addr() net.Addr { return m.listener.Addr() }
 
 // Run serves the MCP server, hands the turns' event streams their rings,
 // sweeps old reads and tool outputs at start and every hour, closes stuck turns at start
-// and every minute, and reconciles Bifrost with the AI settings at start
-// and every 5 minutes, until ctx is done; then it waits for the calls in
-// flight and returns nil.
+// and every minute, and reconciles Bifrost with the AI settings: at start,
+// again after retryFirst doubling to retryMax until it succeeds, then every
+// 5 minutes, and when the ring lacks a caller's key (at most every
+// missGap); until ctx is done, then it waits for the calls in flight and
+// returns nil.
 func (m *Mounted) Run(ctx context.Context) error {
 	srv := &http.Server{Handler: m.mcp, ReadHeaderTimeout: 10 * time.Second}
 	served := make(chan error, 1)
@@ -129,20 +147,29 @@ func (m *Mounted) Run(ctx context.Context) error {
 			m.d.Log.WarnContext(ctx, "agent: sweep reads", "err", err)
 		}
 	}
+	reconcileTimer := time.NewTimer(0)
+	defer reconcileTimer.Stop()
+	retry := retryFirst
+	var reconciled time.Time
 	reconcile := func() {
-		if err := m.Service.Reconcile(ctx); err != nil && ctx.Err() == nil {
-			m.d.Log.WarnContext(ctx, "agent: reconcile Bifrost", "err", err)
+		reconciled = time.Now()
+		if err := m.Service.Reconcile(ctx); err != nil {
+			if ctx.Err() == nil {
+				m.d.Log.WarnContext(ctx, "agent: reconcile Bifrost", "err", err, "retry_in", retry)
+			}
+			reconcileTimer.Reset(retry)
+			retry = min(retry*2, retryMax)
+			return
 		}
+		retry = retryFirst
+		reconcileTimer.Reset(service.ReconcileEvery)
 	}
 	sweep()
 	sweepTurns()
-	reconcile()
 	tick := time.NewTicker(sweepEvery)
 	defer tick.Stop()
 	turnTick := time.NewTicker(turnSweepEvery)
 	defer turnTick.Stop()
-	reconcileTick := time.NewTicker(service.ReconcileEvery)
-	defer reconcileTick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -156,8 +183,12 @@ func (m *Mounted) Run(ctx context.Context) error {
 			sweep()
 		case <-turnTick.C:
 			sweepTurns()
-		case <-reconcileTick.C:
+		case <-reconcileTimer.C:
 			reconcile()
+		case <-m.missed:
+			if time.Since(reconciled) >= missGap {
+				reconcile()
+			}
 		}
 	}
 }

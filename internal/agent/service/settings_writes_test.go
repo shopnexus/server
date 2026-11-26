@@ -100,3 +100,29 @@ func TestModelTagsTakeTurns(t *testing.T) {
 		}
 	}
 }
+
+// A reconcile goes on past an object Bifrost fails: the other callers'
+// keys are still written, and the failure comes back as unavailable.
+func TestReconcileGoesOnPastAFailure(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s, f, _, admin := settingsOn(t)
+	created, err := s.CreateAgent(ctx, admin, service.NewAgent{Name: "Writer", Slug: "writer", Model: haiku})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Fail("PUT /api/governance/virtual-keys/" + f.Keys()["writer"].ID)
+	if _, err = s.UpdateAgent(ctx, admin, created.ID, service.AgentPatch{Model: &sonnet}); !errors.Is(err, domain.ErrGatewayUnavailable) {
+		t.Fatalf("a change Bifrost fails: %v", err)
+	}
+	if err = f.Admin().DeleteVirtualKey(ctx, f.Keys()["server-trust"].ID); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Reconcile(ctx); !errors.Is(err, domain.ErrGatewayUnavailable) {
+		t.Fatalf("a reconcile with a failing key: %v", err)
+	}
+	if _, ok := f.Keys()["server-trust"]; !ok {
+		t.Error("the reconcile stopped before server-trust's key")
+	}
+	f.Fail()
+}

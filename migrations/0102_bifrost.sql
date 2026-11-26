@@ -52,10 +52,11 @@ INSERT INTO ai_agent_callers (caller_name, agent_id, requests_per_min, tokens_pe
 ('server-embed-index', '0193e000-0000-7000-8000-00000000a105', 600, NULL),
 ('server-embed-search', '0193e000-0000-7000-8000-00000000a105', 600, NULL);
 
+-- A console agent whose slug is a caller's name already fails the
+-- migration, rather than losing its caller.
 INSERT INTO ai_agent_callers (caller_name, agent_id)
 SELECT slug, id FROM ai_agents
-WHERE agent_kind = 'console' AND id <> '0193e000-0000-7000-8000-00000000a101'
-ON CONFLICT DO NOTHING;
+WHERE agent_kind = 'console' AND id <> '0193e000-0000-7000-8000-00000000a101';
 
 ALTER TABLE ai_agents DROP COLUMN key_aliases;
 
