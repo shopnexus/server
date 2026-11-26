@@ -2475,7 +2475,10 @@ page that shows two views calls both at once.
   (`domain.MaxHistory`), so these are the last 10 searches that fall in
   the window, and an older search the trim dropped counts nothing. Each
   signal adds to its subcategory: a save 3, a search 2, an opened listing
-  1 (`domain.ForYouBoosts`); a chip that names a root adds nothing. The
+  1 (`domain.ForYouBoosts`); a chip that names a root adds nothing. Only
+  the 5 heaviest subcategories are boosted (`domain.MaxForYouBoosts`, a
+  tie to the lower code): each is a branch of the feed's query, and a load
+  test on dev (2026-11-26) saw a person of 22 take 350 ms a read. The
   bounds (`domain.MaxViewSignals`, `domain.MaxSaveSignals`) keep a heavy
   browser's Home at two reads of at most 100 rows each and one catalog
   `Summaries` call for at most 200 listings, which gives the subcategory of
