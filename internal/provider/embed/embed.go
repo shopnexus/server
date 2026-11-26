@@ -1,8 +1,8 @@
 // Package embed holds Model, what the modules embed text and photos with,
-// and OpenAI, the Model of text over an OpenAI-compatible POST /embeddings:
-// LiteLLM's alias embed-text in the cluster, OpenRouter locally. Photos go
-// to module ai (ai/service.Photos) as data URL strings, which ImageInput
-// writes. It knows nothing about what the vectors are for.
+// and OpenAI, the Model of text over an OpenAI-compatible POST /embeddings,
+// which the gateway serves. Photos go to module ai (ai/service.Photos) as
+// data URL strings, which ImageInput writes. It knows nothing about what
+// the vectors are for.
 package embed
 
 import (
@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net/http"
 	"strings"
@@ -33,7 +34,33 @@ type OpenAI struct {
 	APIKey  string // empty sends no Authorization header
 	Model   string
 	Dims    int // the length every vector must have
-	HTTP    *http.Client
+	// Fallbacks are the models a gateway tries after Model, in order;
+	// Extra joins the body as it is and Header the request's headers.
+	Fallbacks []string
+	Extra     map[string]any
+	Header    http.Header
+	HTTP      *http.Client
+}
+
+// APIError is an answer other than 200. A 400, 404, 413 or 422 is
+// ErrRefused.
+type APIError struct {
+	Model  string
+	Status int
+}
+
+func (e *APIError) Error() string { return fmt.Sprintf("%s answered %d", e.Model, e.Status) }
+
+// HTTPStatus is the answer's status.
+func (e *APIError) HTTPStatus() int { return e.Status }
+
+func (e *APIError) Is(target error) bool {
+	switch e.Status {
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusRequestEntityTooLarge, http.StatusUnprocessableEntity:
+		return target == ErrRefused
+	default:
+		return false
+	}
 }
 
 // maxHalf is the largest magnitude halfvec stores.
@@ -44,29 +71,32 @@ const maxHalf = 65504
 const maxReply = 8 << 20
 
 func (c OpenAI) Embed(ctx context.Context, inputs []string) ([][]float32, error) {
-	body, err := json.Marshal(map[string]any{"model": c.Model, "input": inputs, "encoding_format": "float"})
+	req := map[string]any{}
+	maps.Copy(req, c.Extra)
+	maps.Copy(req, map[string]any{"model": c.Model, "input": inputs, "encoding_format": "float"})
+	if len(c.Fallbacks) > 0 {
+		req["fallbacks"] = c.Fallbacks
+	}
+	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("encode request: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/embeddings", bytes.NewReader(body))
+	hr, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/embeddings", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
+	maps.Copy(hr.Header, c.Header)
 	if c.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+		hr.Header.Set("Authorization", "Bearer "+c.APIKey)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	res, err := c.HTTP.Do(req)
+	hr.Header.Set("Content-Type", "application/json")
+	res, err := c.HTTP.Do(hr)
 	if err != nil {
 		return nil, fmt.Errorf("call %s: %w", c.Model, err)
 	}
 	defer func() { _ = res.Body.Close() }()
-	switch res.StatusCode {
-	case http.StatusOK:
-	case http.StatusBadRequest, http.StatusNotFound, http.StatusRequestEntityTooLarge, http.StatusUnprocessableEntity:
-		return nil, fmt.Errorf("%w: %s answered %d", ErrRefused, c.Model, res.StatusCode)
-	default:
-		return nil, fmt.Errorf("%s answered %d", c.Model, res.StatusCode)
+	if res.StatusCode != http.StatusOK {
+		return nil, &APIError{Model: c.Model, Status: res.StatusCode}
 	}
 	var reply struct {
 		Data []struct {

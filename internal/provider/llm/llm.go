@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"regexp"
 	"strings"
@@ -36,13 +37,18 @@ type Client interface {
 	Complete(ctx context.Context, r Request, out any) error
 }
 
-// OpenAI is a Client for an OpenAI-compatible API, such as a proxy in front
-// of several models.
+// OpenAI is a Client for an OpenAI-compatible API, such as a gateway in
+// front of several models.
 type OpenAI struct {
 	BaseURL, APIKey, Model string
 	// Effort is sent as reasoning_effort; empty leaves the model's default.
 	Effort string
-	HTTP   *http.Client
+	// Fallbacks are the models a gateway tries after Model, in order;
+	// Extra joins the body as it is and Header the request's headers.
+	Fallbacks []string
+	Extra     map[string]any
+	Header    http.Header
+	HTTP      *http.Client
 }
 
 // maxReply caps how much of a reply is read.
@@ -88,13 +94,18 @@ func (c OpenAI) post(ctx context.Context, r Request, stream bool) (*http.Respons
 		}
 		user = parts
 	}
-	req := map[string]any{
+	req := map[string]any{}
+	maps.Copy(req, c.Extra)
+	maps.Copy(req, map[string]any{
 		"model": c.Model,
 		"messages": []map[string]any{
 			{"role": "system", "content": r.System},
 			{"role": "user", "content": user},
 		},
 		"temperature": 0,
+	})
+	if len(c.Fallbacks) > 0 {
+		req["fallbacks"] = c.Fallbacks
 	}
 	if r.Schema != nil {
 		req["response_format"] = map[string]any{
@@ -117,6 +128,7 @@ func (c OpenAI) post(ctx context.Context, r Request, stream bool) (*http.Respons
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
+	maps.Copy(hr.Header, c.Header)
 	hr.Header.Set("Authorization", "Bearer "+c.APIKey)
 	hr.Header.Set("Content-Type", "application/json")
 	res, err := c.HTTP.Do(hr)
@@ -144,6 +156,9 @@ func (e *APIError) Error() string {
 	}
 	return fmt.Sprintf("model answered %d: %s", e.Status, e.Message)
 }
+
+// HTTPStatus is the answer's status.
+func (e *APIError) HTTPStatus() int { return e.Status }
 
 func (e *APIError) Is(target error) bool {
 	return target == ErrRefused && e.Status >= 400 && e.Status < 500 &&
