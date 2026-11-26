@@ -89,7 +89,7 @@ func TestNewShipmentDraft(t *testing.T) {
 		carrier, service string
 		weight           int
 		pickup           string
-	}{{"ghtk", "standard", 800, "home"}, {"ghn", "express", 20_000, "post_office"}, {"ghtk", "standard", 1, "home"}} {
+	}{{"ghtk", "standard", 800, "home"}, {"ghn", "express", 20_000, "home"}, {"ghtk", "standard", 1, "post_office"}} {
 		got, err := domain.NewShipmentDraft(c.carrier, c.service, c.weight, c.pickup)
 		if err != nil || string(got.Carrier) != c.carrier || string(got.Service) != c.service || got.WeightGrams != c.weight ||
 			string(got.Pickup) != c.pickup {
@@ -108,6 +108,7 @@ func TestNewShipmentDraft(t *testing.T) {
 		{"ghtk", "standard", 0, "home", "weight_grams"},
 		{"ghtk", "standard", 20_001, "home", "weight_grams"},
 		{"ghtk", "standard", 800, "door", "pickup"},
+		{"ghn", "standard", 800, "post_office", "pickup"},
 	} {
 		if _, err := domain.NewShipmentDraft(c.carrier, c.service, c.weight, c.pickup); !errors.Is(err, domain.ErrInvalidShipment) || field(err, c.field) == "" {
 			t.Errorf("%+v: %v", c, err)

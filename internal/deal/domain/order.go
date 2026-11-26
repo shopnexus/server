@@ -123,8 +123,8 @@ const (
 	ServiceExpress  LinkedService = "express"
 )
 
-// Pickup is where GHTK takes a linked shipment's parcel: from the seller's
-// home, or at a post office the seller brings it to.
+// Pickup is where the carrier takes a linked shipment's parcel: from the
+// seller's home, or (GHTK only) at a post office the seller brings it to.
 type Pickup string
 
 const (
@@ -238,6 +238,9 @@ func NewShipmentDraft(carrier, service string, weightGrams int, pickup string) (
 	}
 	if p != PickupHome && p != PickupPostOffice {
 		e = e.WithField("pickup", apperr.NotAllowed, "home or post_office")
+	} else if p == PickupPostOffice && c == CarrierGHN {
+		// GHN takes a drop-off only at a named station, which the server can't look up.
+		e = e.WithField("pickup", apperr.NotAllowed, "home for ghn")
 	}
 	if len(e.Fields) > 0 {
 		return ShipmentDraft{}, e
