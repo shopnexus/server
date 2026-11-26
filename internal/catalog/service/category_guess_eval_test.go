@@ -14,7 +14,7 @@ import (
 
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/service"
-	"github.com/shopnexus/server/internal/provider/embed"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 )
 
 type guessSample struct{ Category, Title, Description string }
@@ -47,18 +47,23 @@ func guessSamples(t *testing.T) []guessSample {
 	return out
 }
 
-// TestGuessEval guesses each sample listing's category with the real text
-// model at EMBED_TEXT_BASE_URL, EMBED_TEXT_MODEL and EMBED_INDEX_API_KEY,
-// and prints the share it gets right. A sample in Khác is left out: no text
-// is guessed into it. It fails on errors, never on the score.
+// TestGuessEval guesses each sample listing's category with the embed-text
+// agent's model through Bifrost, as the caller server-embed-index, with
+// GATEWAY_URL, GATEWAY_ADMIN_USERNAME and GATEWAY_ADMIN_PASSWORD, and
+// prints the share it gets right. A sample in Khác is left out: no text is
+// guessed into it. It fails on errors, never on the score.
 func TestGuessEval(t *testing.T) { //nolint:paralleltest // one run against the real model
-	url, model := os.Getenv("EMBED_TEXT_BASE_URL"), os.Getenv("EMBED_TEXT_MODEL")
-	if url == "" || model == "" {
-		t.Skip("EMBED_TEXT_BASE_URL and EMBED_TEXT_MODEL are not set")
+	url := os.Getenv("GATEWAY_URL")
+	if url == "" {
+		t.Skip("GATEWAY_URL is not set")
 	}
-	text := embed.OpenAI{
-		BaseURL: url, APIKey: os.Getenv("EMBED_INDEX_API_KEY"), Model: model, Dims: domain.TextDims,
+	ring := bifrost.NewRing(bifrost.Admin{
+		BaseURL: url, Username: os.Getenv("GATEWAY_ADMIN_USERNAME"), Password: os.Getenv("GATEWAY_ADMIN_PASSWORD"),
 		HTTP: &http.Client{Timeout: 30 * time.Second},
+	}, time.Now)
+	text := bifrost.Embedder{
+		BaseURL: url, Name: "server-embed-index", Ring: ring, HTTP: &http.Client{Timeout: 30 * time.Second},
+		Dims: domain.TextDims,
 	}
 	e := newEnv(t, func(d *service.Deps) { d.Text = text })
 	ctx := context.Background()

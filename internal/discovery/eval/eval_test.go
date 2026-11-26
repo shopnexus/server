@@ -29,6 +29,7 @@ import (
 	"github.com/shopnexus/server/internal/discovery/service"
 	"github.com/shopnexus/server/internal/media/mediatest"
 	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/module"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
@@ -113,7 +114,7 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 			Title: l.Title, Price: l.Price, Description: l.Description, CategoryCode: l.Category,
 			Condition: catalogdomain.Condition(l.Condition), AllowOffers: true, CommuneCode: "00004",
 			Photos: []uuid.UUID{photo}, Specs: l.Specs,
-		})
+		}, locale.Vietnamese)
 		if postErr != nil {
 			t.Fatalf("post %s: %v", l.Key, postErr)
 		}

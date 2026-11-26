@@ -21,6 +21,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/media/mediatest"
 	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 )
 
@@ -139,6 +140,32 @@ func TestEmbedRetriesUntilTheModelAnswers(t *testing.T) {
 	})
 	image.SetFail(nil)
 	vectors(t, e, v.ID, 1)
+}
+
+// A spent text budget ends the text step without a vector: the photo is
+// still embedded and Restate does not retry the text.
+func TestEmbedStopsOnASpentBudget(t *testing.T) {
+	t.Parallel()
+	e, text, _ := embedEnv(t)
+	text.SetFail(fmt.Errorf("402: %w", embed.ErrBudgetSpent))
+	v := e.post(t, e.seller(t))
+	vs := repository.NewVectors(e.db)
+	testenv.Eventually(t, 20*time.Second, func() error {
+		st, err := vs.State(context.Background(), v.ID, "text-test", "image-test")
+		if err != nil {
+			return err
+		}
+		if len(st.Photos) != 1 {
+			return fmt.Errorf("%d photos", len(st.Photos))
+		}
+		return nil
+	})
+	calls := text.Calls()
+	time.Sleep(2 * time.Second)
+	st, err := vs.State(context.Background(), v.ID, "text-test", "image-test")
+	if err != nil || st.TextHash != nil || text.Calls() != calls {
+		t.Fatalf("text hash %v, calls %d then %d, %v", st.TextHash, calls, text.Calls(), err)
+	}
 }
 
 func TestRefreshReembedsAnotherVersion(t *testing.T) {

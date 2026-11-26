@@ -44,6 +44,11 @@ type ListingEmbed struct {
 
 func (s ListingEmbed) ServiceName() string { return s.Prefix + ListingEmbedName }
 
+// budgetRetry is when a listing whose text met a spent model budget (402)
+// is refreshed again. The send's idempotency key is the window, so edits
+// while the budget is spent queue one refresh per listing and window.
+const budgetRetry = 6 * time.Hour
+
 // embedPlan is what the load step found: the text to embed when its hash
 // moved, the processed photos without a vector, and every photo key, to
 // drop the vectors of photos the listing no longer has.
@@ -120,23 +125,36 @@ func (s ListingEmbed) Refresh(ctx restate.ObjectContext) error {
 		return nil
 	}
 	if p.TextHash != nil {
-		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
+		// A spent budget ends the step without a vector, so the text hash
+		// stays old, and a refresh after budgetRetry embeds it.
+		spent, runErr := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 			release, slotErr := s.slot(rc)
 			if slotErr != nil {
-				return slotErr
+				return false, slotErr
 			}
 			defer release()
 			vs, embedErr := s.Text.Embed(rc, []string{p.Text})
 			if errors.Is(embedErr, embed.ErrRefused) {
 				s.Log.WarnContext(rc, "the text model refused a listing", "listing", id, "err", embedErr)
-				return nil
+				return false, nil
+			}
+			if errors.Is(embedErr, embed.ErrBudgetSpent) {
+				s.Log.WarnContext(rc, "the text model's budget is spent; the listing is embedded later",
+					"listing", id, "retry_in", budgetRetry)
+				return true, nil
 			}
 			if embedErr != nil {
-				return fmt.Errorf("embed text: %w", embedErr)
+				return false, fmt.Errorf("embed text: %w", embedErr)
 			}
-			return s.Vectors.PutText(rc, id, s.TextVersion, p.TextHash, vs[0], at)
-		}); err != nil {
-			return fmt.Errorf("text vector: %w", err)
+			return false, s.Vectors.PutText(rc, id, s.TextVersion, p.TextHash, vs[0], at)
+		})
+		if runErr != nil {
+			return fmt.Errorf("text vector: %w", runErr)
+		}
+		if spent {
+			window := at.Truncate(budgetRetry).Unix()
+			restate.ObjectSend(ctx, s.ServiceName(), id.String(), "Refresh").Send(restate.Void{},
+				restate.WithDelay(budgetRetry), restate.WithIdempotencyKey(fmt.Sprintf("budget-%d", window)))
 		}
 	}
 	for _, key := range p.Missing {

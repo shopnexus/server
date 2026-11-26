@@ -462,7 +462,11 @@ that drops the vectors of removed photos. No step returns a vector to the
 journal. `ListingPublish` sends `Refresh` once a listing goes on sale, and
 `ListingEdit` sends it after an edit that keeps the listing out of
 processing. A refusal from the model (`embed.ErrRefused`) is logged and
-skipped; any other error is retried by Restate.
+skipped. A spent budget (`embed.ErrBudgetSpent`, a 402) ends the text step
+without a vector and sends itself a `Refresh` 6 hours later, one per
+listing and 6-hour window (its idempotency key); any other error is
+retried by Restate. Search goes on without the model on a 402 and logs it
+at most once a minute.
 
 ### Events
 
@@ -4012,13 +4016,20 @@ admin API (`provider/bifrost.Admin`, Basic auth with
   agent's team, allowed the agent's model and fallbacks, with its rate
   limits per minute; its metadata carries `owner: server`, the agent's
   slug, model, fallbacks and `extra_body`. A key the server made and no
-  caller names is deleted; a key without `owner: server` is left alone;
+  caller names is deleted; a key without `owner: server` is left alone.
+  The tag names no stack: each stack has its own Bifrost, so two stacks'
+  servers never share one;
 - each price is a pricing override named `server:<provider>/<model>`;
   Bifrost logs each call's cost with it.
 
 `Reconcile` runs under the session advisory lock `ai_gateway`
-(`postgres.WithLock`), so two replicas never write at once; at start and
-every 5 minutes (`Mounted.Run`), and after each change. A change saves the
+(`postgres.WithLock`), so two replicas never write at once: at start,
+again after 2 s doubling to a minute until it succeeds, then every 5
+minutes (`Mounted.Run`); when the ring lacks a caller's key, at most once
+a minute; and after each change. It goes on past an object Bifrost fails,
+joins the errors, and always ends by handing the ring the keys Bifrost
+has. The admin password refused (401, 403) or a 5xx is
+`ai_gateway_unavailable`, not a refusal. A change saves the
 row first, with its `write_id` (409 `try_again` when it changed), then
 reconciles: when Bifrost cannot be reached the answer is 503
 `ai_gateway_unavailable`, the row stays, and the next periodic reconcile
@@ -4035,10 +4046,17 @@ so its `target_id` is `audit.NamedID` and `details` carries the name.
   `Embedder`). The callers are `server-search`, `server-embed-index`,
   `server-embed-search`, `server-assist`, `server-trust` and one per
   console agent (its slug; the assistant's is `console-agent`). The key
-  ring (`bifrost.Ring`) reads the server's keys from the admin API, keeps
-  them 5 minutes, reads again at most every 10 s on a miss, and serves the
-  last read while Bifrost cannot be read. A 401 or 403 reads the ring again
-  and retries once when the key changed, as after a key was made again.
+  ring (`bifrost.Ring`) reads the server's keys from the admin API. A
+  route it has comes back at once; one older than 5 minutes starts a read
+  behind it, so a call never waits on Bifrost's admin API for a key it
+  has. A caller it lacks waits for a read (or its context), at most one
+  every 10 s, and asks the agent module for a reconcile. One read runs at
+  a time; a failed one is not tried again for 5 s. When Bifrost itself
+  refuses the key (`X-Bifrost-Error-Type` `policy_access_denied`,
+  `policy_model_blocked` or `policy_provider_blocked`), the ring reads
+  again, at most every 10 s, and the call runs once more when the key
+  changed; a 401 or 403 of the provider passes through. A 402 (a spent
+  budget or credit) is `llm.ErrBudgetSpent` or `embed.ErrBudgetSpent`.
 - Models are named `provider/model_id` (`openrouter/baai/bge-m3`). An
   agent's model and each fallback must have a price (422
   `ai_model_unpriced`) and carry the agent's required tags (422

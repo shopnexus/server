@@ -149,6 +149,9 @@ type Discovery struct {
 	reads singleflight.Group
 	// vectorDay is the last day this process started a vector sweep.
 	vectorDay atomic.Value
+	// budgetWarned is when a spent model budget was last logged, in Unix
+	// seconds.
+	budgetWarned atomic.Int64
 }
 
 var _ Service = (*Discovery)(nil)

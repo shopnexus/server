@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -377,7 +378,7 @@ func (d *Discovery) understand(
 			System: domain.SystemPrompt(categories, now), User: q, SchemaName: "search_understanding", Schema: domain.Schema(),
 		}, &answer)
 		if err != nil {
-			d.d.Log.WarnContext(mctx, "the model did not read the query", "err", err)
+			d.modelFailed(mctx, "the model did not read the query", err)
 			return nil, fmt.Errorf("read the query: %w", err)
 		}
 		b, err := json.Marshal(answer)
@@ -437,7 +438,7 @@ func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, tex
 	}
 	vs, err := m.Embed(ctx, []string{text})
 	if err != nil {
-		d.d.Log.WarnContext(ctx, "embed the query", "version", version, "err", err)
+		d.modelFailed(ctx, "embed the query", err, "version", version)
 		return nil
 	}
 	if err = d.d.QueryVectors.Put(ctx, version, text, vs[0], now); err != nil {
@@ -445,6 +446,24 @@ func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, tex
 	}
 	d.startVectorSweep(ctx, now)
 	return vs[0]
+}
+
+// budgetWarnEvery is how often a spent model budget is logged; search goes
+// on without the model meanwhile.
+const budgetWarnEvery = time.Minute
+
+// modelFailed logs a model call that failed; a spent budget (402) once per
+// budgetWarnEvery, since every search meets it until it resets.
+func (d *Discovery) modelFailed(ctx context.Context, msg string, err error, args ...any) {
+	if errors.Is(err, llm.ErrBudgetSpent) || errors.Is(err, embed.ErrBudgetSpent) {
+		now := d.d.Now().Unix()
+		last := d.budgetWarned.Load()
+		if now-last < int64(budgetWarnEvery/time.Second) || !d.budgetWarned.CompareAndSwap(last, now) {
+			return
+		}
+		msg += "; the budget is spent"
+	}
+	d.d.Log.WarnContext(ctx, msg, append(args, "err", err)...)
 }
 
 // startVectorSweep starts the day's sweep of the text vectors once per
