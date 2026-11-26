@@ -24,6 +24,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 )
 
 // runRequest is what the fake agent reads of POST /runs.
@@ -33,6 +34,7 @@ type runRequest struct {
 	Question    string            `json:"question"`
 	Member      authnMember       `json:"member"`
 	AgentConfig *runConfig        `json:"agent_config"`
+	Gateway     *runGateway       `json:"gateway"`
 	History     []json.RawMessage `json:"history"`
 	State       json.RawMessage   `json:"state"`
 	Steers      []struct {
@@ -46,7 +48,18 @@ type runRequest struct {
 }
 
 type runConfig struct {
-	Alias string `json:"alias"`
+	Name string `json:"name"`
+}
+
+type runGateway struct {
+	Key       string   `json:"key"`
+	Model     string   `json:"model"`
+	Fallbacks []string `json:"fallbacks"`
+	Prices    map[string]struct {
+		Input     float64  `json:"input"`
+		Output    float64  `json:"output"`
+		CacheRead *float64 `json:"cache_read"`
+	} `json:"prices"`
 }
 
 type authnMember struct {
@@ -107,10 +120,16 @@ func runsOn(t *testing.T, f *fakeAgent) (*service.Agent, *pgxpool.Pool, authn.Co
 		run(req, w)
 	}))
 	t.Cleanup(agent.Close)
+	gw := newBifrost(t)
 	s := service.New(service.Deps{
 		Settings: repository.NewSettings(db), Runs: repository.NewRuns(db, slog.New(slog.DiscardHandler)),
+		Gateway: gw.Admin(), Ring: bifrost.NewRing(gw.Admin(), time.Now),
 		BaseURL: agent.URL, Token: "service-token", HTTP: &http.Client{}, Now: time.Now, Log: slog.New(slog.DiscardHandler),
 	})
+	// The console agent's key, which each run takes.
+	if err := s.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -191,7 +210,10 @@ func TestAskRunsTheTurn(t *testing.T) {
 	v := waitFor(t, s, lan, started.TurnID, "succeeded")
 	reqs := f.requests()
 	if len(reqs) != 1 || reqs[0].Mode != "new" || reqs[0].Question != "Ai mở ticket?" || reqs[0].Member.ID != lan.MemberID ||
-		reqs[0].Member.Role != "moderator" || reqs[0].AgentConfig == nil || reqs[0].AgentConfig.Alias != "console-agent" ||
+		reqs[0].Member.Role != "moderator" || reqs[0].AgentConfig == nil || reqs[0].AgentConfig.Name != "Console assistant" || reqs[0].Gateway == nil ||
+		!strings.HasPrefix(reqs[0].Gateway.Key, "sk-bf-") || reqs[0].Gateway.Model != "upstream/claude-sonnet-5-5" ||
+		reqs[0].Gateway.Fallbacks == nil || reqs[0].Gateway.Prices["upstream/claude-sonnet-5-5"].Output != 1e-5 ||
+		*reqs[0].Gateway.Prices["upstream/claude-sonnet-5-5"].CacheRead != 1e-7 ||
 		reqs[0].History == nil || reqs[0].ControlAfter != 0 || reqs[0].TurnID != started.TurnID {
 		t.Errorf("the run request %+v", reqs)
 	}
@@ -344,7 +366,7 @@ func TestBrokenRunContinues(t *testing.T) {
 	v = waitFor(t, s, lan, started.TurnID, "succeeded")
 	reqs := f.requests()
 	if len(reqs) != 2 || reqs[1].Mode != "resume" || !strings.Contains(string(reqs[1].State), `"question":"?"`) ||
-		reqs[1].AgentConfig == nil || reqs[1].Steers == nil {
+		reqs[1].AgentConfig == nil || reqs[1].Gateway == nil || reqs[1].Steers == nil {
 		t.Errorf("the resume %+v %s", reqs, reqs[len(reqs)-1].State)
 	}
 	if v.ErrorCode != "" || v.Answer != "Đã đọc [1]." {

@@ -3,89 +3,73 @@ package service_test
 import (
 	"context"
 	"errors"
-	"slices"
 	"sync"
 	"testing"
-	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
 	"github.com/shopnexus/server/internal/agent/service"
-	"github.com/shopnexus/server/internal/platform/audit"
 )
 
-// An agent's row is saved before LiteLLM: a refused save leaves LiteLLM as
-// it was, and the same create or change again writes LiteLLM from the row.
-func TestAgentRowBeforeLiteLLM(t *testing.T) {
+// An agent's row is saved before Bifrost: a create Bifrost fails is kept,
+// and the same create again reconciles it; a refused change leaves the
+// row and Bifrost as they were.
+func TestAgentRowBeforeBifrost(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	s, f, _, admin := settingsOn(t)
-	if _, err := s.CreateProvider(ctx, admin, service.NewProvider{ID: "relay", Kind: "openai", APIKey: "sk-relay"}); err != nil {
-		t.Fatal(err)
-	}
-	for _, m := range []string{"claude-haiku-5-5", "claude-sonnet-5-5"} {
-		if _, err := s.AddProviderModel(ctx, admin, "relay", m, nil, nil); err != nil {
-			t.Fatal(err)
-		}
-	}
-	in := service.NewAgent{Name: "Writer", Alias: "writer", Model: "claude-haiku-5-5", MonthlyBudgetUSD: new(4.0)}
-	f.failing("POST /model/new")
+	s, f, db, admin := settingsOn(t)
+	in := service.NewAgent{Name: "Writer", Slug: "writer", Model: haiku, MonthlyBudgetUSD: new(4.0)}
+	f.Fail("POST /api/governance/virtual-keys")
 	if _, err := s.CreateAgent(ctx, admin, in); !errors.Is(err, domain.ErrGatewayUnavailable) {
-		t.Fatalf("a create LiteLLM fails: %v", err)
+		t.Fatalf("a create Bifrost fails: %v", err)
 	}
-	f.failing()
-	if got := f.aliases("writer"); len(got) != 0 {
-		t.Fatalf("the alias after a failed write %v", got)
+	f.Fail()
+	if _, ok := f.Keys()["writer"]; ok {
+		t.Fatal("the key after a failed write")
 	}
 	created, err := s.CreateAgent(ctx, admin, in)
 	if err != nil {
 		t.Fatalf("the create again: %v", err)
 	}
-	if got := f.aliases("writer"); !slices.Equal(got, []string{"relay:openai/claude-haiku-5-5:1:1"}) {
-		t.Errorf("the alias after the retry %v", got)
+	if k, ok := f.Keys()["writer"]; !ok || k.Metadata["model"] != "upstream/claude-haiku-5-5" {
+		t.Errorf("the key after the retry %+v", k)
 	}
-	k := f.key("agent")
-	if models, ok := k["models"].([]any); !ok || !slices.Contains(models, any("writer")) {
-		t.Errorf("the agent key's models %v", k["models"])
+	if tm := f.Teams()["writer"]; len(tm.Budgets) != 1 || tm.Budgets[0].MaxLimit != 4 {
+		t.Errorf("the team after the retry %+v", tm)
 	}
-	if per, ok := k["model_max_budget"].(map[string]any); !ok || per["writer"] == nil {
-		t.Errorf("the alias's budget %v", k["model_max_budget"])
+	if again, againErr := s.CreateAgent(ctx, admin, in); againErr != nil || again.ID != created.ID {
+		t.Errorf("a third create %+v %v", again, againErr)
 	}
-	again, err := s.CreateAgent(ctx, admin, in)
-	if err != nil || again.ID != created.ID {
-		t.Errorf("a third create %+v %v", again, err)
-	}
-	if _, err = s.CreateAgent(ctx, admin, service.NewAgent{Name: "Writer", Alias: "writer", Model: "claude-sonnet-5-5"}); !errors.Is(err, domain.ErrAgentTaken) {
+	if _, err = s.CreateAgent(ctx, admin, service.NewAgent{Name: "Writer", Slug: "writer", Model: sonnet}); !errors.Is(err, domain.ErrAgentTaken) {
 		t.Errorf("another agent with the name: %v", err)
 	}
+	// A slug that is another agent's caller is taken.
+	if _, err = s.CreateAgent(ctx, admin, service.NewAgent{Name: "Trust", Slug: "server-trust", Model: haiku}); !errors.Is(err, domain.ErrAgentTaken) {
+		t.Errorf("a slug that is a caller: %v", err)
+	}
 
-	// Another agent's name refuses the change before the alias moves.
-	if _, err = s.UpdateAgent(ctx, admin, created.ID, service.AgentPatch{
-		Name: new("Console assistant"), Model: new("claude-sonnet-5-5"),
-	}); !errors.Is(err, domain.ErrAgentTaken) {
+	// Another agent's name refuses the change before Bifrost hears of it.
+	if _, err = s.UpdateAgent(ctx, admin, created.ID, service.AgentPatch{Name: new("Console assistant"), Model: &sonnet}); !errors.Is(err, domain.ErrAgentTaken) {
 		t.Fatalf("a taken name: %v", err)
 	}
-	if got := f.aliases("writer"); !slices.Equal(got, []string{"relay:openai/claude-haiku-5-5:1:1"}) {
-		t.Errorf("the alias after a refused change %v", got)
+	if k := f.Keys()["writer"]; k.Metadata["model"] != "upstream/claude-haiku-5-5" {
+		t.Errorf("the key after a refused change %+v", k)
 	}
-
-	// A change LiteLLM fails is saved, and the same change again applies it.
-	patch := service.AgentPatch{Model: new("claude-sonnet-5-5"), MonthlyBudgetUSD: service.Budget{Set: true, Value: new(7.0)}}
-	f.failing("POST /key/update")
-	if _, err = s.UpdateAgent(ctx, admin, created.ID, patch); !errors.Is(err, domain.ErrGatewayUnavailable) {
-		t.Fatalf("a change LiteLLM fails: %v", err)
+	// A change Bifrost fails is saved, and the next reconcile applies it.
+	f.Fail("PUT /api/governance/virtual-keys/" + f.Keys()["writer"].ID)
+	if _, err = s.UpdateAgent(ctx, admin, created.ID, service.AgentPatch{Model: &sonnet}); !errors.Is(err, domain.ErrGatewayUnavailable) {
+		t.Fatalf("a change Bifrost fails: %v", err)
 	}
-	f.failing()
-	got, err := s.UpdateAgent(ctx, admin, created.ID, patch)
-	if err != nil || got.Model != "claude-sonnet-5-5" || *got.MonthlyBudgetUSD != 7 {
-		t.Fatalf("the change again %+v %v", got, err)
+	f.Fail()
+	a, err := repository.NewSettings(db).Agent(ctx, created.ID)
+	if err != nil || a.Model != sonnet {
+		t.Fatalf("the saved agent %+v %v", a, err)
 	}
-	if aliases := f.aliases("writer"); !slices.Equal(aliases, []string{"relay:openai/claude-sonnet-5-5:1:1"}) {
-		t.Errorf("the alias after the change %v", aliases)
+	if err = s.Reconcile(ctx); err != nil {
+		t.Fatal(err)
 	}
-	per, ok := f.key("agent")["model_max_budget"].(map[string]any)
-	if b, bOK := per["writer"].(map[string]any); !ok || !bOK || b["max_budget"] != 7.0 {
-		t.Errorf("the alias's budget %v", per)
+	if k := f.Keys()["writer"]; k.Metadata["model"] != "upstream/claude-sonnet-5-5" {
+		t.Errorf("the key after the reconcile %+v", k)
 	}
 }
 
@@ -95,12 +79,13 @@ func TestModelTagsTakeTurns(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s, _, db, admin := settingsOn(t)
+	gpt := domain.ModelRef{Provider: "upstream", Model: "gpt-5"}
 	sets := [][]string{{"Chat"}, {"Vision"}, {"Reasoning"}, {"Multilingual"}, {"Tool use"}, {"Long context"}}
 	for range 10 {
 		var wg sync.WaitGroup
 		for _, tags := range sets {
 			wg.Go(func() {
-				if _, err := s.SetModelTags(ctx, admin, "gpt-5", tags); err != nil {
+				if _, err := s.SetModelTags(ctx, admin, service.ModelTags{Provider: gpt.Provider, Model: gpt.Model, Tags: tags}); err != nil {
 					t.Error(err)
 				}
 			})
@@ -110,61 +95,8 @@ func TestModelTagsTakeTurns(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(got["gpt-5"]) != 1 {
-			t.Fatalf("gpt-5's tags %v", got["gpt-5"])
+		if len(got[gpt]) != 1 {
+			t.Fatalf("gpt-5's tags %v", got[gpt])
 		}
-	}
-}
-
-// The budget settings are saved before LiteLLM: an unknown member writes
-// nothing to LiteLLM, a stale write conflicts, and the same change again
-// after LiteLLM failed applies it.
-func TestBudgetsRowBeforeLiteLLM(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	s, f, db, admin := settingsOn(t)
-	daily := &service.RoleBudgetsPatch{Moderator: service.Budget{Set: true, Value: new(2.0)}}
-	if _, err := s.UpdateBudgets(ctx, admin, service.BudgetsPatch{
-		MemberDailyUSD: daily, Overrides: &[]service.MemberDailyUSD{{MemberID: uuid.NewV7(), DailyUSD: 1}},
-	}); !errors.Is(err, domain.ErrMemberNotFound) {
-		t.Fatalf("an unknown member: %v", err)
-	}
-	f.mu.Lock()
-	budgets := len(f.budget)
-	f.mu.Unlock()
-	if budgets != 0 {
-		t.Errorf("LiteLLM took %d budgets of a refused save", budgets)
-	}
-
-	f.failing("POST /budget/new")
-	if _, err := s.UpdateBudgets(ctx, admin, service.BudgetsPatch{MemberDailyUSD: daily}); !errors.Is(err, domain.ErrGatewayUnavailable) {
-		t.Fatalf("a change LiteLLM fails: %v", err)
-	}
-	f.failing()
-	settings := repository.NewSettings(db)
-	set, err := settings.BudgetSettings(ctx)
-	if err != nil || set.ModeratorDailyUSD == nil || *set.ModeratorDailyUSD != 2 {
-		t.Fatalf("the saved settings %+v %v", set, err)
-	}
-	if _, err = s.UpdateBudgets(ctx, admin, service.BudgetsPatch{MemberDailyUSD: daily}); err != nil {
-		t.Fatal(err)
-	}
-	f.mu.Lock()
-	moderators := f.budget["console-member-moderator"]
-	f.mu.Unlock()
-	if moderators["max_budget"] != 2.0 {
-		t.Errorf("the moderators' budget %v", moderators)
-	}
-
-	// A save over a row read before another save conflicts.
-	stale := set
-	stale.AlertPct, stale.WriteID = 50, uuid.NewV7()
-	if err = settings.SaveBudgetSettings(ctx, stale, set.WriteID, audit.Entry{
-		Actor: audit.ByMember(admin), Action: audit.AIBudgets, Target: audit.AISettings("budgets"), At: settingsNow,
-	}); !errors.Is(err, repository.ErrConflict) {
-		t.Errorf("a stale save: %v", err)
-	}
-	if _, err = s.UpdateBudgets(ctx, admin, service.BudgetsPatch{AlertPct: new(60)}); err != nil {
-		t.Errorf("a fresh change: %v", err)
 	}
 }

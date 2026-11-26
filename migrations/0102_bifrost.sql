@@ -3,6 +3,9 @@
 -- limits, and the price of every model an agent uses. Its reconciler writes
 -- them into Bifrost as teams, virtual keys and pricing overrides.
 
+-- Checked at once, so no deferred check blocks the ALTERs after an UPDATE.
+SET CONSTRAINTS ai_agents_latest_version IMMEDIATE;
+
 -- An agent's slug is its stable name, its team's in Bifrost. Its model is
 -- a provider's model, which callers send as provider/model.
 ALTER TABLE ai_agents RENAME COLUMN model_alias TO slug;

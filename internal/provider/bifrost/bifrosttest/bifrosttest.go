@@ -65,6 +65,7 @@ type Fake struct {
 	upstream  map[string]string
 	calls     map[string][]Call
 	down      bool
+	fail      []string
 	writes    int
 }
 
@@ -110,6 +111,10 @@ func New() *Fake {
 		}
 		f.mu.Lock()
 		defer f.mu.Unlock()
+		if slices.Contains(f.fail, r.Method+" "+r.URL.Path) {
+			http.Error(w, "failing", http.StatusBadGateway)
+			return
+		}
 		if r.Method != http.MethodGet {
 			f.writes++
 		}
@@ -134,6 +139,14 @@ func (f *Fake) SetDown(down bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.down = down
+}
+
+// Fail makes the admin calls named "METHOD /path" answer 502; none ends
+// it.
+func (f *Fake) Fail(calls ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fail = calls
 }
 
 // Writes counts the admin calls that changed something.

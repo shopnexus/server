@@ -21,7 +21,7 @@ func TestEveryDashboardHasAFloor(t *testing.T) {
 	if f, _ := domain.AppGrafana.Floor(); f != domain.RoleModerator {
 		t.Errorf("grafana: %s", f)
 	}
-	for _, a := range []domain.App{domain.AppRestate, domain.AppLiteLLM, domain.AppS3, domain.AppArgoCD} {
+	for _, a := range []domain.App{domain.AppRestate, domain.AppBifrost, domain.AppS3, domain.AppArgoCD} {
 		if f, _ := a.Floor(); f != domain.RoleAdmin {
 			t.Errorf("%s: %s", a, f)
 		}

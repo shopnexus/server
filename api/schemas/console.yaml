@@ -75,7 +75,7 @@ DashboardFloor:
   properties:
     app:
       type: string
-      enum: [grafana, restate, litellm, s3, db, argocd]
+      enum: [grafana, restate, bifrost, s3, db, argocd]
     name:
       type: string
     floor:
@@ -105,7 +105,7 @@ DashboardFloorsPatch:
         properties:
           app:
             type: string
-            enum: [grafana, restate, litellm, s3, db, argocd]
+            enum: [grafana, restate, bifrost, s3, db, argocd]
           floor:
             type: string
             enum: [moderator, admin]
@@ -328,6 +328,7 @@ Action:
         - ai.provider_delete
         - ai.provider_models
         - ai.model_tags
+        - ai.model_price
         - ai.agent_create
         - ai.agent_update
         - ai.rotation
@@ -377,7 +378,7 @@ DashboardTicketRequest:
   properties:
     app:
       type: string
-      enum: [grafana, restate, litellm, s3, argocd, db]
+      enum: [grafana, restate, bifrost, s3, argocd, db]
       description: Grafana opens for moderators and admins; the others for admins.
 DashboardTicket:
   type: object

@@ -49,6 +49,13 @@ JOIN ai_agent_versions AS v ON v.agent_id = a.id AND v.version_no = a.instructio
 			t.Errorf("agent %s's instructions %q %v, want %q", id, got, err, want)
 		}
 	}
+	// 0102 gives a console agent one caller named after its slug.
+	var caller, provider string
+	err := db.QueryRow(ctx, `SELECT c.caller_name, a.model_provider FROM ai_agent_callers AS c
+JOIN ai_agents AS a ON a.id = c.agent_id WHERE a.id = @id`, pgx.StrictNamedArgs{"id": stray}).Scan(&caller, &provider)
+	if err != nil || caller != "stray-agent" || provider != "upstream" {
+		t.Errorf("the stray agent's caller %q on %q %v", caller, provider, err)
+	}
 	if _, err := db.Exec(ctx, `UPDATE ai_agents SET instructions_version = 9 WHERE id = @id`,
 		pgx.StrictNamedArgs{"id": assistant}); err == nil {
 		t.Error("an agent took a version that does not exist")

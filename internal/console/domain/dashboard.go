@@ -15,7 +15,7 @@ type App string
 const (
 	AppGrafana App = "grafana"
 	AppRestate App = "restate"
-	AppLiteLLM App = "litellm"
+	AppBifrost App = "bifrost"
 	AppS3      App = "s3"
 	AppArgoCD  App = "argocd"
 	AppDB      App = "db"
@@ -38,7 +38,7 @@ func (a App) Floor() (floor Role, ok bool) {
 	switch a {
 	case AppGrafana:
 		return RoleModerator, true
-	case AppRestate, AppLiteLLM, AppS3, AppArgoCD, AppDB:
+	case AppRestate, AppBifrost, AppS3, AppArgoCD, AppDB:
 		return RoleAdmin, true
 	default:
 		return "", false

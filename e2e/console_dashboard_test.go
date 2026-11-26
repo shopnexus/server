@@ -97,7 +97,7 @@ func TestConsoleDashboardTicketRefusals(t *testing.T) {
 	}
 	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "kibana"}), 400) // an unknown app
 	admin := signInMember(t, consoledomain.RoleAdmin)
-	if res := consoleCall(t, admin, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "litellm"}); res.Status != 422 || errorOf(t, res).Code != "dashboard_not_configured" {
+	if res := consoleCall(t, admin, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "bifrost"}); res.Status != 422 || errorOf(t, res).Code != "dashboard_not_configured" {
 		t.Fatalf("a dashboard without a host: %d %s", res.Status, res.Body)
 	}
 	expectStatus(t, consoleCall(t, consoleSession{}, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "grafana"}), 401)

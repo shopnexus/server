@@ -57,7 +57,7 @@ func TestDashboardTicketFloors(t *testing.T) {
 	if _, err = e.at(now).CreateDashboardTicket(ctx, e.callerOf(t, admin), domain.AppRestate); err != nil {
 		t.Fatalf("an admin for restate: %v", err)
 	}
-	for _, app := range []domain.App{domain.AppLiteLLM, "kibana"} {
+	for _, app := range []domain.App{domain.AppBifrost, "kibana"} {
 		if _, err = e.at(now).CreateDashboardTicket(ctx, e.callerOf(t, admin), app); !errors.Is(err, domain.ErrDashboardNotConfigured) {
 			t.Fatalf("%s: %v", app, err)
 		}

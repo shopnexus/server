@@ -423,7 +423,7 @@ func TestLoadRejectsBadDashboardHosts(t *testing.T) {
 		}
 	}
 	env := required()
-	env["DASHBOARD_HOSTS"] = "grafana=grafana.localhost,restate=restate.localhost,litellm=litellm.localhost,s3=s3.localhost,argocd=argocd.localhost,db=db.localhost"
+	env["DASHBOARD_HOSTS"] = "grafana=grafana.localhost,restate=restate.localhost,bifrost=bifrost.localhost,s3=s3.localhost,argocd=argocd.localhost,db=db.localhost"
 	got, err := Load(lookup(env))
 	if err != nil || len(got.Console.DashboardHosts) != len(DashboardApps) {
 		t.Fatalf("every dashboard: %v %v", got.Console.DashboardHosts, err)

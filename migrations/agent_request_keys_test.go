@@ -10,7 +10,6 @@ import (
 
 	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server/migrations"
 )
 
 // 0094 gives a skill from before a write ID and the budget settings one,
@@ -43,7 +42,8 @@ VALUES (@conv, @member, 'active', @at, @at, @at)`, pgx.StrictNamedArgs{"conv": c
 			t.Fatalf("%s: %v", q.sql, err)
 		}
 	}
-	if _, err := postgres.Migrate(ctx, db, migrations.FS); err != nil {
+	// 0102 drops the budget settings.
+	if _, err := postgres.Migrate(ctx, db, before(t, "0102_bifrost.sql")); err != nil {
 		t.Fatal(err)
 	}
 	var skillWrite, budgetWrite uuid.UUID

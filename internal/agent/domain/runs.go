@@ -47,7 +47,7 @@ const (
 // FailureAnswers are the answers stored on a turn that did not succeed.
 var FailureAnswers = map[string]string{
 	FailTimeout:     "Quá thời gian trả lời. Hãy hỏi lại.",
-	FailBudget:      "Hết hạn mức hôm nay.",
+	FailBudget:      "Agent đã dùng hết ngân sách của tháng này.",
 	FailUnavailable: "Agent đang không trả lời được. Hãy thử lại sau.",
 	FailFailed:      "Agent gặp lỗi giữa chừng. Có thể tiếp tục lượt này.",
 	FailLimit:       "Lượt hỏi đã dùng hết số bước cho phép.",
