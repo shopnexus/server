@@ -43,9 +43,16 @@ type Service interface {
 	MarkUnread(ctx context.Context, account, conversation uuid.UUID) error
 	Archive(ctx context.Context, account, conversation uuid.UUID) error
 	Unarchive(ctx context.Context, account, conversation uuid.UUID) error
-	// Inbox lists account's conversations, archived or not, newest message
-	// first.
-	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (page.Page[InboxItem], error)
+	// Ignore stops account hearing of a pair conversation: it lists under
+	// BoxIgnored, counts as unread nowhere and pushes nothing, and the other
+	// member is not told. Writing to it, or Unignore, ends that.
+	Ignore(ctx context.Context, account, conversation uuid.UUID) error
+	Unignore(ctx context.Context, account, conversation uuid.UUID) error
+	// Ignores reports whether account ignores its conversation with other;
+	// false when the two have none.
+	Ignores(ctx context.Context, account, other uuid.UUID) (bool, error)
+	// Inbox lists account's conversations in box, newest message first.
+	Inbox(ctx context.Context, account uuid.UUID, box domain.Box, p page.Request) (page.Page[InboxItem], error)
 	// Get reads a conversation of account's, with the other member's read
 	// marker.
 	Get(ctx context.Context, account, conversation uuid.UUID) (ConversationView, error)

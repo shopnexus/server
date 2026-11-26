@@ -224,7 +224,7 @@ conversationUnread:
 conversationArchive:
   post:
     operationId: archiveConversation
-    summary: Archive a conversation; the next message brings it back.
+    summary: Archive a conversation; the next message someone writes brings it back, a deal's move does not.
     tags: [chat]
     security:
       - bearerAuth: []
@@ -283,6 +283,76 @@ conversationUnarchive:
               $ref: "../schemas/error.yaml#/Error"
       "409":
         description: "A support chat cannot be archived or marked (conversation_is_support)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+conversationIgnore:
+  post:
+    operationId: ignoreConversation
+    summary: Ignore a conversation; the other member is not told.
+    description: |
+      The conversation lists only under GET /v1/screens/inbox?ignored=true, counts as unread nowhere, and its
+      messages, offers and counters push nothing. Order moves still tell the caller. Writing to it, or
+      unignore, ends this.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Ignored.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "A support chat cannot be archived, ignored or marked (conversation_is_support)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+conversationUnignore:
+  post:
+    operationId: unignoreConversation
+    summary: Hear of an ignored conversation again.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Heard of again.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "A support chat cannot be archived, ignored or marked (conversation_is_support)."
         content:
           application/json:
             schema:

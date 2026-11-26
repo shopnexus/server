@@ -116,6 +116,7 @@ type ConversationView struct {
 	ID        uuid.UUID  `json:"id"`
 	Other     PersonView `json:"other"`
 	Archived  bool       `json:"archived"`
+	Ignored   bool       `json:"ignored"`
 	OtherRead *uuid.UUID `json:"other_read_message_id,omitempty"`
 }
 
@@ -126,6 +127,7 @@ type InboxItem struct {
 	LastMessage MessageView `json:"last_message"`
 	Unread      int         `json:"unread"`
 	Archived    bool        `json:"archived"`
+	Ignored     bool        `json:"ignored"`
 }
 
 // MessageHit is a message an inbox search found, with its conversation's

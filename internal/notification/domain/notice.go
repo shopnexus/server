@@ -152,10 +152,15 @@ type DealFacts struct {
 	Moves []Move
 
 	Carrier, TrackingCode, CancelReason string
+	// SellerIgnores and BuyerIgnores are whether that side ignores the
+	// pair's conversation: an offer or a counter from the other side tells
+	// them nothing. What moves the order still tells them.
+	SellerIgnores, BuyerIgnores bool
 }
 
 // FromMoves decides the notices of a deal's new moves. A move the other
-// side should hear of tells them; a withdrawal tells no one.
+// side should hear of tells them; a withdrawal tells no one, nor does a
+// bid to a side that ignores the bidder.
 func FromMoves(f DealFacts, at time.Time) []Notice {
 	out := make([]Notice, 0, len(f.Moves))
 	for _, m := range f.Moves {
@@ -174,10 +179,14 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 		}
 		var t Type
 		switch m.Kind {
-		case "offer":
+		case "offer", "counter":
+			if (to == f.SellerID && f.SellerIgnores) || (to == f.BuyerID && f.BuyerIgnores) {
+				continue
+			}
 			t = TypeOffer
-		case "counter":
-			t = TypeCounter
+			if m.Kind == "counter" {
+				t = TypeCounter
+			}
 		case "accept":
 			t = TypeAgreed
 		case "decline":

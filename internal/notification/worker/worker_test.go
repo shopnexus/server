@@ -66,6 +66,12 @@ type chats struct {
 	chatsvc.Service
 
 	facts chatsvc.MessageFacts
+	// ignores holds each {account, other} pair where account ignores other.
+	ignores map[[2]uuid.UUID]bool
+}
+
+func (c chats) Ignores(_ context.Context, account, other uuid.UUID) (bool, error) {
+	return c.ignores[[2]uuid.UUID{account, other}], nil
 }
 
 func (c chats) MessageFacts(_ context.Context, id uuid.UUID) (chatsvc.MessageFacts, bool, error) {
@@ -645,6 +651,25 @@ func TestMessageSentPushesOnly(t *testing.T) {
 	}
 	if l, _ := e.notices.List(context.Background(), recipient, page.Request{}, ""); len(l.Items) != 0 {
 		t.Fatalf("a message lists nothing: %+v", l)
+	}
+}
+
+// A message to someone who ignores its sender pushes nothing.
+func TestAnIgnoredMessagePushesNothing(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, nil, nil)
+	recipient := accounttest.New(t, e.db)
+	message := chatsvc.MessageFacts{
+		ID: uuid.NewV7(), ConversationID: uuid.NewV7(), RecipientID: recipient, SenderName: "Hoàng Nam", Text: "Còn không bạn?", Ignored: true,
+	}
+	e.worker.Chats = chats{facts: message}
+	e.start(t)
+	if err := e.notices.PutToken(context.Background(), uuid.NewV7(), recipient, "phone"); err != nil {
+		t.Fatal(err)
+	}
+	e.deliver(t, "MessageSent", events.Event{ID: message.ID, Kind: events.MessageSent, SubjectID: message.ID, OccurredAt: time.Now()})
+	if n := e.push.count("phone"); n != 0 {
+		t.Fatalf("pushed %d", n)
 	}
 }
 

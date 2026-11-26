@@ -88,6 +88,12 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 			DealID: facts.DealID, BuyerID: facts.BuyerID, SellerID: facts.SellerID,
 			Title: facts.ListingTitle, BuyerName: facts.BuyerName, SellerName: facts.SellerName, Photo: facts.ListingPhoto,
 		}
+		if out.SellerIgnores, stepErr = w.Chats.Ignores(rc, facts.SellerID, facts.BuyerID); stepErr != nil {
+			return domain.DealFacts{}, false, fmt.Errorf("seller ignores: %w", stepErr)
+		}
+		if out.BuyerIgnores, stepErr = w.Chats.Ignores(rc, facts.BuyerID, facts.SellerID); stepErr != nil {
+			return domain.DealFacts{}, false, fmt.Errorf("buyer ignores: %w", stepErr)
+		}
 		if o := facts.Order; o != nil {
 			out.Carrier, out.TrackingCode, out.CancelReason, _, _ = orderFacts(*o)
 		}
@@ -375,7 +381,8 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 	f, err := read(ctx, "message", func(rc restate.RunContext) (chatsvc.MessageFacts, bool, error) {
 		return w.Chats.MessageFacts(rc, e.SubjectID)
 	})
-	if err != nil || f.ID == (uuid.UUID{}) {
+	// An ignored conversation pushes nothing; its sender is not told.
+	if err != nil || f.ID == (uuid.UUID{}) || f.Ignored {
 		return err
 	}
 	write := func(tag locale.Tag) push.Message {

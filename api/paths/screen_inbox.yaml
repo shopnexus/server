@@ -11,7 +11,12 @@ screenInbox:
     parameters:
       - name: archived
         in: query
-        description: true lists the archived conversations; false or absent, the others.
+        description: true lists the archived conversations; false or absent, the others. An ignored one is in neither.
+        schema:
+          type: boolean
+      - name: ignored
+        in: query
+        description: true lists the ignored conversations, whatever archived says.
         schema:
           type: boolean
       - $ref: "../parameters/common.yaml#/Cursor"

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/shopnexus/server/internal/chat/domain"
+
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	"github.com/shopnexus/server/internal/chat/service"
@@ -29,7 +31,7 @@ func TestReplyToADeletedAccount(t *testing.T) {
 	if err != nil || !got.Other.Deleted || got.Other.DisplayName != "" {
 		t.Fatalf("get: %+v %v", got.Other, err)
 	}
-	inbox, err := e.chat.Inbox(ctx, buyer, false, page.Request{})
+	inbox, err := e.chat.Inbox(ctx, buyer, domain.BoxInbox, page.Request{})
 	if err != nil || len(inbox.Items) != 1 || !inbox.Items[0].Other.Deleted {
 		t.Fatalf("inbox: %+v %v", inbox.Items, err)
 	}

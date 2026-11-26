@@ -18,6 +18,9 @@ type MessageFacts struct {
 	// Kind is the conversation's: a support chat pushes as ShopNexus and
 	// gets no scam check.
 	Kind domain.ConversationKind
+	// Ignored is whether the recipient ignores the conversation: nothing
+	// pushes.
+	Ignored bool
 }
 
 func (c *Chat) MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bool, error) {
@@ -36,8 +39,14 @@ func (c *Chat) MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bo
 	if err != nil {
 		return MessageFacts{}, false, fmt.Errorf("read sender: %w", err)
 	}
+	members, err := c.d.Chats.Members(ctx, conv.ID)
+	if err != nil {
+		return MessageFacts{}, false, fmt.Errorf("read members: %w", err)
+	}
+	recipient := conv.Other(m.SenderID())
 	return MessageFacts{
-		ID: id, ConversationID: m.ConversationID(), RecipientID: conv.Other(m.SenderID()),
+		ID: id, ConversationID: m.ConversationID(), RecipientID: recipient,
 		SenderName: sender.DisplayName, Text: m.Body(), Photos: len(m.Photos()), Kind: conv.Kind,
+		Ignored: members[recipient].IgnoredAt != nil,
 	}, true, nil
 }

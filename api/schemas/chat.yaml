@@ -248,7 +248,7 @@ MessageDeal:
 Conversation:
   type: object
   additionalProperties: false
-  required: [id, other, archived]
+  required: [id, other, archived, ignored]
   properties:
     id:
       type: string
@@ -257,6 +257,9 @@ Conversation:
       $ref: "#/Person"
     archived:
       type: boolean
+    ignored:
+      type: boolean
+      description: The caller ignores the conversation.
     other_read_message_id:
       type: string
       format: uuid
