@@ -73,8 +73,8 @@ CREATE TABLE ai_model_prices (
     PRIMARY KEY (provider, model_id)
 );
 
--- List prices of Bifrost's catalog on 2026-11-26 (Anthropic's for the
--- Claude models).
+-- List prices of Bifrost's catalog on 2026-11-26; the Claude models take
+-- those of OpenRouter's anthropic/claude-*-5.5.
 INSERT INTO ai_model_prices (
     provider, model_id, input_usd_per_token, output_usd_per_token, cache_read_usd_per_token,
     cache_write_usd_per_token, updated_at

@@ -4104,10 +4104,11 @@ console, every MCP tool), Scam check (`scam-check`), Listing photo reader
 (`listing-read`), Search (`search`) and Search embeddings (`embed-text`),
 the four app agents. Migration 0102 moves them to Bifrost: slugs, models
 and fallbacks, the callers with the cluster's rate limits, the prices of
-Bifrost's catalog on 2026-11-26 (Anthropic's for the Claude models) and
+Bifrost's catalog on 2026-11-26 (OpenRouter's for the Claude models) and
 budgets of 100 (the assistant) and 30 USD a month. An app agent takes a
 model, fallbacks, limits, a budget and its callers' limits; any other
-change is 422 `ai_agent_app_fixed`. Only a console agent has tools, which a CHECK holds,
+change is 422 `ai_agent_app_fixed`.
+Only a console agent has tools, which a CHECK holds,
 and instructions, which the service holds. The text lives only in
 `ai_agent_versions` (migration 0098 moved it there): a read joins the
 version `instructions_version` names, which a deferred foreign key from
