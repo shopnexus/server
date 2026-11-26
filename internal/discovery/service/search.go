@@ -35,8 +35,9 @@ const (
 // SearchInput is a search as the person shaped it.
 type SearchInput struct {
 	Query              string
-	Category           string // a root or a subcategory code
-	Province           string // a province code, empty for every province
+	Category           string    // a root or a subcategory code
+	Province           string    // a province code, empty for every province
+	Seller             uuid.UUID // one seller's listings, zero for every seller
 	PriceMin, PriceMax int64
 	Conditions         []catalogdomain.Condition
 	RadiusKm           int
@@ -86,11 +87,13 @@ type SearchView struct {
 // lists the model feeds, and the cursor keeps the next pages on them; a
 // guest's q embeds nothing either. A signed-in
 // viewer's first page with q is kept in the history; a failed write is
-// logged and the search still answers.
+// logged and the search still answers. A search of one seller's listings
+// keeps no history and names no watch.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
 	if in.Watch != uuid.Nil() {
 		if in.Query != "" || in.Category != "" || in.Province != "" || in.PriceMin != 0 || in.PriceMax != 0 || len(in.Conditions) > 0 ||
-			in.RadiusKm != 0 || in.OffersOnly || in.Near != (catalogdomain.Near{}) || in.Photo != uuid.Nil() || in.Like != uuid.Nil() {
+			in.RadiusKm != 0 || in.OffersOnly || in.Near != (catalogdomain.Near{}) || in.Photo != uuid.Nil() || in.Like != uuid.Nil() ||
+			in.Seller != uuid.Nil() {
 			return SearchView{}, domain.ErrSearchConflict
 		}
 		if viewer == nil {
@@ -155,7 +158,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	}
 	filters := catalogdomain.Filters{
 		PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions, OffersOnly: in.OffersOnly,
-		Origin: origin, RadiusKm: radius, Province: in.Province,
+		Origin: origin, RadiusKm: radius, Province: in.Province, Seller: in.Seller,
 	}
 	category(&filters, in.Category)
 	search := catalogdomain.Search{Filters: filters, Sort: sort, Offset: offset, Limit: limit + 1}
@@ -314,7 +317,8 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if view.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
 		return SearchView{}, err
 	}
-	if viewer != nil && q != "" && in.Cursor == "" {
+	scoped := in.Seller != uuid.Nil()
+	if viewer != nil && q != "" && in.Cursor == "" && !scoped {
 		// The history keeps the Vietnamese name, whatever the chip says.
 		entry := repository.HistoryEntry{Query: q, SearchedAt: d.d.Now()}
 		for _, c := range view.Chips {
@@ -330,7 +334,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			d.d.Log.WarnContext(ctx, "remember the search", "err", err)
 		}
 	}
-	if viewer != nil && q != "" {
+	if viewer != nil && q != "" && !scoped {
 		id, found, keyErr := d.d.Watches.ByKey(ctx, *viewer, domain.HistoryKey(q))
 		switch {
 		case keyErr != nil:

@@ -329,6 +329,45 @@ func TestSearchProvince(t *testing.T) {
 	}
 }
 
+// A seller keeps that seller's listings; the search keeps no history,
+// names no watch and goes without watch.
+func TestSearchSeller(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := accounttest.New(t, e.db)
+	bike := catalogtest.Listing(t, e.db, seller, func(d *catalogdomain.ListingInput, _ *catalogdomain.Refs) {
+		d.Title, d.CategoryCode = "Xe đạp Asama", "vehicles.bicycle"
+	})
+	e.put(t, "Xe đạp Giant", "vehicles.bicycle", baDinh)
+	w, _, err := e.discovery.Watch(ctx, e.me, service.WatchInput{Query: "xe đạp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe đạp", Seller: seller})
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != bike || v.WatchID != nil {
+		t.Fatalf("q: %+v %v", v, err)
+	}
+	if h, _ := e.discovery.History(ctx, e.me); len(h.Items) != 0 {
+		t.Fatalf("history: %+v", h)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Seller: seller, Category: "vehicles"}); err != nil || len(v.Items) != 1 {
+		t.Fatalf("browse: %+v %v", v, err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Seller: uuid.NewV7()}); err != nil || len(v.Items) != 0 {
+		t.Fatalf("an unknown seller: %+v %v", v, err)
+	}
+	if err = e.accounts.Block(ctx, seller, e.me); err != nil {
+		t.Fatal(err)
+	}
+	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Seller: seller}); err != nil || len(v.Items) != 0 {
+		t.Fatalf("a seller who blocked me: %+v %v", v, err)
+	}
+	if _, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Watch: w.ID, Seller: seller}); !errors.Is(err, domain.ErrSearchConflict) {
+		t.Fatalf("watch with seller: %v", err)
+	}
+}
+
 func TestSearchNearby(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -177,7 +177,7 @@ SearchView:
     watch_id:
       type: string
       format: uuid
-      description: The caller's watch of this query; absent signed out or when there is none.
+      description: The caller's watch of this query; absent signed out, with seller, or when there is none.
 SearchHistory:
   type: object
   additionalProperties: false

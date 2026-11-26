@@ -211,3 +211,52 @@ func TestHybridListDepth(t *testing.T) {
 		t.Fatalf("price sort orders every candidate: %v %v", got, err)
 	}
 }
+
+// A seller keeps that seller's listings in every list and sort.
+func TestSearchSeller(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	mine, other := accounttest.New(t, db), accounttest.New(t, db)
+	const td, pd = domain.TextDims, domain.PhotoDims
+	bike := putHybrid(t, db, mine, "Xe đạp Asama", 1_500_000, embedtest.Axis(td, 0), embedtest.Axis(pd, 0))
+	lamp := putHybrid(t, db, mine, "Đèn bàn", 300_000, nil, nil)
+	putHybrid(t, db, other, "Xe đạp Giant", 2_500_000, embedtest.Axis(td, 0), embedtest.Axis(pd, 0))
+	s := repository.NewSearches(db)
+	run := func(q domain.Search) []uuid.UUID {
+		t.Helper()
+		q.Filters.Seller, q.Limit = mine, 20
+		hits, err := s.Search(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ids(hits)
+	}
+	if got := run(domain.Search{Sort: domain.SortNewest}); !slices.Equal(got, []uuid.UUID{lamp, bike}) {
+		t.Fatalf("browse: %v", got)
+	}
+	if got := run(domain.Search{Sort: domain.SortPriceDesc}); !slices.Equal(got, []uuid.UUID{bike, lamp}) {
+		t.Fatalf("price: %v", got)
+	}
+	text := []domain.Phrase{{Text: "xe đạp", Weight: 1}}
+	if got := run(domain.Search{Phrases: text, Sort: domain.SortRelevance}); !slices.Equal(got, []uuid.UUID{bike}) {
+		t.Fatalf("bm25: %v", got)
+	}
+	hybrid := domain.Search{
+		Phrases: text, Vectors: vecs(embedtest.Axis(td, 0), embedtest.Axis(pd, 0)),
+		Weights: domain.Weights{BM25: 1, Text: 1, Photo: 1}, Sort: domain.SortRelevance,
+	}
+	if got := run(hybrid); !slices.Equal(got, []uuid.UUID{bike}) {
+		t.Fatalf("hybrid: %v", got)
+	}
+	photo := domain.Search{Vectors: vecs(nil, embedtest.Axis(pd, 0)), Weights: domain.Weights{Photo: 1}, Sort: domain.SortRelevance}
+	if got := run(photo); !slices.Equal(got, []uuid.UUID{bike}) {
+		t.Fatalf("photo: %v", got)
+	}
+	if got := run(domain.Search{Sort: domain.SortBlend}); !slices.Equal(got, []uuid.UUID{lamp, bike}) {
+		t.Fatalf("blend: %v", got)
+	}
+	if got := run(domain.Search{Sort: domain.SortNewest, ExcludeSellers: []uuid.UUID{mine}}); len(got) != 0 {
+		t.Fatalf("a blocked seller: %v", got)
+	}
+}

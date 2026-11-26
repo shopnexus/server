@@ -39,6 +39,8 @@ type Filters struct {
 	// Province keeps the listings whose commune is in it, empty for every
 	// province.
 	Province string
+	// Seller keeps one seller's listings, zero for every seller.
+	Seller uuid.UUID
 	// IDs keeps the search to these listings, empty for every listing: a
 	// watch's sweep weighs the listings that arrived since the last one.
 	IDs []uuid.UUID

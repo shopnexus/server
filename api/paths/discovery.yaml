@@ -102,7 +102,9 @@ search:
       blocks. With watch, a watch of the caller's runs its query and filters.
       photo and watch need a signed-in caller. province keeps the listings of
       one province and goes with every other
-      filter.
+      filter. seller keeps one seller's listings, the search of a seller's
+      page; it goes with every filter but watch, and its pages enter no
+      search history and carry no watch_id, since neither holds a seller.
     tags: [discovery]
     security:
       - {}
@@ -124,6 +126,12 @@ search:
         schema:
           type: string
           pattern: "^[0-9]{2}$"
+      - name: seller
+        in: query
+        description: An account ID; keeps that seller's listings. An unknown seller, or one on either side of the caller's blocks, finds none.
+        schema:
+          type: string
+          format: uuid
       - name: price_min
         in: query
         schema:
@@ -184,7 +192,7 @@ search:
             schema:
               $ref: "../schemas/discovery.yaml#/SearchView"
       "400":
-        description: "A malformed parameter, position_required, invalid_position, invalid_province, invalid_cursor, invalid_price_range, or search_conflict: photo with q or like, sort=nearby with q, photo or like, or watch with any parameter but cursor, limit, sort and off."
+        description: "A malformed parameter, position_required, invalid_position, invalid_province, invalid_cursor, invalid_price_range, or search_conflict: photo with q or like, sort=nearby with q, photo or like, or watch with any parameter but cursor, limit, sort and off, seller included."
         content:
           application/json:
             schema:

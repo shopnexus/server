@@ -2958,6 +2958,14 @@ Search and the nearby feed (decided 2026-10-27, spec:
   stops working with a condition outside the index. A province column in
   the index would bring it back at the cost of a stored column every
   listing write sets and an index rebuild.
+- `GET /v1/search?seller=` keeps one seller's listings (decided
+  2026-11-26), the website's search of a seller's page, with every other
+  filter. `Filters.Seller` is `seller_id =` beside the index query, as the
+  province is, so it holds in BM25, the vector lists, browsing and every
+  sort. An unknown seller finds none, and blocks still apply. Neither the
+  history nor a watch holds a seller, so such a search keeps no history
+  entry and carries no `watch_id`, and `watch` with it is
+  `search_conflict`.
 - The nearby feed is `GET /v1/search?sort=nearby` (decided 2026-11-10; it
   was `GET /v1/feed/nearby`, which ran the same query on its own path). It
   takes the person's filters and `radius_km`, and with `q`, `photo` or

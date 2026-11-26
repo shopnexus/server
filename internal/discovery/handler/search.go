@@ -20,6 +20,7 @@ type searchRequest struct {
 	Query      string                    `json:"-" query:"q"`
 	Category   string                    `json:"-" query:"category"`
 	Province   string                    `json:"-" query:"province"`
+	Seller     uuid.UUID                 `json:"-" query:"seller"`
 	PriceMin   int64                     `json:"-" query:"price_min"`
 	PriceMax   int64                     `json:"-" query:"price_max"`
 	Conditions []catalogdomain.Condition `json:"-" query:"condition"`
@@ -39,7 +40,7 @@ type searchRequest struct {
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	httpx.Serve(w, r, h.log, http.StatusOK, func(in searchRequest) (service.SearchView, error) {
 		return h.svc.Search(r.Context(), httpx.Viewer(r), service.SearchInput{
-			Query: in.Query, Category: in.Category, Province: in.Province, PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions,
+			Query: in.Query, Category: in.Category, Province: in.Province, Seller: in.Seller, PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions,
 			RadiusKm: in.RadiusKm, OffersOnly: in.OffersOnly, Sort: in.Sort, Off: in.Off,
 			Near: catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}, Cursor: in.Cursor, Limit: in.Limit, Photo: in.Photo, Like: in.Like, Watch: in.Watch,
 			Locale: locale.Negotiate(w, r),

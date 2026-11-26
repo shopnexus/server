@@ -267,12 +267,15 @@ func (q *query) filters(s domain.Search) string {
 }
 
 // plain is the conditions the index does not hold, as plain SQL on the
-// listings alias: the province, the similar-listings source, the IDs filter
-// and the listings and sellers left out.
+// listings alias: the province, the seller, the similar-listings source, the
+// IDs filter and the listings and sellers left out.
 func (q *query) plain(s domain.Search, alias string) []string {
 	var out []string
 	if s.Filters.Province != "" {
 		out = append(out, alias+`commune_code IN (SELECT code FROM communes WHERE province_code = `+q.arg(s.Filters.Province, "text")+`)`)
+	}
+	if s.Filters.Seller != (uuid.UUID{}) {
+		out = append(out, alias+`seller_id = `+q.arg(s.Filters.Seller, "uuid"))
 	}
 	if s.Like != (uuid.UUID{}) {
 		out = append(out, alias+`id <> `+q.arg(s.Like, "uuid"))
