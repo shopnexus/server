@@ -119,6 +119,9 @@ type Service interface {
 	// SitemapAreas lists the root categories and provinces with at least 5
 	// listings on sale, for the website's landing pages.
 	SitemapAreas(ctx context.Context) ([]SitemapAreaView, error)
+	// SitemapCategories lists the subcategories with at least 5 listings
+	// on sale, with the latest change to one, by code.
+	SitemapCategories(ctx context.Context) ([]SitemapCategoryView, error)
 	// IndexNowKey is the key the website serves for IndexNow;
 	// domain.ErrIndexNowOff when IndexNow is off.
 	IndexNowKey(ctx context.Context) (string, error)

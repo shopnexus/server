@@ -2457,7 +2457,10 @@ page that shows two views calls both at once.
   root's search carried them, and a load test on dev found Home's count of
   every active listing the database's busiest query, read on every open
   for numbers people do not look at. Both are gone with catalog's
-  `Counts`.
+  `Counts`. The website still keeps thin subcategory pages out of search:
+  `GET /v1/sitemap/categories` lists the subcategories with at least 5
+  listings on sale, one `GROUP BY` the website reads once an hour, for its
+  sitemap and its links.
 - Dành cho bạn and Vì bạn đã xem gần đây (decided 2026-11-17, app plan
   `2026-11-17-app-finish.md`): Home's `for_you` is one page of
   `SearchItem` cards, 20 like the nearby feed's first page, and `viewed`

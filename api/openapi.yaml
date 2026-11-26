@@ -233,6 +233,8 @@ paths:
     $ref: "paths/catalog.yaml#/sitemapSellers"
   /v1/sitemap/areas:
     $ref: "paths/catalog.yaml#/sitemapAreas"
+  /v1/sitemap/categories:
+    $ref: "paths/catalog.yaml#/sitemapCategories"
   /v1/sitemap/indexnow:
     $ref: "paths/catalog.yaml#/sitemapIndexNow"
   /v1/deals:

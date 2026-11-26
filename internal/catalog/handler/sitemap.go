@@ -55,6 +55,14 @@ func (h *Handler) SitemapAreas(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// SitemapCategories serves GET /v1/sitemap/categories.
+func (h *Handler) SitemapCategories(w http.ResponseWriter, r *http.Request) {
+	httpx.Serve(w, r, h.log, http.StatusOK, func(httpx.None) (list[service.SitemapCategoryView], error) {
+		v, err := h.svc.SitemapCategories(r.Context())
+		return list[service.SitemapCategoryView]{Items: v}, cached(w, err)
+	})
+}
+
 // indexNowKeyView is the IndexNowKey schema.
 type indexNowKeyView struct {
 	Key string `json:"key"`

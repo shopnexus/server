@@ -549,6 +549,28 @@ SitemapArea:
       type: string
       format: date-time
       description: The latest change to one of those listings.
+SitemapCategoryList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/SitemapCategory"
+SitemapCategory:
+  type: object
+  additionalProperties: false
+  required: [category_code, updated_at]
+  description: A subcategory with at least 5 listings on sale.
+  properties:
+    category_code:
+      type: string
+      description: A subcategory code from GET /v1/categories.
+    updated_at:
+      type: string
+      format: date-time
+      description: The latest change to one of its listings on sale.
 IndexNowKey:
   type: object
   additionalProperties: false

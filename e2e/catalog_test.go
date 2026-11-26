@@ -545,6 +545,13 @@ func TestSitemap(t *testing.T) {
 	if got := res.Header.Get("Cache-Control"); got != "public, max-age=3600" {
 		t.Fatalf("areas Cache-Control: %q", got)
 	}
+	res = call(t, "GET", "/v1/sitemap/categories", nil)
+	expect[page[struct {
+		CategoryCode string `json:"category_code"`
+	}]](t, res, http.StatusOK)
+	if got := res.Header.Get("Cache-Control"); got != "public, max-age=3600" {
+		t.Fatalf("categories Cache-Control: %q", got)
+	}
 	res = call(t, "GET", "/v1/sitemap/indexnow", nil)
 	if k := expect[struct{ Key string }](t, res, http.StatusOK); k.Key != indexNowKey || res.Header.Get("Cache-Control") != "public, max-age=3600" {
 		t.Fatalf("indexnow key: %s %q", res.Body, res.Header.Get("Cache-Control"))
