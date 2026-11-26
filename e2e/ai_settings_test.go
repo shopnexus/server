@@ -5,10 +5,8 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -19,127 +17,178 @@ import (
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 )
 
 const settings = "/v1/console/settings"
 
-type aiProvider struct {
-	ID     string   `json:"id"`
-	Weight float64  `json:"weight"`
-	Mode   string   `json:"mode"`
-	Models []string `json:"models"`
+type aiModelRef struct {
+	Provider string `json:"provider"`
+	Model    string `json:"model_id"`
+}
+
+type aiCaller struct {
+	Name           string `json:"name"`
+	RequestsPerMin *int   `json:"requests_per_min"`
+	TokensPerMin   *int   `json:"tokens_per_min"`
 }
 
 type aiAgent struct {
-	ID                  string   `json:"id"`
-	Kind                string   `json:"kind"`
-	Name                string   `json:"name"`
-	Alias               string   `json:"alias"`
-	Model               string   `json:"model"`
-	InstructionsVersion int      `json:"instructions_version"`
-	MonthlyBudgetUSD    *float64 `json:"monthly_budget_usd"`
+	ID                  string       `json:"id"`
+	Kind                string       `json:"kind"`
+	Name                string       `json:"name"`
+	Slug                string       `json:"slug"`
+	Model               aiModelRef   `json:"model"`
+	Fallbacks           []aiModelRef `json:"fallbacks"`
+	InstructionsVersion int          `json:"instructions_version"`
+	MonthlyBudgetUSD    *float64     `json:"monthly_budget_usd"`
+	BudgetSpentUSD      *float64     `json:"budget_spent_usd"`
+	BudgetResetsAt      *time.Time   `json:"budget_resets_at"`
+	Callers             []aiCaller   `json:"callers"`
 }
 
-// An admin adds a provider and its models, tags a model, makes a console
-// agent on it and changes agents, rotation and budgets; every change is
-// in the audit log, and a moderator gets none of it.
+type aiPrice struct {
+	Input     float64  `json:"input"`
+	Output    float64  `json:"output"`
+	CacheRead *float64 `json:"cache_read"`
+}
+
+type aiModel struct {
+	Provider     string     `json:"provider"`
+	Model        string     `json:"model_id"`
+	Tags         []string   `json:"tags"`
+	Price        *aiPrice   `json:"price"`
+	CatalogPrice *aiPrice   `json:"catalog_price"`
+	Agents       []struct{} `json:"agents"`
+}
+
+var (
+	haiku  = aiModelRef{"upstream", "claude-haiku-5-5"}
+	gemini = aiModelRef{"openrouter", "google/gemini-2.5-flash"}
+)
+
+// An admin reads the providers and catalogs, prices and tags a model,
+// makes a console agent on it and changes it; Bifrost takes each change,
+// every change is in the audit log, and a moderator gets none of it.
 func TestAISettings(t *testing.T) {
 	t.Parallel()
 	minh := signInMember(t, consoledomain.RoleAdmin)
 	lan := signInMember(t, consoledomain.RoleModerator)
 	signedOut := consoleSession{}
 	suffix := newID()[24:]
-	provider, model := "p-"+suffix, "e2e/model-"+suffix
-	escaped := url.QueryEscape(model)
 
-	made := expect[aiProvider](t, consoleCall(t, minh, "POST", settings+"/providers", map[string]any{
-		"id": provider, "name": "Relay", "kind": "openai", "api_key": "sk-relay", "weight": 2, "order": 1,
-	}), 201)
-	if made.ID != provider || made.Weight != 2 || made.Mode != "pick" {
-		t.Fatalf("provider %+v", made)
-	}
-	check(t, "the same id", consoleCall(t, minh, "POST", settings+"/providers", map[string]any{"id": provider, "kind": "openai", "api_key": "x"}),
-		409, "ai_provider_exists")
-	check(t, "a key LiteLLM refuses", consoleCall(t, minh, "POST", settings+"/providers",
-		map[string]any{"id": "q-" + suffix, "kind": "openai", "api_key": gatewayRefused}), 422, "ai_gateway_refused")
-	check(t, "a bad id", consoleCall(t, minh, "POST", settings+"/providers", map[string]any{"id": "Bad Id", "kind": "openai", "api_key": "x"}),
-		400, "")
-	list := expect[struct {
-		Items []aiProvider `json:"items"`
-	}](t, consoleCall(t, minh, "GET", settings+"/providers", nil), 200)
-	if !slices.ContainsFunc(list.Items, func(p aiProvider) bool { return p.ID == provider }) {
-		t.Fatalf("providers %+v", list)
-	}
-
-	added := expect[aiProvider](t, consoleCall(t, minh, "POST", settings+"/providers/"+provider+"/models",
-		map[string]any{"model": model, "input_cost_per_mtok": 1, "output_cost_per_mtok": 5}), 200)
-	if !slices.Contains(added.Models, model) {
-		t.Fatalf("models %+v", added)
-	}
-	check(t, "a model LiteLLM refuses", consoleCall(t, minh, "POST", settings+"/providers/"+provider+"/models",
-		map[string]any{"model": gatewayRefused}), 422, "ai_gateway_refused")
-	check(t, "a model of an unknown provider", consoleCall(t, minh, "POST", settings+"/providers/nobody/models",
-		map[string]any{"model": model}), 404, "ai_provider_not_found")
-	check(t, "a model without its name", consoleCall(t, minh, "POST", settings+"/providers/"+provider+"/models", map[string]any{}), 400, "")
-	expectStatus(t, consoleCall(t, minh, "POST", settings+"/providers/"+provider+"/models", map[string]any{"model": "spare-" + suffix}), 200)
-	expectStatus(t, consoleCall(t, minh, "DELETE", settings+"/providers/"+provider+"/models?model=spare-"+suffix, nil), 200)
-	check(t, "removing a model the provider lacks", consoleCall(t, minh, "DELETE", settings+"/providers/"+provider+"/models?model=none", nil),
-		404, "ai_model_not_found")
-
-	tags := expect[struct {
-		Tags []string `json:"tags"`
-	}](t, consoleCall(t, minh, "PUT", settings+"/models/tags", map[string]any{"model": model, "tags": []string{"Chat", "Tool use"}}), 200)
-	if !slices.Equal(tags.Tags, []string{"Chat", "Tool use"}) {
-		t.Fatalf("tags %+v", tags)
-	}
-	check(t, "an unknown tag", consoleCall(t, minh, "PUT", settings+"/models/tags", map[string]any{"model": model, "tags": []string{"Fast"}}),
-		422, "ai_tag_unknown")
-	check(t, "tags without a list", consoleCall(t, minh, "PUT", settings+"/models/tags", map[string]any{"model": model}), 400, "")
-	models := expect[struct {
+	gateway.SetStats("openrouter", 40, 90)
+	providers := expect[struct {
 		Items []struct {
-			Model string   `json:"model"`
-			Tags  []string `json:"tags"`
+			Name       string `json:"name"`
+			Kind       string `json:"kind"`
+			Status     string `json:"status"`
+			ModelCount int    `json:"model_count"`
 		} `json:"items"`
-		Tags []any `json:"tags"`
+	}](t, consoleCall(t, minh, "GET", settings+"/providers", nil), 200)
+	if len(providers.Items) != 2 || providers.Items[0].Name != "openrouter" || providers.Items[0].Status != "degraded" ||
+		providers.Items[0].ModelCount != 3 || providers.Items[1].Kind != "custom" || providers.Items[1].Status != "unknown" {
+		t.Errorf("providers %+v", providers)
+	}
+	catalog := expect[struct {
+		Items []struct {
+			Model        string   `json:"model_id"`
+			CatalogPrice *aiPrice `json:"catalog_price"`
+		} `json:"items"`
+	}](t, consoleCall(t, minh, "GET", settings+"/providers/openrouter/models", nil), 200)
+	if len(catalog.Items) != 3 || catalog.Items[0].Model != "baai/bge-m3" || catalog.Items[0].CatalogPrice.Input != 1e-8 {
+		t.Errorf("openrouter's catalog %+v", catalog)
+	}
+	check(t, "the catalog of an unknown provider", consoleCall(t, minh, "GET", settings+"/providers/nobody/models", nil), 404,
+		"ai_provider_not_found")
+
+	// A model with no price yet gets one; an unknown provider's is refused.
+	qwen := map[string]any{"provider": "openrouter", "model_id": "qwen/qwen3-embedding-8b"}
+	priced := maps.Clone(qwen)
+	priced["input"], priced["output"] = 2e-8, 0
+	if got := expect[aiPrice](t, consoleCall(t, minh, "PUT", settings+"/models/price", priced), 200); got.Input != 2e-8 || got.CacheRead != nil {
+		t.Errorf("qwen's price %+v", got)
+	}
+	if o, ok := gateway.Overrides()["server:openrouter/qwen/qwen3-embedding-8b"]; !ok || o == nil {
+		t.Errorf("Bifrost's overrides %v", gateway.Overrides())
+	}
+	check(t, "a negative price", consoleCall(t, minh, "PUT", settings+"/models/price",
+		map[string]any{"provider": "openrouter", "model_id": "x", "input": -1, "output": 0}), 422, "ai_price_invalid")
+	check(t, "an unknown provider's price", consoleCall(t, minh, "PUT", settings+"/models/price",
+		map[string]any{"provider": "nobody", "model_id": "x", "input": 1, "output": 1}), 404, "ai_provider_not_found")
+	check(t, "a price without output", consoleCall(t, minh, "PUT", settings+"/models/price", qwen), 400, "")
+
+	tagged := maps.Clone(qwen)
+	tagged["tags"] = []string{"Multilingual", "Embedding"}
+	if got := expect[struct {
+		Tags []string `json:"tags"`
+	}](t, consoleCall(t, minh, "PUT", settings+"/models/tags", tagged), 200); !slices.Equal(got.Tags, []string{"Embedding", "Multilingual"}) {
+		t.Errorf("qwen's tags %+v", got)
+	}
+	tagged["tags"] = []string{"Fast"}
+	check(t, "an unknown tag", consoleCall(t, minh, "PUT", settings+"/models/tags", tagged), 422, "ai_tag_unknown")
+	check(t, "tags without a list", consoleCall(t, minh, "PUT", settings+"/models/tags", qwen), 400, "")
+
+	models := expect[struct {
+		Items []aiModel `json:"items"`
+		Tags  []any     `json:"tags"`
 	}](t, consoleCall(t, minh, "GET", settings+"/models", nil), 200)
-	if len(models.Tags) != 8 || !slices.ContainsFunc(models.Items, func(m struct {
-		Model string   `json:"model"`
-		Tags  []string `json:"tags"`
-	},
-	) bool {
-		return m.Model == model && len(m.Tags) == 2
-	}) {
-		t.Fatalf("models %+v", models)
+	byName := map[string]aiModel{}
+	for _, m := range models.Items {
+		byName[m.Provider+"/"+m.Model] = m
+	}
+	if h := byName["upstream/claude-haiku-5-5"]; len(models.Tags) != 8 || h.Price == nil || h.CatalogPrice != nil || len(h.Agents) == 0 {
+		t.Errorf("haiku %+v", h)
+	}
+	if q := byName["openrouter/qwen/qwen3-embedding-8b"]; q.Price == nil || q.CatalogPrice == nil || len(q.Tags) != 2 || len(q.Agents) != 0 {
+		t.Errorf("qwen %+v", q)
 	}
 
+	slug := "writer-" + suffix
 	agentBody := map[string]any{
-		"name": "Writer " + suffix, "alias": "writer-" + suffix, "model": model, "required_tags": []string{"Chat"},
+		"name": "Writer " + suffix, "slug": slug, "model": haiku, "fallbacks": []aiModelRef{gemini}, "required_tags": []string{"Chat"},
 		"instructions": "Write.", "tools": []string{"count"}, "limits": map[string]int{"deadline_s": 120}, "monthly_budget_usd": 5,
 	}
 	agent := expect[aiAgent](t, consoleCall(t, minh, "POST", settings+"/agents", agentBody), 201)
-	if agent.Kind != "console" || agent.Model != model || *agent.MonthlyBudgetUSD != 5 {
+	if agent.Kind != "console" || agent.Model != haiku || len(agent.Fallbacks) != 1 || *agent.MonthlyBudgetUSD != 5 ||
+		len(agent.Callers) != 1 || agent.Callers[0].Name != slug {
 		t.Fatalf("agent %+v", agent)
 	}
-	// The same request again answers the agent it made; another name on the alias is refused.
+	key, ok := gateway.Keys()[slug]
+	if !ok || key.Metadata[bifrost.MetaModel] != "upstream/claude-haiku-5-5" || key.Metadata[bifrost.MetaFallbacks] != "openrouter/google/gemini-2.5-flash" {
+		t.Errorf("the writer's key %+v", key)
+	}
+	if team := gateway.Teams()[slug]; len(team.Budgets) != 1 || team.Budgets[0].MaxLimit != 5 {
+		t.Errorf("the writer's team %+v", team)
+	}
+	// The same request again answers the agent it made; another name on the slug is refused.
 	if again := expect[aiAgent](t, consoleCall(t, minh, "POST", settings+"/agents", agentBody), 201); again.ID != agent.ID {
 		t.Fatalf("the same request: %+v", again)
 	}
 	taken := maps.Clone(agentBody)
 	taken["name"] = "Other " + suffix
-	check(t, "the same alias", consoleCall(t, minh, "POST", settings+"/agents", taken), 409, "ai_agent_taken")
+	check(t, "the same slug", consoleCall(t, minh, "POST", settings+"/agents", taken), 409, "ai_agent_taken")
 	check(t, "a model without the tags", consoleCall(t, minh, "POST", settings+"/agents", map[string]any{
-		"name": "Seer " + suffix, "alias": "seer-" + suffix, "model": model, "required_tags": []string{"Vision"},
+		"name": "Seer " + suffix, "slug": "seer-" + suffix, "model": haiku, "required_tags": []string{"Reasoning"},
 	}), 422, "ai_model_lacks_tags")
-	check(t, "a model no provider has", consoleCall(t, minh, "POST", settings+"/agents", map[string]any{
-		"name": "Ghost " + suffix, "alias": "ghost-" + suffix, "model": "nowhere-" + suffix,
-	}), 404, "ai_model_not_found")
-	check(t, "an agent without a model", consoleCall(t, minh, "POST", settings+"/agents", map[string]any{"name": "x", "alias": "xx"}), 400, "")
+	check(t, "a model with no price", consoleCall(t, minh, "POST", settings+"/agents", map[string]any{
+		"name": "Ghost " + suffix, "slug": "ghost-" + suffix, "model": aiModelRef{"upstream", "nowhere-" + suffix},
+	}), 422, "ai_model_unpriced")
+	check(t, "an agent without a model", consoleCall(t, minh, "POST", settings+"/agents", map[string]any{"name": "x", "slug": "xx"}), 400, "")
 
 	changed := expect[aiAgent](t, consoleCall(t, minh, "PATCH", settings+"/agents/"+agent.ID,
 		map[string]any{"instructions": "Write less.", "monthly_budget_usd": nil}), 200)
 	if changed.InstructionsVersion != 2 || changed.MonthlyBudgetUSD != nil {
 		t.Fatalf("changed %+v", changed)
 	}
+	limited := expect[aiAgent](t, consoleCall(t, minh, "PATCH", settings+"/agents/"+agent.ID,
+		map[string]any{"callers": []map[string]any{{"name": slug, "requests_per_min": 30, "tokens_per_min": nil}}, "monthly_budget_usd": 8}), 200)
+	if *limited.MonthlyBudgetUSD != 8 || len(limited.Callers) != 1 || *limited.Callers[0].RequestsPerMin != 30 || *gateway.Keys()[slug].RateLimit.RequestMaxLimit != 30 {
+		t.Errorf("the writer's callers %+v", limited.Callers)
+	}
+	check(t, "a caller not the agent's", consoleCall(t, minh, "PATCH", settings+"/agents/"+agent.ID,
+		map[string]any{"callers": []map[string]any{{"name": "server-trust", "requests_per_min": 1, "tokens_per_min": nil}}}),
+		422, "ai_agent_invalid")
 	check(t, "another agent's name", consoleCall(t, minh, "PATCH", settings+"/agents/"+agent.ID, map[string]any{"name": "Console assistant"}),
 		409, "ai_agent_taken")
 	check(t, "an app agent's name", consoleCall(t, minh, "PATCH", settings+"/agents/0193e000-0000-7000-8000-00000000a103",
@@ -157,33 +206,19 @@ func TestAISettings(t *testing.T) {
 	}
 	check(t, "the versions of an unknown agent", consoleCall(t, minh, "GET", settings+"/agents/"+newID()+"/versions", nil), 404,
 		"ai_agent_not_found")
+
+	gateway.SetSpent(slug, 1.25)
 	agents := expect[struct {
 		Items []aiAgent `json:"items"`
 	}](t, consoleCall(t, minh, "GET", settings+"/agents", nil), 200)
-	if !slices.ContainsFunc(agents.Items, func(a aiAgent) bool { return a.Alias == "scam-check" && a.Kind == "app" }) {
+	i := slices.IndexFunc(agents.Items, func(a aiAgent) bool { return a.ID == agent.ID })
+	now := time.Now().UTC()
+	resets := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	if i < 0 || *agents.Items[i].BudgetSpentUSD != 1.25 || !agents.Items[i].BudgetResetsAt.Equal(resets) ||
+		!slices.ContainsFunc(agents.Items, func(a aiAgent) bool { return a.Slug == "scam-check" && a.Kind == "app" }) {
 		t.Fatalf("agents %+v", agents)
 	}
 
-	available := expect[struct {
-		Items []struct {
-			Model string `json:"model"`
-			Added bool   `json:"added"`
-		} `json:"items"`
-	}](t, consoleCall(t, minh, "GET", settings+"/providers/"+provider+"/models", nil), 200)
-	if len(available.Items) == 0 || !slices.ContainsFunc(available.Items, func(m struct {
-		Model string `json:"model"`
-		Added bool   `json:"added"`
-	},
-	) bool {
-		return m.Model == model && m.Added
-	}) {
-		t.Errorf("available models %+v", available)
-	}
-	check(t, "the models of an unknown provider", consoleCall(t, minh, "GET", settings+"/providers/nobody/models", nil), 404,
-		"ai_provider_not_found")
-	expectStatus(t, consoleCall(t, minh, "GET", settings+"/providers/health", nil), 200)
-	check(t, "turning off the only provider of a model", consoleCall(t, minh, "PATCH", settings+"/providers/"+provider,
-		map[string]any{"enabled": false}), 409, "ai_provider_in_use")
 	askAndWait(t, minh, "Tuần này thế nào?")
 	usage := expect[struct {
 		Items []struct {
@@ -200,6 +235,23 @@ func TestAISettings(t *testing.T) {
 	}) {
 		t.Errorf("usage %+v", usage)
 	}
+
+	gateway.Log(now, slug, 0.5, 2)
+	today := now.Format(time.DateOnly)
+	spend := expect[struct {
+		Days []struct {
+			Date    string             `json:"date"`
+			ByAgent map[string]float64 `json:"by_agent"`
+		} `json:"days"`
+		LagS int `json:"lag_s"`
+	}](t, consoleCall(t, minh, "GET", settings+"/spend?from="+now.AddDate(0, 0, -6).Format(time.DateOnly)+"&to="+today, nil), 200)
+	if len(spend.Days) != 7 || spend.Days[6].Date != today || spend.Days[6].ByAgent[slug] != 0.5 || spend.LagS != 60 {
+		t.Errorf("spend %+v", spend)
+	}
+	check(t, "a range that ends before it starts", consoleCall(t, minh, "GET", settings+"/spend?from="+today+"&to=2020-01-01", nil),
+		422, "ai_spend_range_invalid")
+	check(t, "a range without its end", consoleCall(t, minh, "GET", settings+"/spend?from="+today, nil), 400, "")
+
 	tools := expect[struct {
 		Items []struct {
 			DisplayName string `json:"display_name"`
@@ -222,7 +274,13 @@ func TestAISettings(t *testing.T) {
 	}](t, consoleCall(t, minh, "PATCH", settings+"/dashboards", map[string]any{
 		"items": []map[string]string{{"app": "grafana", "floor": "moderator"}},
 	}), 200)
-	if len(floors.Items) != 6 || floors.Items[0].App != "grafana" {
+	if len(floors.Items) != 6 || floors.Items[0].App != "grafana" || !slices.ContainsFunc(floors.Items, func(f struct {
+		App   string `json:"app"`
+		Floor string `json:"floor"`
+	},
+	) bool {
+		return f.App == "bifrost"
+	}) {
 		t.Errorf("floors %+v", floors)
 	}
 	expectStatus(t, consoleCall(t, minh, "GET", settings+"/dashboards", nil), 200)
@@ -236,81 +294,12 @@ func TestAISettings(t *testing.T) {
 		t.Errorf("a moderator's dashboards %+v", me)
 	}
 
-	check(t, "deleting the only provider of a model", consoleCall(t, minh, "DELETE", settings+"/providers/"+provider, nil), 409,
-		"ai_provider_in_use")
-	check(t, "removing the only provider's model", consoleCall(t, minh, "DELETE", settings+"/providers/"+provider+"/models?model="+escaped, nil),
-		409, "ai_provider_in_use")
-	expectStatus(t, consoleCall(t, minh, "PATCH", settings+"/providers/"+provider, map[string]any{"weight": 3}), 200)
-	check(t, "a key LiteLLM refuses", consoleCall(t, minh, "PATCH", settings+"/providers/"+provider, map[string]any{"api_key": gatewayRefused}),
-		422, "ai_gateway_refused")
-	check(t, "an unknown provider", consoleCall(t, minh, "PATCH", settings+"/providers/nobody", map[string]any{"weight": 1}), 404,
-		"ai_provider_not_found")
-	check(t, "an empty patch", consoleCall(t, minh, "PATCH", settings+"/providers/"+provider, map[string]any{}), 400, "")
-	test := expect[struct {
-		OK bool `json:"ok"`
-	}](t, consoleCall(t, minh, "POST", settings+"/providers/"+provider+"/test", map[string]any{}), 200)
-	if !test.OK {
-		t.Errorf("test %+v", test)
-	}
-	check(t, "testing an unknown provider", consoleCall(t, minh, "POST", settings+"/providers/nobody/test", map[string]any{}), 404,
-		"ai_provider_not_found")
-	check(t, "a test with an unknown field", consoleCall(t, minh, "POST", settings+"/providers/"+provider+"/test",
-		map[string]any{"fast": true}), 400, "")
-
-	other := "o-" + suffix
-	expectStatus(t, consoleCall(t, minh, "POST", settings+"/providers", map[string]any{"id": other, "kind": "anthropic", "api_key": "sk-o"}), 201)
-	expectStatus(t, consoleCall(t, minh, "DELETE", settings+"/providers/"+other, nil), 204)
-	check(t, "deleting an unknown provider", consoleCall(t, minh, "DELETE", settings+"/providers/"+other, nil), 404, "ai_provider_not_found")
-
-	rot := expect[struct {
-		NumRetries int `json:"num_retries"`
-	}](t, consoleCall(t, minh, "PATCH", settings+"/rotation", map[string]any{"num_retries": 3}), 200)
-	if rot.NumRetries != 3 {
-		t.Errorf("rotation %+v", rot)
-	}
-	expectStatus(t, consoleCall(t, minh, "GET", settings+"/rotation", nil), 200)
-	check(t, "an unknown strategy", consoleCall(t, minh, "PATCH", settings+"/rotation", map[string]any{"routing_strategy": "random"}), 400, "")
-
-	budgets := expect[struct {
-		MemberDailyUSD struct {
-			Moderator float64 `json:"moderator"`
-		} `json:"member_daily_usd"`
-		Overrides []any  `json:"overrides"`
-		OnCap     string `json:"on_cap"`
-	}](t, consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{
-		"member_daily_usd": map[string]any{"moderator": 2, "admin": 0},
-		"overrides":        []map[string]any{{"member_id": minh.ID, "daily_usd": 4}},
-		"agents":           []map[string]any{{"agent_id": agent.ID, "monthly_budget_usd": 7}},
-		"alert_pct":        90, "on_cap": "alert_only",
-	}), 200)
-	if budgets.MemberDailyUSD.Moderator != 2 || len(budgets.Overrides) != 1 || budgets.OnCap != "alert_only" {
-		t.Errorf("budgets %+v", budgets)
-	}
-	expectStatus(t, consoleCall(t, minh, "GET", settings+"/budgets", nil), 200)
-	check(t, "the budget of an unknown agent", consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{
-		"agents": []map[string]any{{"agent_id": newID(), "monthly_budget_usd": 1}},
-	}), 404, "ai_agent_not_found")
-	check(t, "a negative budget", consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{"monthly_cap_usd": -1}), 400, "")
-	check(t, "the budget of an unknown member", consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{
-		"overrides": []map[string]any{{"member_id": newID(), "daily_usd": 1}},
-	}), 404, "member_not_found")
-	spend := expect[struct {
-		Range   string `json:"range"`
-		Members []any  `json:"members"`
-	}](t, consoleCall(t, minh, "GET", settings+"/spend?range=7d", nil), 200)
-	if spend.Range != "7d" || spend.Members == nil {
-		t.Errorf("spend %+v", spend)
-	}
-
 	actions := expect[struct {
 		Items []struct {
 			Action string `json:"action"`
 		} `json:"items"`
 	}](t, consoleCall(t, minh, "GET", "/v1/console/actions?member_id="+minh.ID+"&limit=50", nil), 200)
-	for _, want := range []string{
-		"ai.provider_create", "ai.provider_models", "ai.model_tags", "ai.agent_create", "ai.agent_update", "ai.provider_update",
-		"ai.provider_delete", "ai.rotation", "ai.budgets",
-	} {
+	for _, want := range []string{"ai.model_price", "ai.model_tags", "ai.agent_create", "ai.agent_update"} {
 		if !slices.ContainsFunc(actions.Items, func(a struct {
 			Action string `json:"action"`
 		},
@@ -321,7 +310,7 @@ func TestAISettings(t *testing.T) {
 		}
 	}
 
-	for _, c := range settingsCalls(provider, escaped, agent.ID) {
+	for _, c := range settingsCalls(agent.ID) {
 		check(t, c.method+" "+c.path+" as a moderator", consoleCall(t, lan, c.method, c.path, c.body), 403, "console_forbidden")
 		expectStatus(t, consoleCall(t, signedOut, c.method, c.path, c.body), 401)
 	}
@@ -334,29 +323,19 @@ type settingsCall struct {
 
 // settingsCalls is one call of each settings operation, with a body its
 // schema takes, so the guard answers rather than the validator.
-func settingsCalls(provider, model, agent string) []settingsCall {
-	p := settings + "/providers/" + provider
+func settingsCalls(agent string) []settingsCall {
+	model := map[string]any{"provider": "openrouter", "model_id": "baai/bge-m3"}
 	return []settingsCall{
 		{"GET", settings + "/providers", nil},
-		{"POST", settings + "/providers", map[string]any{"id": "zz", "kind": "openai", "api_key": "x"}},
-		{"PATCH", p, map[string]any{"weight": 1}},
-		{"DELETE", p, nil},
-		{"POST", p + "/models", map[string]any{"model": "m"}},
-		{"DELETE", p + "/models?model=" + model, nil},
-		{"POST", p + "/test", map[string]any{}},
+		{"GET", settings + "/providers/openrouter/models", nil},
 		{"GET", settings + "/models", nil},
-		{"PUT", settings + "/models/tags", map[string]any{"model": model, "tags": []string{}}},
+		{"PUT", settings + "/models/tags", map[string]any{"provider": "openrouter", "model_id": "baai/bge-m3", "tags": []string{"Embedding"}}},
+		{"PUT", settings + "/models/price", map[string]any{"provider": "openrouter", "model_id": "baai/bge-m3", "input": 1e-8, "output": 0}},
 		{"GET", settings + "/agents", nil},
-		{"POST", settings + "/agents", map[string]any{"name": "x", "alias": "xx", "model": "m"}},
+		{"POST", settings + "/agents", map[string]any{"name": "x", "slug": "xx", "model": model}},
 		{"PATCH", settings + "/agents/" + agent, map[string]any{"enabled": true}},
 		{"GET", settings + "/agents/" + agent + "/versions", nil},
-		{"GET", settings + "/rotation", nil},
-		{"PATCH", settings + "/rotation", map[string]any{"num_retries": 1}},
-		{"GET", settings + "/budgets", nil},
-		{"PATCH", settings + "/budgets", map[string]any{"alert_pct": 50}},
-		{"GET", settings + "/spend", nil},
-		{"GET", settings + "/providers/health", nil},
-		{"GET", p + "/models", nil},
+		{"GET", settings + "/spend?from=2026-11-01&to=2026-11-07", nil},
 		{"GET", settings + "/agents/usage", nil},
 		{"GET", settings + "/tools", nil},
 		{"GET", settings + "/guardrails", nil},
@@ -365,16 +344,20 @@ func settingsCalls(provider, model, agent string) []settingsCall {
 	}
 }
 
-// A stack whose LiteLLM and agent are down answers ai_gateway_unavailable
-// on every setting that reads or writes LiteLLM, and agent_unavailable on
-// a question; the tools, guardrails and skills are the server's. The second server has a database of its own, with an admin
-// of its own.
+// A stack whose Bifrost and agent are down answers ai_gateway_unavailable
+// on every setting that reads or writes Bifrost, with the change saved,
+// and agent_unavailable on a question; the agents without their spend,
+// the tags, versions, tools, guardrails and skills are the server's. The
+// second server has a database and an admin of its own.
 func TestAISettingsDown(t *testing.T) {
 	t.Parallel()
 	cfg := serverConfig
 	pool := pgtest.New(t)
+	down := newGateway()
+	t.Cleanup(down.Close)
+	down.SetDown(true)
 	cfg.DatabaseURL, cfg.Restate = pool.Config().ConnString(), restatetest.Config(t)
-	cfg.Agent.LiteLLMURL, cfg.Agent.BaseURL = "http://127.0.0.1:1", "http://127.0.0.1:1"
+	cfg.Gateway.URL, cfg.Agent.BaseURL = down.URL(), "http://127.0.0.1:1"
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast), fakeAI())
 	if err != nil {
@@ -394,21 +377,24 @@ func TestAISettingsDown(t *testing.T) {
 			[2]string{"Cookie", "console_session=" + admin})
 	}
 	assistant := "0193e000-0000-7000-8000-00000000a101"
-	for _, c := range settingsCalls("relay", "m", assistant) {
+	for _, c := range settingsCalls(assistant) {
 		switch {
-		case c.path == settings+"/agents", strings.HasSuffix(c.path, "/tags"), strings.HasPrefix(c.path, settings+"/agents/0"),
-			strings.HasSuffix(c.path, "/dashboards"):
-			continue // the database's alone
-		case strings.HasSuffix(c.path, "/tools"), strings.HasSuffix(c.path, "/guardrails"):
-			expectStatus(t, at(c.method, c.path, c.body), 200)
-		default:
+		case c.method == "POST", c.method == "PATCH" && strings.Contains(c.path, "/agents/"), strings.HasSuffix(c.path, "/price"),
+			strings.Contains(c.path, "/providers"), strings.HasSuffix(c.path, "/models"), strings.Contains(c.path, "/spend"),
+			strings.Contains(c.path, "/usage"):
 			check(t, c.method+" "+c.path, at(c.method, c.path, c.body), 503, "ai_gateway_unavailable")
+		default:
+			expectStatus(t, at(c.method, c.path, c.body), 200)
 		}
 	}
-	check(t, "creating an agent", at("POST", settings+"/agents", map[string]any{"name": "Down", "alias": "down-agent", "model": "m"}), 503,
-		"ai_gateway_unavailable")
-	check(t, "a new model", at("PATCH", settings+"/agents/"+assistant, map[string]any{"model": "claude-haiku-5-5"}), 503,
-		"ai_gateway_unavailable")
+	// The change Bifrost could not take is saved.
+	agents := expect[struct {
+		Items []aiAgent `json:"items"`
+	}](t, at("GET", settings+"/agents", nil), 200)
+	if i := slices.IndexFunc(agents.Items, func(a aiAgent) bool { return a.Slug == "xx" }); i < 0 || agents.Items[i].BudgetSpentUSD != nil ||
+		agents.Items[i].BudgetResetsAt != nil {
+		t.Errorf("agents %+v", agents)
+	}
 	expectStatus(t, at("GET", "/v1/console/agent/skills", nil), 200)
 	own := expect[agentConversation](t, at("POST", "/v1/console/agent/conversations", map[string]any{}), 200)
 	check(t, "a question", at("POST", "/v1/console/agent/conversations/"+own.ID+"/turns", map[string]string{"text": "?"}), 503,
@@ -438,35 +424,4 @@ func signInMemberAt(t *testing.T, base string, svc *consolesvc.Console, role con
 	}, csrf)
 	expectStatus(t, res, http.StatusOK)
 	return sessionCookieOf(t, res).Value
-}
-
-// Budget saves racing on the one settings row each get 200 or 409
-// try_again, and at least one wins.
-func TestAIBudgetsRace(t *testing.T) { //nolint:paralleltest // The other settings tests read the row.
-	minh := signInMember(t, consoledomain.RoleAdmin)
-	statuses := make(chan int, 20)
-	var wg sync.WaitGroup
-	for i := range 20 {
-		wg.Go(func() {
-			res := consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{"alert_pct": 50 + i})
-			if res.Status == 409 && errorOf(t, res).Code != "try_again" {
-				t.Errorf("409 with %s", res.Body)
-			}
-			statuses <- res.Status
-		})
-	}
-	wg.Wait()
-	close(statuses)
-	won := 0
-	for s := range statuses {
-		if s != 200 && s != 409 {
-			t.Fatalf("status %d", s)
-		}
-		if s == 200 {
-			won++
-		}
-	}
-	if won == 0 {
-		t.Fatal("no save won")
-	}
 }

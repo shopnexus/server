@@ -19,7 +19,7 @@ func TestIndexNowOff(t *testing.T) {
 	t.Parallel()
 	cfg := serverConfig
 	cfg.DatabaseURL, cfg.Restate = pgtest.New(t).Config().ConnString(), restatetest.Config(t)
-	cfg.IndexNowKey = ""
+	cfg.IndexNowKey, cfg.Gateway.URL = "", ownGateway(t)
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast), fakeAI())
 	if err != nil {

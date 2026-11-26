@@ -27,7 +27,7 @@ func TestNoCarrier(t *testing.T) {
 	cfg := serverConfig
 	store := pgtest.New(t)
 	cfg.DatabaseURL, cfg.Restate = store.Config().ConnString(), restatetest.Config(t)
-	cfg.Carrier.GHTKMode, cfg.Carrier.GHNMode = "off", "off"
+	cfg.Carrier.GHTKMode, cfg.Carrier.GHNMode, cfg.Gateway.URL = "off", "off", ownGateway(t)
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast), fakeAI())
 	if err != nil {

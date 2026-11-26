@@ -83,13 +83,13 @@ AgentTurnState:
       schema:
         $ref: "../schemas/error.yaml#/Error"
 AIGatewayUnavailable:
-  description: "LiteLLM cannot be reached (ai_gateway_unavailable); the settings stay as they were."
+  description: "Bifrost cannot be reached (ai_gateway_unavailable). A change is saved and goes to Bifrost when it is back, within 5 minutes."
   content:
     application/json:
       schema:
         $ref: "../schemas/error.yaml#/Error"
 AISettingsRefused:
-  description: "A rule refuses the change: ai_provider_invalid, ai_model_lacks_tags, ai_tag_unknown, ai_agent_invalid, ai_agent_app_fixed, ai_rotation_invalid, or LiteLLM refused it (ai_gateway_refused)."
+  description: "A rule refuses the change: ai_model_unpriced (the model or a fallback has no price), ai_model_lacks_tags (it lacks a required tag), ai_tag_unknown, ai_agent_invalid (such as a caller not the agent's, or a fallback for an Embedding agent), ai_agent_app_fixed, ai_price_invalid, or Bifrost refused it (ai_gateway_refused)."
   content:
     application/json:
       schema:

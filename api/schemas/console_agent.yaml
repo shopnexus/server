@@ -214,6 +214,7 @@ AgentUsage:
       type: integer
     provider:
       type: string
+      description: The provider in Bifrost that served the call, such as upstream or openrouter.
 AgentQuestion:
   type: object
   additionalProperties: false
@@ -580,7 +581,7 @@ AgentRunEvent:
     the event's `id:` is its seq, counted from 1 per turn. The fields
     beside seq, type and at are those of the type:
 
-    - turn.started: agent {id, name}, model (the alias), deadline_s
+    - turn.started: agent {id, name}, model (provider/model), deadline_s
     - turn.resumed: by (continue, steer, input)
     - step.started: step_id, title
     - step.finished: step_id, summary, duration_ms
@@ -590,14 +591,17 @@ AgentRunEvent:
     - tool.finished: call_id, status (success, failed, skipped),
       duration_ms, timing {queued, server, db, return}, result_summary,
       source_ids, sources
-    - model.switched: from_provider, to_provider, reason
+    - model.switched: from_model, to_model (provider/model), reason
+      (fallback when Bifrost tried the next model, changed when an admin
+      gave the agent another model)
     - thinking: summary, duration_ms
     - text.delta: delta
     - block: block, one AgentBlock
     - clarify: questions [{id, label, kind: single|multi, options: [{id,
       label, hint?}], default?}]; the turn waits
     - usage: input_tokens (uncached), output_tokens, cache_read_tokens?,
-      cache_write_tokens?, cost_usd, provider, first_token_ms
+      cache_write_tokens?, cost_usd, provider (Bifrost's provider name),
+      first_token_ms
     - steer.read: steer_id, step_id (or null), step_number
     - turn.pausing, turn.paused: steps_done, reason (member, stop_now)
     - rate.waiting: until

@@ -21,7 +21,7 @@ import (
 	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 )
 
-// stubEmbed stands in for the alias embed-text, 1024 dimensions, and for
+// stubEmbed stands in for the embed-text agent's model, 1024 dimensions, and for
 // module ai's photo vectors, 1152, each input its embedtest vector of the
 // photo's data URL. Hashed vectors are close to orthogonal, so below the
 // e2e floors of 0.5: vector lists stay empty unless a test sets a vector,
@@ -51,7 +51,7 @@ func newEmbed() *stubEmbed {
 			Model string   `json:"model"`
 			Input []string `json:"input"`
 		}
-		if r.URL.Path != "/v1/embeddings" || json.NewDecoder(r.Body).Decode(&req) != nil || req.Model != "embed-text" {
+		if r.URL.Path != "/v1/embeddings" || json.NewDecoder(r.Body).Decode(&req) != nil || req.Model != "openrouter/baai/bge-m3" {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}

@@ -109,8 +109,9 @@ func (s *Agent) AgentVersions(ctx context.Context, id uuid.UUID) ([]AgentVersion
 // checkModels refuses an agent whose models do not fit: a required tag
 // ai_tags lacks, a fallback that repeats a model, a fallback of an
 // embedding agent (another model's vectors are in another space), a model
-// or fallback that lacks a required tag or has no price, or a provider
-// Bifrost does not run.
+// or fallback that lacks a required tag or has no price. A price is only
+// set on a provider Bifrost runs, so this reads the database alone and a
+// change saves while Bifrost is down.
 func (s *Agent) checkModels(ctx context.Context, a repository.Agent) error {
 	tags, err := s.d.Settings.Tags(ctx)
 	if err != nil {
@@ -138,7 +139,6 @@ func (s *Agent) checkModels(ctx context.Context, a repository.Agent) error {
 	if err != nil {
 		return fmt.Errorf("read the prices: %w", err)
 	}
-	providers := make([]string, 0, len(models))
 	for i, m := range models {
 		field := "model"
 		if i > 0 {
@@ -150,9 +150,8 @@ func (s *Agent) checkModels(ctx context.Context, a repository.Agent) error {
 		if !slices.ContainsFunc(prices, func(p repository.Price) bool { return p.Model == m }) {
 			return domain.ErrModelUnpriced.WithField(field, apperr.NotAllowed, m.String())
 		}
-		providers = append(providers, m.Provider)
 	}
-	return s.checkProviders(ctx, providers...)
+	return nil
 }
 
 // CreateAgent makes a console agent with one caller, its slug: the row,

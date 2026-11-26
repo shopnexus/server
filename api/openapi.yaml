@@ -507,18 +507,14 @@ paths:
     $ref: "paths/console_agent.yaml#/consoleAgents"
   /v1/console/settings/providers:
     $ref: "paths/ai_settings.yaml#/providers"
-  /v1/console/settings/providers/health:
-    $ref: "paths/ai_settings.yaml#/providerHealth"
-  /v1/console/settings/providers/{id}:
-    $ref: "paths/ai_settings.yaml#/provider"
-  /v1/console/settings/providers/{id}/models:
+  /v1/console/settings/providers/{name}/models:
     $ref: "paths/ai_settings.yaml#/providerModels"
-  /v1/console/settings/providers/{id}/test:
-    $ref: "paths/ai_settings.yaml#/providerTest"
   /v1/console/settings/models:
     $ref: "paths/ai_settings.yaml#/models"
   /v1/console/settings/models/tags:
     $ref: "paths/ai_settings.yaml#/modelTags"
+  /v1/console/settings/models/price:
+    $ref: "paths/ai_settings.yaml#/modelPrice"
   /v1/console/settings/agents:
     $ref: "paths/ai_settings.yaml#/agents"
   /v1/console/settings/agents/usage:
@@ -527,10 +523,6 @@ paths:
     $ref: "paths/ai_settings.yaml#/agent"
   /v1/console/settings/agents/{id}/versions:
     $ref: "paths/ai_settings.yaml#/agentVersions"
-  /v1/console/settings/rotation:
-    $ref: "paths/ai_settings.yaml#/rotation"
-  /v1/console/settings/budgets:
-    $ref: "paths/ai_settings.yaml#/budgets"
   /v1/console/settings/spend:
     $ref: "paths/ai_settings.yaml#/spend"
   /v1/console/settings/tools:

@@ -29,6 +29,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/provider/bifrost/bifrosttest"
 	"github.com/shopnexus/server/internal/provider/firebase/firebasetest"
 	"github.com/shopnexus/server/internal/provider/google/googletest"
 )
@@ -51,7 +52,7 @@ var (
 	scamStub   = newScam()          // the scam-check model
 	chototStub = newChotot()        // Chợ Tốt's gateway and CDN
 	agentStub  = newAgent()         // the console agent service
-	gateway    = newGateway()       // LiteLLM's admin API
+	gateway    = newGateway()       // Bifrost, whose callers reach the stubs above
 	phones     = newPhones()        // every push the server sends
 	mails      = newInbox()         // every mail the server sends
 	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
@@ -109,6 +110,7 @@ func setup(closers *[]func()) error {
 	}
 	*closers = append(*closers, drop)
 	db = pool
+	*closers = append(*closers, gateway.Close)
 
 	restateCfg, err := restatetest.ConfigForMain()
 	if err != nil {
@@ -150,23 +152,22 @@ func setup(closers *[]func()) error {
 			Key: config.NewConsoleKey(), Origin: "http://console.e2e",
 			DashboardHosts: map[string]string{"grafana": "grafana.e2e.test", "restate": "restate.e2e.test"},
 		},
-		LLM: config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
+		Gateway: config.GatewayConfig{URL: gateway.URL(), AdminUsername: bifrosttest.Username, AdminPassword: bifrosttest.Password},
+		LLM:     config.LLMConfig{Effort: ""},
 		Embed: config.EmbedConfig{
-			TextBaseURL: embedder.url(), TextModel: "embed-text", TextVersion: "text-test", ImageVersion: "image-test",
-			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
+			TextModel: "embed-text", TextVersion: "text-test", ImageVersion: "image-test", Timeout: time.Second, Slots: 1,
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5, LookMinSimilarity: 0.05,
 		},
 		Assist: config.AssistConfig{
-			LLMBaseURL: assistStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second,
+			LLMEffort: "", CallTimeout: 5 * time.Second,
 			ChototGatewayURL: chototStub.url(), ChototCDNURL: chototStub.url(),
 		},
 		AI: config.AIConfig{
 			EmbedModel: "siglip2-so400m-patch16-384", EmbedMaxInputs: 16, EmbedMaxImageMB: 10, FramesMaxConcurrent: 2,
 		},
-		Trust: config.TrustConfig{LLMBaseURL: scamStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second},
+		Trust: config.TrustConfig{CallTimeout: 5 * time.Second},
 		Agent: config.AgentConfig{
 			BaseURL: agentStub.url(), ServiceToken: agentServiceToken, MCPAddr: "127.0.0.1:0", MCPToken: agentMCPToken,
-			LiteLLMURL: gateway.url(), LiteLLMMasterKey: gatewayMasterKey,
 		},
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
@@ -196,6 +197,9 @@ func setup(closers *[]func()) error {
 	*closers = append(*closers, srv.Close)
 	server = srv.URL
 	mcpURL = "http://" + a.AgentMCPAddr().String() + "/mcp"
+	if err = gatewayReady(); err != nil {
+		return err
+	}
 
 	return loadSpec()
 }

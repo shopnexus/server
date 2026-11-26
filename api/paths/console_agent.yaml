@@ -243,8 +243,8 @@ conversationTurns:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "429":
-        description: "The agent's budget is spent (agent_budget), and the rest of the console works without it; or
-          the member asked too much in a short time (agent_rate_limited)."
+        description: "The member asked too much in a short time (agent_rate_limited). A spent monthly budget
+          ends the run instead, with the status budget."
         content:
           application/json:
             schema:

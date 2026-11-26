@@ -157,14 +157,14 @@ AgentSkillID:
   schema:
     type: string
     format: uuid
-AIProviderID:
-  name: id
+AIProviderName:
+  name: name
   in: path
   required: true
-  description: The provider's id, its LiteLLM credential name.
+  description: The provider's name in Bifrost's config.json, such as upstream or openrouter.
   schema:
     type: string
-    pattern: "^[a-z0-9][a-z0-9-]{1,40}$"
+    pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$"
 AIAgentID:
   name: id
   in: path

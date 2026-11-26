@@ -1,47 +1,38 @@
-AIProviderMode:
+AIProviderStatus:
   type: string
-  description: pick keeps the models an admin added; sync lists the provider's models every 6 hours and adds the new ones, with no tags.
-  enum: [pick, sync]
+  description: >-
+    unknown with no request in the last hour; down when Bifrost marks the provider's status error, or when
+    error_share_1h is at least 0.5 over at least 5 requests; degraded when it is at least 0.05 over at least 20
+    requests; else ok.
+  enum: [ok, degraded, down, unknown]
 AIProvider:
   type: object
   additionalProperties: false
-  description: A provider, a LiteLLM credential. Each of its models is a deployment of every agent alias that runs on it, with the provider's weight and order.
-  required: [id, name, kind, weight, order, mode, enabled, models]
+  description: A provider Bifrost runs from its config.json; a new one or a new key is an infra change.
+  required: [name, kind, status, error_share_1h, requests_1h, model_count]
   properties:
-    id:
-      type: string
-      description: The LiteLLM credential name.
     name:
       type: string
+      description: The provider's name in Bifrost, the prefix of its models (upstream/claude-sonnet-5-5).
     kind:
       type: string
-      description: LiteLLM's provider route, such as openai, anthropic or openrouter.
-    base_url:
+      description: A built-in provider's name, such as openrouter, or custom.
+    base_host:
       type: string
-    key_hint:
-      type: string
-      description: The key as LiteLLM shows it, masked. The key itself never comes back.
-    weight:
+      description: The host of the provider's base URL, when it has one.
+    status:
+      $ref: "#/AIProviderStatus"
+    error_share_1h:
       type: number
       minimum: 0
-      description: The provider's share of calls among providers of the same order.
-    order:
+      maximum: 1
+      description: The share of the last hour's requests that failed.
+    requests_1h:
       type: integer
-      minimum: 1
-      description: Lower is tried first; a higher order is the fallback.
-    mode:
-      $ref: "#/AIProviderMode"
-    enabled:
-      type: boolean
-      description: The provider serves the agents' aliases; a provider turned off keeps its models and serves none.
-    models:
-      type: array
-      items:
-        type: string
-    synced_at:
-      type: string
-      format: date-time
-      description: The last sync, for a provider in sync mode.
+      description: The requests of the last hour.
+    model_count:
+      type: integer
+      description: The models of the provider's catalog in Bifrost.
 AIProviderList:
   type: object
   additionalProperties: false
@@ -51,103 +42,55 @@ AIProviderList:
       type: array
       items:
         $ref: "#/AIProvider"
-AIProviderNew:
+AIPrice:
   type: object
   additionalProperties: false
-  required: [id, kind, api_key]
+  description: USD per token. A null cache price is the input price.
+  required: [input, output, cache_read, cache_write]
   properties:
-    id:
+    input:
+      type: number
+    output:
+      type: number
+    cache_read:
+      type: [number, "null"]
+    cache_write:
+      type: [number, "null"]
+AIProviderModel:
+  type: object
+  additionalProperties: false
+  required: [model_id]
+  properties:
+    model_id:
       type: string
-      pattern: "^[a-z0-9][a-z0-9-]{1,40}$"
-    name:
-      type: string
-      maxLength: 100
-    kind:
-      type: string
-      pattern: "^[a-z][a-z0-9_]{1,30}$"
-    base_url:
-      type: string
-      format: uri
-      maxLength: 500
-    api_key:
+      description: The model as the provider names it, without the provider's prefix.
+    catalog_price:
+      $ref: "#/AIPrice"
+    max_input_tokens:
+      type: integer
+AIProviderModelList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/AIProviderModel"
+AIModelRef:
+  type: object
+  additionalProperties: false
+  description: A provider's model, which callers send Bifrost as provider/model_id.
+  required: [provider, model_id]
+  properties:
+    provider:
       type: string
       minLength: 1
-      maxLength: 1000
-      writeOnly: true
-    weight:
-      type: number
-      minimum: 0
-    order:
-      type: integer
-      minimum: 1
-    mode:
-      $ref: "#/AIProviderMode"
-AIProviderPatch:
-  type: object
-  additionalProperties: false
-  minProperties: 1
-  properties:
-    name:
-      type: string
-      maxLength: 100
-    base_url:
-      type: string
-      maxLength: 500
-    api_key:
-      type: string
-      minLength: 1
-      maxLength: 1000
-      writeOnly: true
-    weight:
-      type: number
-      minimum: 0
-    order:
-      type: integer
-      minimum: 1
-    mode:
-      $ref: "#/AIProviderMode"
-    enabled:
-      type: boolean
-      description: false takes the provider out of every alias (ai_provider_in_use when it is an agent's model's only one).
-AIProviderModelNew:
-  type: object
-  additionalProperties: false
-  required: [model]
-  properties:
-    model:
+      maxLength: 63
+    model_id:
       type: string
       minLength: 1
       maxLength: 200
-      description: The model as the provider names it, without LiteLLM's route.
-    input_cost_per_mtok:
-      type: number
-      minimum: 0
-      description: USD per million input tokens, for LiteLLM's spend.
-    output_cost_per_mtok:
-      type: number
-      minimum: 0
-AIProviderTestRequest:
-  type: object
-  additionalProperties: false
-  properties:
-    model:
-      type: string
-      maxLength: 200
-      description: The model to call; the first of the provider's list when left out.
-AIProviderTest:
-  type: object
-  additionalProperties: false
-  required: [ok, latency_ms]
-  properties:
-    ok:
-      type: boolean
-    model:
-      type: string
-    error:
-      type: string
-      description: The provider's error as LiteLLM gives it.
-    latency_ms:
-      type: integer
 AITag:
   type: object
   additionalProperties: false
@@ -158,15 +101,6 @@ AITag:
     kind:
       type: string
       enum: [type, capability]
-AINamed:
-  type: object
-  additionalProperties: false
-  required: [id, name]
-  properties:
-    id:
-      type: string
-    name:
-      type: string
 AIAgentRef:
   type: object
   additionalProperties: false
@@ -180,30 +114,31 @@ AIAgentRef:
 AIModel:
   type: object
   additionalProperties: false
-  required: [model, tags, providers, agents]
+  required: [provider, model_id, tags, price, catalog_price, agents]
   properties:
-    model:
+    provider:
+      type: string
+    model_id:
       type: string
     tags:
       type: array
       items:
         type: string
-    providers:
-      type: array
-      items:
-        $ref: "#/AINamed"
+    price:
+      description: The model's price; null until an admin sets one, and an agent cannot run on it before.
+      anyOf:
+        - $ref: "#/AIPrice"
+        - type: "null"
+    catalog_price:
+      description: The list price of the provider's catalog in Bifrost; null where the catalog has none.
+      anyOf:
+        - $ref: "#/AIPrice"
+        - type: "null"
     agents:
       type: array
-      description: The agents that run on the model.
+      description: The agents that use the model, as their model or a fallback.
       items:
         $ref: "#/AIAgentRef"
-    input_cost_per_mtok:
-      type: number
-    output_cost_per_mtok:
-      type: number
-    context_tokens:
-      type: integer
-      description: The input tokens LiteLLM's model info gives the model.
 AIModelList:
   type: object
   additionalProperties: false
@@ -218,32 +153,48 @@ AIModelList:
       description: Every tag, in order.
       items:
         $ref: "#/AITag"
-AIModelTagsRequest:
+AIModelTags:
   type: object
   additionalProperties: false
-  required: [model, tags]
+  required: [provider, model_id, tags]
   properties:
-    model:
+    provider:
+      type: string
+      minLength: 1
+      maxLength: 63
+    model_id:
       type: string
       minLength: 1
       maxLength: 200
-      description: The model, which may hold a slash (baai/bge-m3).
     tags:
       type: array
       maxItems: 20
       items:
         type: string
-AIModelTags:
+AIModelPrice:
   type: object
   additionalProperties: false
-  required: [model, tags]
+  description: A model's price in USD per token; a negative one is refused (ai_price_invalid).
+  required: [provider, model_id, input, output]
   properties:
-    model:
+    provider:
       type: string
-    tags:
-      type: array
-      items:
-        type: string
+      minLength: 1
+      maxLength: 63
+    model_id:
+      type: string
+      minLength: 1
+      maxLength: 200
+    input:
+      type: number
+    output:
+      type: number
+    cache_read:
+      type: [number, "null"]
+      description: Null or left out is the input price.
+    cache_write:
+      type: [number, "null"]
+      description: Null or left out is the input price.
 AIAgentLimits:
   type: object
   additionalProperties: false
@@ -275,10 +226,28 @@ AIAgentLimits:
     timeout_s:
       type: integer
       minimum: 1
+AIAgentCaller:
+  type: object
+  additionalProperties: false
+  description: >-
+    One virtual key of an agent, named after the code that calls it, with its rate limits per minute; null is
+    no limit.
+  required: [name, requests_per_min, tokens_per_min]
+  properties:
+    name:
+      type: string
+      pattern: "^[a-z0-9][a-z0-9-]{1,62}$"
+    requests_per_min:
+      type: [integer, "null"]
+      minimum: 1
+    tokens_per_min:
+      type: [integer, "null"]
+      minimum: 1
 AIAgent:
   type: object
   additionalProperties: false
-  required: [id, kind, name, alias, icon, purpose, required_tags, model, instructions_version, tools, limits, enabled, updated_at]
+  required: [id, kind, name, slug, icon, purpose, required_tags, model, fallbacks, instructions_version, tools, limits,
+    monthly_budget_usd, budget_spent_usd, budget_resets_at, callers, enabled, updated_at]
   properties:
     id:
       type: string
@@ -289,9 +258,9 @@ AIAgent:
       enum: [app, console]
     name:
       type: string
-    alias:
+    slug:
       type: string
-      description: The model name sent to LiteLLM; shown nowhere else.
+      description: The agent's stable name, its team's in Bifrost; set once.
     icon:
       type: string
     purpose:
@@ -301,7 +270,12 @@ AIAgent:
       items:
         type: string
     model:
-      type: string
+      $ref: "#/AIModelRef"
+    fallbacks:
+      type: array
+      description: The models Bifrost tries in order when the model fails.
+      items:
+        $ref: "#/AIModelRef"
     instructions:
       type: string
       description: A console agent's instructions.
@@ -315,7 +289,19 @@ AIAgent:
     limits:
       $ref: "#/AIAgentLimits"
     monthly_budget_usd:
-      type: number
+      type: [number, "null"]
+      description: The agent's budget per UTC month; null for none.
+    budget_spent_usd:
+      type: [number, "null"]
+      description: This month's spend, as Bifrost counts it; null with no budget or when Bifrost cannot be read.
+    budget_resets_at:
+      type: [string, "null"]
+      format: date-time
+      description: The 1st of next month (UTC), when the spend starts again; null as budget_spent_usd is.
+    callers:
+      type: array
+      items:
+        $ref: "#/AIAgentCaller"
     enabled:
       type: boolean
     updated_by:
@@ -336,13 +322,14 @@ AIAgentList:
 AIAgentNew:
   type: object
   additionalProperties: false
-  required: [name, alias, model]
+  description: A console agent; its one caller is named after its slug.
+  required: [name, slug, model]
   properties:
     name:
       type: string
       minLength: 1
       maxLength: 80
-    alias:
+    slug:
       type: string
       pattern: "^[a-z0-9][a-z0-9-]{1,62}$"
     icon:
@@ -357,9 +344,12 @@ AIAgentNew:
       items:
         type: string
     model:
-      type: string
-      minLength: 1
-      maxLength: 200
+      $ref: "#/AIModelRef"
+    fallbacks:
+      type: array
+      maxItems: 5
+      items:
+        $ref: "#/AIModelRef"
     instructions:
       type: string
       maxLength: 20000
@@ -372,14 +362,16 @@ AIAgentNew:
       $ref: "#/AIAgentLimits"
     monthly_budget_usd:
       type: number
-      minimum: 0
+      exclusiveMinimum: 0
     enabled:
       type: boolean
 AIAgentPatch:
   type: object
   additionalProperties: false
   minProperties: 1
-  description: An app agent takes model, limits and monthly_budget_usd only (else ai_agent_app_fixed).
+  description: >-
+    An app agent takes model, fallbacks, limits, monthly_budget_usd and callers only (else
+    ai_agent_app_fixed).
   properties:
     name:
       type: string
@@ -397,9 +389,12 @@ AIAgentPatch:
       items:
         type: string
     model:
-      type: string
-      minLength: 1
-      maxLength: 200
+      $ref: "#/AIModelRef"
+    fallbacks:
+      type: array
+      maxItems: 5
+      items:
+        $ref: "#/AIModelRef"
     instructions:
       type: string
       maxLength: 20000
@@ -412,8 +407,16 @@ AIAgentPatch:
       $ref: "#/AIAgentLimits"
     monthly_budget_usd:
       type: [number, "null"]
-      minimum: 0
+      exclusiveMinimum: 0
       description: null takes the budget away.
+    callers:
+      type: array
+      maxItems: 20
+      description: >-
+        Every caller of the agent, each once, with its new rate limits; only the limits change (else
+        ai_agent_invalid).
+      items:
+        $ref: "#/AIAgentCaller"
     enabled:
       type: boolean
 AIAgentVersion:
@@ -441,277 +444,33 @@ AIAgentVersionList:
       description: Newest first.
       items:
         $ref: "#/AIAgentVersion"
-AIRoutingStrategy:
-  type: string
-  description: LiteLLM's routing strategy. simple-shuffle picks by the providers' weights.
-  enum: [simple-shuffle, least-busy, latency-based-routing, usage-based-routing-v2]
-AIRotation:
-  type: object
-  additionalProperties: false
-  required: [routing_strategy, num_retries, allowed_fails, cooldown_s, timeout_s]
-  properties:
-    routing_strategy:
-      type: string
-    num_retries:
-      type: integer
-    allowed_fails:
-      type: integer
-      description: Failures in a minute before a deployment cools down.
-    cooldown_s:
-      type: number
-    timeout_s:
-      type: number
-AIRotationPatch:
-  type: object
-  additionalProperties: false
-  minProperties: 1
-  properties:
-    routing_strategy:
-      $ref: "#/AIRoutingStrategy"
-    num_retries:
-      type: integer
-      minimum: 0
-      maximum: 10
-    allowed_fails:
-      type: integer
-      minimum: 0
-      maximum: 100
-    cooldown_s:
-      type: number
-      minimum: 0
-      maximum: 3600
-    timeout_s:
-      type: number
-      minimum: 1
-      maximum: 600
-AIAgentBudget:
-  type: object
-  additionalProperties: false
-  required: [agent_id, name, kind, spent_usd]
-  properties:
-    agent_id:
-      type: string
-      format: uuid
-    name:
-      type: string
-    kind:
-      type: string
-      enum: [app, console]
-    monthly_budget_usd:
-      type: number
-    spent_usd:
-      type: number
-      description: Spent in the budget's current period, as LiteLLM counts it.
-AIRoleBudgets:
-  type: object
-  additionalProperties: false
-  description: The daily budget of a moderator and of an admin through the console agents; none when left out.
-  properties:
-    moderator:
-      type: number
-    admin:
-      type: number
-AIMemberBudget:
-  type: object
-  additionalProperties: false
-  required: [member_id, daily_usd]
-  properties:
-    member_id:
-      type: string
-      format: uuid
-    daily_usd:
-      type: number
-      minimum: 0
-AIBudgets:
-  type: object
-  additionalProperties: false
-  required: [agents]
-  properties:
-    agents:
-      type: array
-      items:
-        $ref: "#/AIAgentBudget"
-    monthly_cap_usd:
-      type: number
-      description: The cap on the month's spend of every agent (UTC month).
-    month_spent_usd:
-      type: number
-    alert_pct:
-      type: integer
-    on_cap:
-      type: string
-      description: stop_agents refuses console turns once the month's spend reaches the cap; alert_only only alerts.
-      enum: [stop_agents, alert_only]
-    alerting:
-      type: boolean
-      description: The month's spend is at or past alert_pct of the cap.
-    capped:
-      type: boolean
-      description: The month's spend is at or past the cap.
-    member_daily_usd:
-      $ref: "#/AIRoleBudgets"
-    overrides:
-      type: array
-      description: Members with a daily budget of their own, in place of their role's.
-      items:
-        $ref: "#/AIMemberBudget"
-AIBudgetsPatch:
-  type: object
-  additionalProperties: false
-  minProperties: 1
-  properties:
-    agents:
-      type: array
-      maxItems: 50
-      items:
-        type: object
-        additionalProperties: false
-        required: [agent_id, monthly_budget_usd]
-        properties:
-          agent_id:
-            type: string
-            format: uuid
-          monthly_budget_usd:
-            type: [number, "null"]
-            minimum: 0
-    monthly_cap_usd:
-      type: [number, "null"]
-      minimum: 0
-    alert_pct:
-      type: integer
-      minimum: 1
-      maximum: 100
-    on_cap:
-      type: string
-      enum: [stop_agents, alert_only]
-    member_daily_usd:
-      type: object
-      additionalProperties: false
-      description: A role's daily budget; null or 0 takes it away.
-      properties:
-        moderator:
-          type: [number, "null"]
-          minimum: 0
-        admin:
-          type: [number, "null"]
-          minimum: 0
-    overrides:
-      type: array
-      description: Every member's own daily budget; replaces the list.
-      maxItems: 200
-      items:
-        $ref: "#/AIMemberBudget"
 AISpend:
   type: object
   additionalProperties: false
-  required: [range, start, end, total_usd, days, members]
+  required: [days, lag_s]
   properties:
-    range:
-      type: string
-      enum: [7d, 30d, 90d]
-    start:
-      type: string
-      format: date
-    end:
-      type: string
-      format: date
-    total_usd:
-      type: number
     days:
       type: array
+      description: Each UTC day from from to to, oldest first.
       items:
         type: object
         additionalProperties: false
-        required: [date, total_usd, agents]
+        required: [date, total_usd, by_agent]
         properties:
           date:
             type: string
             format: date
           total_usd:
             type: number
-          agents:
-            type: array
-            items:
-              type: object
-              additionalProperties: false
-              required: [agent_id, usd]
-              properties:
-                agent_id:
-                  type: string
-                  format: uuid
-                usd:
-                  type: number
-    members:
-      type: array
-      description: Each member's spend through the console agents (LiteLLM's end users) and questions, most spent first.
-      items:
-        type: object
-        additionalProperties: false
-        required: [member_id, display_name, usd, requests]
-        properties:
-          member_id:
-            type: string
-            format: uuid
-          display_name:
-            type: string
-          usd:
-            type: number
-          requests:
-            type: integer
-AIProviderModelList:
-  type: object
-  additionalProperties: false
-  required: [items]
-  properties:
-    items:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        required: [model, added]
-        properties:
-          model:
-            type: string
-          tags:
-            type: array
-            items:
-              type: string
-          input_cost_per_mtok:
-            type: number
-          output_cost_per_mtok:
-            type: number
-          context_tokens:
-            type: integer
-          added:
-            type: boolean
-            description: The model is in the provider's list.
-AIProviderHealthList:
-  type: object
-  additionalProperties: false
-  required: [items]
-  properties:
-    items:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        required: [id, requests_24h, share_pct, success_pct, p50_ms]
-        properties:
-          id:
-            type: string
-          requests_24h:
-            type: integer
-          share_pct:
-            type: number
-          success_pct:
-            type: number
-          p50_ms:
-            type: integer
-          cooling_until:
-            type: string
-            format: date-time
-          last_error:
-            type: string
+            description: Every call's cost, an agent's or not.
+          by_agent:
+            type: object
+            description: Each agent's cost, by its slug.
+            additionalProperties:
+              type: number
+    lag_s:
+      type: integer
+      description: How many seconds Bifrost's totals may trail real time.
 AIDayCount:
   type: object
   additionalProperties: false
