@@ -1,6 +1,7 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -12,16 +13,12 @@ import (
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
-// Models lists every model a provider serves or an agent runs on, with its
-// tags, its providers, its price per million tokens and its agents, and
-// the tags an admin may set.
+// Models lists every model an agent uses, as its model or a fallback, or
+// that has a price or tags, with its catalog's price, and the tags an
+// admin may set.
 func (s *Agent) Models(ctx context.Context) (ModelList, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
-	st, err := s.readState(ctx)
-	if err != nil {
-		return ModelList{}, err
-	}
 	tags, err := s.d.Settings.Tags(ctx)
 	if err != nil {
 		return ModelList{}, fmt.Errorf("read the tags: %w", err)
@@ -30,66 +27,60 @@ func (s *Agent) Models(ctx context.Context) (ModelList, error) {
 	if err != nil {
 		return ModelList{}, fmt.Errorf("read the model tags: %w", err)
 	}
+	prices, err := s.d.Settings.Prices(ctx)
+	if err != nil {
+		return ModelList{}, fmt.Errorf("read the prices: %w", err)
+	}
 	agents, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return ModelList{}, fmt.Errorf("read the agents: %w", err)
 	}
-	byModel := map[string]*Model{}
-	model := func(id string) *Model {
-		m, ok := byModel[id]
+	byModel := map[domain.ModelRef]*Model{}
+	model := func(ref domain.ModelRef) *Model {
+		m, ok := byModel[ref]
 		if !ok {
-			m = &Model{Model: id, Tags: modelTags[id], Providers: []Named{}, Agents: []AgentRef{}}
-			if m.Tags == nil {
-				m.Tags = []string{}
-			}
-			byModel[id] = m
+			m = &Model{Provider: ref.Provider, Model: ref.Model, Tags: nonNil(modelTags[ref]), Agents: []AgentRef{}}
+			byModel[ref] = m
 		}
 		return m
 	}
-	names := map[string]string{}
-	for _, c := range st.creds {
-		names[c.Name] = st.providerOf(c).Name
+	for ref := range modelTags {
+		model(ref)
 	}
-	for _, d := range st.deps {
-		var id, provider string
-		switch {
-		case role(d) == roleCatalog:
-			id, provider = d.InfoString("model"), d.InfoString("provider")
-		case role(d) == "" && slices.ContainsFunc(agents, func(a repository.Agent) bool { return a.Alias == d.ModelName }):
-			// An alias LiteLLM's config wrote before the server managed it.
-			id, provider = modelOfRoute(d.Params.Model), d.Params.Credential
-		default:
-			continue
-		}
-		m := model(id)
-		if provider != "" && !slices.ContainsFunc(m.Providers, func(n Named) bool { return n.ID == provider }) {
-			m.Providers = append(m.Providers, Named{ID: provider, Name: names[provider]})
-		}
-		if m.InputCostPerMTok == nil {
-			m.InputCostPerMTok, m.OutputCostPerMTok = priceOf(d)
-		}
-		if m.ContextTokens == nil {
-			m.ContextTokens = contextOf(d)
-		}
+	for _, p := range prices {
+		model(p.Model).Price = &Price{Input: p.Input, Output: p.Output, CacheRead: p.CacheRead, CacheWrite: p.CacheWrite}
 	}
 	for i := range agents {
 		a := &agents[i]
-		m := model(a.Model)
-		m.Agents = append(m.Agents, AgentRef{ID: a.ID, Name: a.Name})
+		for _, ref := range append([]domain.ModelRef{a.Model}, a.Fallbacks...) {
+			m := model(ref)
+			if !slices.ContainsFunc(m.Agents, func(r AgentRef) bool { return r.ID == a.ID }) {
+				m.Agents = append(m.Agents, AgentRef{ID: a.ID, Name: a.Name})
+			}
+		}
+	}
+	catalogs := map[string]map[string]*Price{}
+	for ref, m := range byModel {
+		catalog, ok := catalogs[ref.Provider]
+		if !ok {
+			list, _, listErr := s.d.Gateway.Models(ctx, ref.Provider, catalogLimit)
+			if listErr != nil {
+				return ModelList{}, gatewayError(listErr)
+			}
+			catalog = map[string]*Price{}
+			for _, c := range list {
+				catalog[c.Name] = catalogPrice(c)
+			}
+			catalogs[ref.Provider] = catalog
+		}
+		m.CatalogPrice = catalog[ref.Model]
 	}
 	out := ModelList{Items: make([]Model, 0, len(byModel)), Tags: make([]Tag, 0, len(tags))}
 	for _, m := range byModel {
 		out.Items = append(out.Items, *m)
 	}
 	slices.SortFunc(out.Items, func(a, b Model) int {
-		switch {
-		case a.Model < b.Model:
-			return -1
-		case a.Model > b.Model:
-			return 1
-		default:
-			return 0
-		}
+		return cmp.Or(cmp.Compare(a.Provider, b.Provider), cmp.Compare(a.Model, b.Model))
 	})
 	for _, t := range tags {
 		out.Tags = append(out.Tags, Tag{Name: t.Name, Kind: t.Kind})
@@ -99,36 +90,55 @@ func (s *Agent) Models(ctx context.Context) (ModelList, error) {
 
 // SetModelTags replaces a model's tags. An agent that requires a tag the
 // model loses keeps running on it; the agents page shows the gap.
-func (s *Agent) SetModelTags(ctx context.Context, caller authn.ConsoleMember, model string, tags []string) ([]string, error) {
-	if model == "" {
-		return nil, domain.ErrModelNotFound
-	}
+func (s *Agent) SetModelTags(ctx context.Context, caller authn.ConsoleMember, in ModelTags) (ModelTags, error) {
+	ref := domain.ModelRef{Provider: in.Provider, Model: in.Model}
+	tags := slices.Clone(in.Tags)
 	slices.Sort(tags)
 	tags = slices.Compact(tags)
-	err := s.d.Settings.SetModelTags(ctx, model, tags, audit.Entry{
-		Actor: audit.ByMember(caller), Action: audit.AIModelTags, Target: audit.AIModel(model),
-		Details: map[string]any{"model": model, "tags": tags}, At: s.d.Now(),
+	err := s.d.Settings.SetModelTags(ctx, ref, nonNil(tags), audit.Entry{
+		Actor: audit.ByMember(caller), Action: audit.AIModelTags, Target: audit.AIModel(ref.String()),
+		Details: map[string]any{"model": ref.String(), "tags": tags}, At: s.d.Now(),
 	})
 	if errors.Is(err, repository.ErrUnknownTag) {
-		return nil, domain.ErrTagUnknown
+		return ModelTags{}, domain.ErrTagUnknown
 	}
 	if err != nil {
-		return nil, fmt.Errorf("set model tags: %w", err)
+		return ModelTags{}, fmt.Errorf("set model tags: %w", err)
 	}
 	all, err := s.d.Settings.ModelTags(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("read the model tags: %w", err)
+		return ModelTags{}, fmt.Errorf("read the model tags: %w", err)
 	}
-	if all[model] == nil {
-		return []string{}, nil
-	}
-	return all[model], nil
+	return ModelTags{Provider: ref.Provider, Model: ref.Model, Tags: nonNil(all[ref])}, nil
 }
 
-func perMTok(perToken *float64) *float64 {
-	if perToken == nil {
-		return nil
+// SetModelPrice writes a model's price, a new one or over the old, then
+// reconciles Bifrost, whose logged cost of each call follows it. When
+// Bifrost cannot take it the price stays saved and the next reconcile
+// writes it.
+func (s *Agent) SetModelPrice(ctx context.Context, caller authn.ConsoleMember, in ModelPrice) (ModelPrice, error) {
+	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
+	defer cancel()
+	if in.Input < 0 || in.Output < 0 || (in.CacheRead != nil && *in.CacheRead < 0) || (in.CacheWrite != nil && *in.CacheWrite < 0) {
+		return ModelPrice{}, domain.ErrPriceInvalid
 	}
-	v := *perToken * 1e6
-	return &v
+	if err := s.checkProviders(ctx, in.Provider); err != nil {
+		return ModelPrice{}, err
+	}
+	by := caller.MemberID
+	ref := domain.ModelRef{Provider: in.Provider, Model: in.Model}
+	p := repository.Price{
+		Model: ref, Input: in.Input, Output: in.Output, CacheRead: in.CacheRead, CacheWrite: in.CacheWrite,
+		UpdatedBy: &by, UpdatedAt: s.d.Now(),
+	}
+	if err := s.d.Settings.SetPrice(ctx, p, audit.Entry{
+		Actor: audit.ByMember(caller), Action: audit.AIModelPrice, Target: audit.AIModel(ref.String()),
+		Details: map[string]any{"model": ref.String(), "price": in.Price}, At: p.UpdatedAt,
+	}); err != nil {
+		return ModelPrice{}, fmt.Errorf("set the model's price: %w", err)
+	}
+	if err := s.Reconcile(ctx); err != nil {
+		return ModelPrice{}, err
+	}
+	return in, nil
 }

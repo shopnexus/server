@@ -87,6 +87,7 @@ type Config struct {
 	Auth        AuthConfig
 	Console     ConsoleConfig
 	ObjectStore ObjectStoreConfig
+	Gateway     GatewayConfig
 	LLM         LLMConfig
 	Embed       EmbedConfig
 	Assist      AssistConfig
@@ -161,30 +162,34 @@ type GoogleConfig struct {
 	JWKSURL  string // GOOGLE_JWKS_URL: the keys of Google's ID tokens
 }
 
-// LLMConfig says where the model that reads search queries is. The key is
-// never logged.
+// GatewayConfig says where Bifrost is, the AI gateway every model call
+// goes through, and how the server signs in to its admin API, where the
+// reconciler writes the AI settings and reads the callers' keys. The
+// password is never logged.
+type GatewayConfig struct {
+	URL           string // GATEWAY_URL: Bifrost's base URL, without /v1
+	AdminUsername string // GATEWAY_ADMIN_USERNAME
+	AdminPassword string // GATEWAY_ADMIN_PASSWORD
+}
+
+// LLMConfig is how the search agent's model reads search queries; its
+// model is the agent's, through the gateway.
 type LLMConfig struct {
-	BaseURL string // LLM_BASE_URL: an OpenAI-compatible API, such as https://proxy/v1
-	APIKey  string // LLM_API_KEY
-	Model   string // LLM_MODEL
 	// LLM_REASONING_EFFORT: none, low, medium or high; empty is the model's default
 	Effort string
 }
 
-// EmbedConfig says where the text embedding model is and how search uses
-// both kinds of vector. Text goes to LiteLLM's alias embed-text; photos go
-// to module ai (AIConfig). Each kind can be off: an empty TextModel, or an
-// empty AI_EMBED_MODELS, turns it off, and its base URL, version and floor
-// may then be empty too. An off kind writes and reads no vectors.
+// EmbedConfig says how search uses both kinds of vector. Text goes to the
+// embed-text agent's model through the gateway; photos go to module ai
+// (AIConfig). Each kind can be off: an empty TextModel, or an empty
+// AI_EMBED_MODELS, turns it off, and its version and floor may then be
+// empty too. An off kind writes and reads no vectors.
 type EmbedConfig struct {
-	TextBaseURL string // EMBED_TEXT_BASE_URL: POST {base}/embeddings for text
-	TextModel   string // EMBED_TEXT_MODEL, the alias embed-text; empty turns text vectors off
+	TextModel string // EMBED_TEXT_MODEL: non-empty turns text vectors on; the model is the embed-text agent's
 	// TextVersion and ImageVersion name the model behind each kind. Every
 	// vector row stores its version; a new version embeds again.
 	TextVersion  string        // EMBED_TEXT_VERSION
 	ImageVersion string        // EMBED_IMAGE_VERSION
-	IndexAPIKey  string        // EMBED_INDEX_API_KEY: ListingEmbed's key; empty locally
-	SearchAPIKey string        // EMBED_SEARCH_API_KEY: the search's key; empty locally
 	Timeout      time.Duration // EMBED_TIMEOUT: one embedding call
 	Slots        int           // EMBED_SLOTS: embeddings ListingEmbed runs at once in this process
 	// TextMinSimilarity and PhotoMinSimilarity are the cosine a listing needs
@@ -224,14 +229,10 @@ type AIConfig struct {
 // EmbedOn says whether photo vectors are on.
 func (c AIConfig) EmbedOn() bool { return c.EmbedModel != "" }
 
-// AssistConfig says where module assist's model is, the one that fills a
-// listing from frames and speech or from the seller's listing on Chợ Tốt,
-// and where Chợ Tốt is. Frames and speech are module ai's. The key is
-// never logged.
+// AssistConfig says how module assist's model, the listing-read agent's,
+// fills a listing from frames and speech or from the seller's listing on
+// Chợ Tốt, and where Chợ Tốt is. Frames and speech are module ai's.
 type AssistConfig struct {
-	LLMBaseURL string // ASSIST_LLM_BASE_URL: an OpenAI-compatible API whose model reads images
-	LLMAPIKey  string // ASSIST_LLM_API_KEY: server-assist's key
-	LLMModel   string // ASSIST_LLM_MODEL: the alias video-read
 	// ASSIST_LLM_REASONING_EFFORT: none, low, medium or high; empty is the model's default
 	LLMEffort   string
 	CallTimeout time.Duration // ASSIST_CALL_TIMEOUT: one call to ai, the model or Chợ Tốt
@@ -241,13 +242,9 @@ type AssistConfig struct {
 	ChototCDNURL string
 }
 
-// TrustConfig says where module trust's scam classifier is: an
-// OpenAI-compatible API, LiteLLM's alias scam-check in the cluster. The key
-// is never logged.
+// TrustConfig is module trust's scam classifier, the scam-check agent's
+// model through the gateway.
 type TrustConfig struct {
-	LLMBaseURL  string        // TRUST_LLM_BASE_URL
-	LLMAPIKey   string        // TRUST_LLM_API_KEY: server-trust's key
-	LLMModel    string        // TRUST_LLM_MODEL: the alias scam-check
 	CallTimeout time.Duration // TRUST_CALL_TIMEOUT: one call to the model
 	// ScamChecks is TRUST_SCAM_CHECKS, on or off. Off sends no message to
 	// the classifier, for a load test or when the model must stop.
@@ -255,9 +252,8 @@ type TrustConfig struct {
 }
 
 // AgentConfig says where the console agent is and how it and the server
-// trust each other, and where LiteLLM's admin API is for the AI settings
-// (see ARCHITECTURE.md, Console agent and AI settings). No token or key is
-// ever logged.
+// trust each other (see ARCHITECTURE.md, Console agent). No token is ever
+// logged.
 type AgentConfig struct {
 	// BaseURL is AGENT_BASE_URL, the agent service on the internal
 	// network; the console's agent endpoints forward there.
@@ -271,11 +267,6 @@ type AgentConfig struct {
 	// MCPToken is AGENT_MCP_TOKEN, the bearer token the agent sends the
 	// MCP server; at least 32 characters.
 	MCPToken string
-	// LiteLLMURL is LITELLM_URL, LiteLLM's base URL for its admin API (no
-	// /v1), which the AI settings drive.
-	LiteLLMURL string
-	// LiteLLMMasterKey is LITELLM_MASTER_KEY, LiteLLM's master key.
-	LiteLLMMasterKey string
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -644,33 +635,29 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			GHTKURL: set("GHTK_API_URL"), GHTKPartner: set("GHTK_PARTNER_TOKEN"), GHTKSource: set("GHTK_CLIENT_SOURCE"),
 			GHTKWebhook: set("GHTK_WEBHOOK_SECRET"), GHNURL: set("GHN_API_URL"), GHNPartner: set("GHN_PARTNER_TOKEN"), GHNWebhook: set("GHN_WEBHOOK_SECRET"),
 		},
-		LLM: LLMConfig{
-			BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL"),
-			Effort: oneOf("LLM_REASONING_EFFORT", "", "none", "low", "medium", "high"),
+		Gateway: GatewayConfig{
+			URL: need("GATEWAY_URL"), AdminUsername: need("GATEWAY_ADMIN_USERNAME"), AdminPassword: need("GATEWAY_ADMIN_PASSWORD"),
 		},
+		LLM: LLMConfig{Effort: oneOf("LLM_REASONING_EFFORT", "", "none", "low", "medium", "high")},
 		Embed: EmbedConfig{
-			TextBaseURL: forKind(textModel, "EMBED_TEXT_BASE_URL"), TextModel: textModel,
+			TextModel:   textModel,
 			TextVersion: forKind(textModel, "EMBED_TEXT_VERSION"), ImageVersion: forKind(imageModel, "EMBED_IMAGE_VERSION"),
-			IndexAPIKey: set("EMBED_INDEX_API_KEY"), SearchAPIKey: set("EMBED_SEARCH_API_KEY"),
 			Timeout: duration("EMBED_TIMEOUT"), Slots: positive("EMBED_SLOTS"),
 			TextMinSimilarity:  fractionForKind(textModel, "EMBED_TEXT_MIN_SIMILARITY"),
 			PhotoMinSimilarity: fractionForKind(imageModel, "EMBED_PHOTO_MIN_SIMILARITY"),
 			LookMinSimilarity:  fractionForKind(imageModel, "EMBED_LOOK_MIN_SIMILARITY"),
 		},
 		Assist: AssistConfig{
-			LLMBaseURL: need("ASSIST_LLM_BASE_URL"), LLMAPIKey: need("ASSIST_LLM_API_KEY"), LLMModel: need("ASSIST_LLM_MODEL"),
 			LLMEffort:        oneOf("ASSIST_LLM_REASONING_EFFORT", "", "none", "low", "medium", "high"),
 			CallTimeout:      duration("ASSIST_CALL_TIMEOUT"),
 			ChototGatewayURL: need("CHOTOT_GATEWAY_URL"), ChototCDNURL: need("CHOTOT_CDN_URL"),
 		},
 		Trust: TrustConfig{
-			LLMBaseURL: need("TRUST_LLM_BASE_URL"), LLMAPIKey: need("TRUST_LLM_API_KEY"), LLMModel: need("TRUST_LLM_MODEL"),
 			CallTimeout: duration("TRUST_CALL_TIMEOUT"), ScamChecks: oneOf("TRUST_SCAM_CHECKS", "on", "off") == "on",
 		},
 		Agent: AgentConfig{
 			BaseURL: need("AGENT_BASE_URL"), ServiceToken: token("AGENT_SERVICE_TOKEN"),
 			MCPAddr: need("AGENT_MCP_ADDR"), MCPToken: token("AGENT_MCP_TOKEN"),
-			LiteLLMURL: need("LITELLM_URL"), LiteLLMMasterKey: need("LITELLM_MASTER_KEY"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),

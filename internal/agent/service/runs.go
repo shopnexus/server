@@ -43,6 +43,7 @@ type runRequest struct {
 	Subject        *runSubject   `json:"subject,omitempty"`
 	Mentions       []runSubject  `json:"mentions"`
 	AgentConfig    *AgentConfig  `json:"agent_config,omitempty"`
+	Gateway        *runGateway   `json:"gateway,omitempty"`
 	Skill          *runSkill     `json:"skill,omitempty"`
 	History        any           `json:"history,omitempty"`
 	State          any           `json:"state,omitempty"`
@@ -50,6 +51,23 @@ type runRequest struct {
 	Answers        string        `json:"answers,omitempty"`
 	Documents      []runDocument `json:"documents"`
 	ControlAfter   int64         `json:"control_after"`
+}
+
+// runGateway is how a run calls models: Bifrost's key of the agent's
+// caller, the model and fallbacks as provider/model, and each one's price
+// in USD per token, a null cache price being the input price.
+type runGateway struct {
+	Key       string              `json:"key"`
+	Model     string              `json:"model"`
+	Fallbacks []string            `json:"fallbacks"`
+	Prices    map[string]runPrice `json:"prices"`
+}
+
+type runPrice struct {
+	Input      float64  `json:"input"`
+	Output     float64  `json:"output"`
+	CacheRead  *float64 `json:"cache_read"`
+	CacheWrite *float64 `json:"cache_write"`
 }
 
 type runMember struct {

@@ -41,24 +41,20 @@ func testConfig(t *testing.T) config.Config {
 		Auth:        keys,
 		Console:     config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.test"},
 		ObjectStore: objectStore(t),
-		// No model answers here; a search falls back to the raw words.
-		LLM: config.LLMConfig{BaseURL: "http://127.0.0.1:1", APIKey: "none", Model: "none"},
+		// No gateway answers here; a search falls back to the raw words.
+		Gateway: config.GatewayConfig{URL: "http://127.0.0.1:1", AdminUsername: "none", AdminPassword: "none"},
 		Embed: config.EmbedConfig{
-			TextBaseURL: "http://127.0.0.1:1", TextModel: "embed-text", TextVersion: "text-test", ImageVersion: "image-test",
-			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
+			TextModel: "embed-text", TextVersion: "text-test", ImageVersion: "image-test", Timeout: time.Second, Slots: 1,
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
 		},
 		AI: config.AIConfig{
 			EmbedModel: "siglip2", EmbedMaxInputs: 4, EmbedMaxImageMB: 1, FramesMaxConcurrent: 1,
 		},
-		Assist: config.AssistConfig{
-			LLMBaseURL: "http://127.0.0.1:1", LLMAPIKey: "none", LLMModel: "none", CallTimeout: time.Second,
-		},
-		Trust: config.TrustConfig{LLMBaseURL: "http://127.0.0.1:1", LLMAPIKey: "none", LLMModel: "none", CallTimeout: time.Second},
+		Assist: config.AssistConfig{CallTimeout: time.Second},
+		Trust:  config.TrustConfig{CallTimeout: time.Second},
 		Agent: config.AgentConfig{
 			BaseURL: "http://127.0.0.1:1", ServiceToken: "app-test-agent-service-token-0123456789",
 			MCPAddr: "127.0.0.1:0", MCPToken: "app-test-agent-mcp-token-0123456789abcdef",
-			LiteLLMURL: "http://127.0.0.1:1", LiteLLMMasterKey: "none",
 		},
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},

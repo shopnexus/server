@@ -15,7 +15,7 @@ import (
 )
 
 // Ask is UC-MOD-08 steps 2 and 3. The server checks the agent the member
-// picked, the budget, the rate limit and the question, opens the turn
+// picked, the rate limit and the question, opens the turn
 // running and starts its run on the agent service, which streams the run
 // back; the console follows it through Events. The agent reads through
 // the MCP server's read-only tools and holds no write tool, so a question
@@ -41,15 +41,6 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if !a.Enabled {
 		return TurnStarted{}, domain.ErrAgentDisabled
 	}
-	set, err := s.d.Settings.BudgetSettings(ctx)
-	if err != nil {
-		return TurnStarted{}, fmt.Errorf("read the budget settings: %w", err)
-	}
-	// E1 the month's cap on AI spend is reached and stops the agents.
-	if s.capReached(ctx, set) {
-		return TurnStarted{}, domain.ErrBudget
-	}
-	s.ensureMemberBudget(ctx, set, caller)
 	c, err := s.d.Runs.Conversation(ctx, conversation)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && !visible(c, caller)) {
 		return TurnStarted{}, domain.ErrConversationNotFound
@@ -89,7 +80,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	// unfinished turn at a time.
 	t := repository.Turn{
 		ID: uuid.NewV7(), ConversationID: conversation, MemberID: caller.MemberID, Question: text, AgentID: a.ID.String(),
-		AgentName: a.Name, ModelAlias: a.Alias, StartedAt: now, RunStartedAt: now, DeadlineMS: deadline.Milliseconds(),
+		AgentName: a.Name, ModelAlias: a.Slug, StartedAt: now, RunStartedAt: now, DeadlineMS: deadline.Milliseconds(),
 		SubjectKind: c.SubjectKind, SubjectID: c.SubjectID, Attachments: attachments, RequestKey: in.Key,
 	}
 	switch err = s.d.Runs.OpenTurn(ctx, t, caller.MemberID); {
@@ -120,11 +111,15 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if err == nil {
 		mentions, err = s.d.Runs.Mentions(ctx, t.ID, domain.MaxMentions)
 	}
+	var gateway *runGateway
+	if err == nil {
+		gateway, err = s.gatewayOf(ctx, a)
+	}
 	var stream io.ReadCloser
 	var cancel context.CancelFunc
 	if err == nil {
 		req := newRequest(t, caller, "new", docs, mentions)
-		req.AgentConfig = configOf(a)
+		req.AgentConfig, req.Gateway = configOf(a), gateway
 		req.Skill, req.History = skill, historyOf(history)
 		stream, cancel, err = s.startRun(ctx, req, deadline)
 	}

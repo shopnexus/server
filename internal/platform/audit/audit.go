@@ -64,13 +64,14 @@ const (
 	ListingHide         ActionKind = "listing.hide"
 	ListingUnhide       ActionKind = "listing.unhide"
 	// AIProviderCreate and the ai.* kinds after it are changes to the AI
-	// settings: providers, their models, model tags, agents, the router's
-	// rotation and the budgets.
+	// settings. The provider, rotation and budgets kinds are LiteLLM's,
+	// kept for the log's history.
 	AIProviderCreate ActionKind = "ai.provider_create"
 	AIProviderUpdate ActionKind = "ai.provider_update"
 	AIProviderDelete ActionKind = "ai.provider_delete"
 	AIProviderModels ActionKind = "ai.provider_models"
 	AIModelTags      ActionKind = "ai.model_tags"
+	AIModelPrice     ActionKind = "ai.model_price"
 	AIAgentCreate    ActionKind = "ai.agent_create"
 	AIAgentUpdate    ActionKind = "ai.agent_update"
 	AIRotation       ActionKind = "ai.rotation"

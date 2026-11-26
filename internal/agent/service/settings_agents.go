@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
@@ -13,44 +15,60 @@ import (
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/authn"
-	"github.com/shopnexus/server/internal/provider/litellm"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 )
 
-// consoleKey is the LiteLLM key of the agent service, whose allowed models
-// gain each console agent's alias.
-const consoleKey = "agent"
-
-// budgetPeriod is the period of an agent's monthly budget in LiteLLM.
-const budgetPeriod = "30d"
-
-func agentView(a repository.Agent) AgentView {
-	v := AgentView{
-		ID: a.ID, Kind: a.Kind, Name: a.Name, Alias: a.Alias, Icon: a.Icon, Purpose: a.Purpose,
-		RequiredTags: a.RequiredTags, Model: a.Model, Instructions: a.Instructions,
-		InstructionsVersion: a.InstructionsVersion, Tools: a.Tools, Limits: a.Limits,
-		MonthlyBudgetUSD: a.MonthlyBudgetUSD, Enabled: a.Enabled, UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
+// agentViews are the views of agents, each with its budget's spend this
+// month from its team in Bifrost; a spend Bifrost cannot give stays null.
+func (s *Agent) agentViews(ctx context.Context, agents []repository.Agent) []AgentView {
+	teams, err := s.d.Gateway.Teams(ctx)
+	if err != nil {
+		s.d.Log.WarnContext(ctx, "agent: read the teams' spend", "err", err)
 	}
-	if v.RequiredTags == nil {
-		v.RequiredTags = []string{}
+	now := s.d.Now().UTC()
+	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	out := make([]AgentView, 0, len(agents))
+	for i := range agents {
+		a := &agents[i]
+		v := AgentView{
+			ID: a.ID, Kind: a.Kind, Name: a.Name, Slug: a.Slug, Icon: a.Icon, Purpose: a.Purpose,
+			RequiredTags: nonNil(a.RequiredTags), Model: a.Model, Fallbacks: nonNil(a.Fallbacks), Instructions: a.Instructions,
+			InstructionsVersion: a.InstructionsVersion, Tools: nonNil(a.Tools), Limits: a.Limits,
+			MonthlyBudgetUSD: a.MonthlyBudgetUSD, Callers: make([]Caller, 0, len(a.Callers)), Enabled: a.Enabled,
+			UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
+		}
+		for _, c := range a.Callers {
+			v.Callers = append(v.Callers, Caller(c))
+		}
+		j := slices.IndexFunc(teams, func(t bifrost.Team) bool { return t.Name == a.Slug })
+		if a.MonthlyBudgetUSD != nil && j >= 0 && len(teams[j].Budgets) == 1 {
+			// A window Bifrost has not reset yet, for want of a call this
+			// month, spent nothing this month.
+			spent, b := 0.0, teams[j].Budgets[0]
+			if !b.LastReset.Before(month) {
+				spent = b.CurrentUsage
+			}
+			v.BudgetSpentUSD, v.BudgetResetsAt = &spent, new(month.AddDate(0, 1, 0))
+		}
+		out = append(out, v)
 	}
-	if v.Tools == nil {
-		v.Tools = []string{}
-	}
-	return v
+	return out
 }
 
 // Agents lists every agent, app agents first.
 func (s *Agent) Agents(ctx context.Context) ([]AgentView, error) {
+	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
+	defer cancel()
 	rows, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list the agents: %w", err)
 	}
-	out := make([]AgentView, 0, len(rows))
-	for i := range rows {
-		a := &rows[i]
-		out = append(out, agentView(*a))
-	}
-	return out, nil
+	return s.agentViews(ctx, rows), nil
+}
+
+// agentView is one agent's view.
+func (s *Agent) agentView(ctx context.Context, a repository.Agent) AgentView {
+	return s.agentViews(ctx, []repository.Agent{a})[0]
 }
 
 // ConsoleAgents lists the console agents a member may pick: those turned
@@ -88,32 +106,59 @@ func (s *Agent) AgentVersions(ctx context.Context, id uuid.UUID) ([]AgentVersion
 	return out, nil
 }
 
-// checkModel refuses a model that lacks a tag the agent requires, or a tag
-// that is not in ai_tags.
-func (s *Agent) checkModel(ctx context.Context, required []string, model string) error {
+// checkModels refuses an agent whose models do not fit: a required tag
+// ai_tags lacks, a fallback that repeats a model, a fallback of an
+// embedding agent (another model's vectors are in another space), a model
+// or fallback that lacks a required tag or has no price, or a provider
+// Bifrost does not run.
+func (s *Agent) checkModels(ctx context.Context, a repository.Agent) error {
 	tags, err := s.d.Settings.Tags(ctx)
 	if err != nil {
 		return fmt.Errorf("read the tags: %w", err)
 	}
-	for _, t := range required {
+	for _, t := range a.RequiredTags {
 		if !slices.ContainsFunc(tags, func(k repository.Tag) bool { return k.Name == t }) {
 			return domain.ErrTagUnknown.WithField("required_tags", apperr.Unknown, t)
+		}
+	}
+	if len(a.Fallbacks) > 0 && slices.Contains(a.RequiredTags, domain.TagEmbedding) {
+		return domain.ErrAgentInvalid.WithField("fallbacks", apperr.NotAllowed, "an embedding agent takes no fallback")
+	}
+	models := append([]domain.ModelRef{a.Model}, a.Fallbacks...)
+	for i, m := range models {
+		if slices.Contains(models[:i], m) {
+			return domain.ErrAgentInvalid.WithField("fallbacks", apperr.Duplicate, m.String())
 		}
 	}
 	modelTags, err := s.d.Settings.ModelTags(ctx)
 	if err != nil {
 		return fmt.Errorf("read the model tags: %w", err)
 	}
-	if missing := domain.MissingTags(required, modelTags[model]); len(missing) > 0 {
-		return domain.ErrModelLacksTags.WithField("model", apperr.NotAllowed, strings.Join(missing, ", "))
+	prices, err := s.d.Settings.Prices(ctx)
+	if err != nil {
+		return fmt.Errorf("read the prices: %w", err)
 	}
-	return nil
+	providers := make([]string, 0, len(models))
+	for i, m := range models {
+		field := "model"
+		if i > 0 {
+			field = "fallbacks"
+		}
+		if missing := domain.MissingTags(a.RequiredTags, modelTags[m]); len(missing) > 0 {
+			return domain.ErrModelLacksTags.WithField(field, apperr.NotAllowed, m.String()+": "+strings.Join(missing, ", "))
+		}
+		if !slices.ContainsFunc(prices, func(p repository.Price) bool { return p.Model == m }) {
+			return domain.ErrModelUnpriced.WithField(field, apperr.NotAllowed, m.String())
+		}
+		providers = append(providers, m.Provider)
+	}
+	return s.checkProviders(ctx, providers...)
 }
 
-// CreateAgent makes a console agent: the row and its first version, then
-// LiteLLM from the row: its alias's deployments for its model, the alias
-// in the agent service's key and its budget. The same create again finds
-// the row and writes LiteLLM again, so a create LiteLLM failed is retried.
+// CreateAgent makes a console agent with one caller, its slug: the row,
+// its first version and its caller, then Bifrost from the rows. The same
+// create again finds the row and reconciles again, so a create Bifrost
+// failed is retried; the periodic reconcile also writes it.
 func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in NewAgent) (AgentView, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
@@ -122,8 +167,11 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 	if err != nil {
 		return AgentView{}, err
 	}
-	if in.Name == "" || !domain.ValidAlias(in.Alias) || (in.MonthlyBudgetUSD != nil && *in.MonthlyBudgetUSD < 0) {
+	if in.Name == "" || !domain.ValidAgentSlug(in.Slug) {
 		return AgentView{}, domain.ErrAgentInvalid
+	}
+	if in.MonthlyBudgetUSD != nil && *in.MonthlyBudgetUSD <= 0 {
+		return AgentView{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", apperr.OutOfRange, "not above 0")
 	}
 	enabled := true
 	if in.Enabled != nil {
@@ -131,44 +179,32 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 	}
 	by := caller.MemberID
 	a := repository.Agent{
-		ID: uuid.NewV7(), Kind: domain.AgentConsole, Name: in.Name, Alias: in.Alias, Icon: in.Icon, Purpose: in.Purpose,
-		RequiredTags: nonNil(in.RequiredTags), Model: in.Model, Instructions: in.Instructions, InstructionsVersion: 1,
-		Tools: nonNil(in.Tools), Limits: limits, MonthlyBudgetUSD: in.MonthlyBudgetUSD, KeyAliases: []string{consoleKey},
-		Enabled: enabled, UpdatedBy: &by, UpdatedAt: s.d.Now(), WriteID: uuid.NewV7(),
+		ID: uuid.NewV7(), Kind: domain.AgentConsole, Name: in.Name, Slug: in.Slug, Icon: in.Icon, Purpose: in.Purpose,
+		RequiredTags: nonNil(in.RequiredTags), Model: in.Model, Fallbacks: nonNil(in.Fallbacks), ExtraBody: map[string]any{},
+		Instructions: in.Instructions, InstructionsVersion: 1, Tools: nonNil(in.Tools), Limits: limits,
+		MonthlyBudgetUSD: in.MonthlyBudgetUSD, Callers: []repository.Caller{{Name: in.Slug}}, Enabled: enabled,
+		UpdatedBy: &by, UpdatedAt: s.d.Now(), WriteID: uuid.NewV7(),
 	}
 	all, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return AgentView{}, fmt.Errorf("list the agents: %w", err)
 	}
-	if i := slices.IndexFunc(all, func(o repository.Agent) bool { return o.Name == a.Name || o.Alias == a.Alias }); i >= 0 {
+	if i := slices.IndexFunc(all, func(o repository.Agent) bool { return o.Name == a.Name || o.Slug == a.Slug }); i >= 0 {
 		if !sameAgent(all[i], a) {
 			return AgentView{}, domain.ErrAgentTaken
 		}
-		// A retry of this create: the row is there, LiteLLM may lack it.
-		saved, applyErr := s.applyAgent(ctx, all[i], nil, false, true)
-		if applyErr != nil {
-			return AgentView{}, applyErr
+		// A retry of this create: the row is there, Bifrost may lack it.
+		if err = s.Reconcile(ctx); err != nil {
+			return AgentView{}, err
 		}
-		return agentView(saved), nil
+		return s.agentView(ctx, all[i]), nil
 	}
-	if err = s.checkModel(ctx, a.RequiredTags, a.Model); err != nil {
+	if err = s.checkModels(ctx, a); err != nil {
 		return AgentView{}, err
-	}
-	st, err := s.readState(ctx)
-	if err != nil {
-		return AgentView{}, err
-	}
-	if len(st.providersOf(a.Model)) == 0 {
-		return AgentView{}, domain.ErrModelNotFound
-	}
-	// An alias in LiteLLM that no agent has is another's, such as one of
-	// LiteLLM's config.
-	if slices.ContainsFunc(st.deps, func(d litellm.Deployment) bool { return d.ModelName == a.Alias }) {
-		return AgentView{}, domain.ErrAgentTaken
 	}
 	err = s.d.Settings.CreateAgent(ctx, a, audit.Entry{
 		Actor: audit.ByMember(caller), Action: audit.AIAgentCreate, Target: audit.AIAgent(a.ID),
-		Details: map[string]any{"name": a.Name, "alias": a.Alias, "model": a.Model}, At: a.UpdatedAt,
+		Details: map[string]any{"name": a.Name, "slug": a.Slug, "model": a.Model.String()}, At: a.UpdatedAt,
 	})
 	if errors.Is(err, repository.ErrTaken) {
 		return AgentView{}, domain.ErrAgentTaken
@@ -176,29 +212,28 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 	if err != nil {
 		return AgentView{}, fmt.Errorf("create the agent: %w", err)
 	}
-	saved, err := s.applyAgent(ctx, a, &st, false, true)
-	if err != nil {
+	if err = s.Reconcile(ctx); err != nil {
 		return AgentView{}, err
 	}
-	return agentView(saved), nil
+	return s.agentView(ctx, a), nil
 }
 
 // sameAgent says whether a stored agent is what a create makes, so the
 // create is a retry.
 func sameAgent(stored, made repository.Agent) bool {
-	return stored.Kind == made.Kind && stored.Name == made.Name && stored.Alias == made.Alias &&
+	return stored.Kind == made.Kind && stored.Name == made.Name && stored.Slug == made.Slug &&
 		stored.Icon == made.Icon && stored.Purpose == made.Purpose && slices.Equal(stored.RequiredTags, made.RequiredTags) &&
-		stored.Model == made.Model && stored.Instructions == made.Instructions && slices.Equal(stored.Tools, made.Tools) &&
-		stored.Limits == made.Limits && sameBudget(stored.MonthlyBudgetUSD, made.MonthlyBudgetUSD) &&
+		stored.Model == made.Model && slices.Equal(stored.Fallbacks, made.Fallbacks) &&
+		stored.Instructions == made.Instructions && slices.Equal(stored.Tools, made.Tools) &&
+		stored.Limits == made.Limits && samePtr(stored.MonthlyBudgetUSD, made.MonthlyBudgetUSD) &&
 		stored.Enabled == made.Enabled
 }
 
-func sameBudget(a, b *float64) bool { return (a == nil) == (b == nil) && (a == nil || *a == *b) }
-
-// UpdateAgent changes an agent. An app agent takes a model, limits and a
-// budget only. The row is saved first; a change of model or budget then
-// goes to LiteLLM from the saved row, and new instructions are a new
-// version. The same change again writes LiteLLM again.
+// UpdateAgent changes an agent. An app agent takes a model, fallbacks,
+// limits, a budget and its callers' rate limits only. The row is saved
+// first; a change Bifrost carries (model, fallbacks, budget, callers, on
+// or off) then reconciles it, and new instructions are a new version. A
+// new model drops the request fields of the old one (extra_body).
 func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in AgentPatch) (AgentView, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
@@ -245,34 +280,50 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 		a.InstructionsVersion++
 		details["instructions_version"] = a.InstructionsVersion
 	}
-	newModel := in.Model != nil && *in.Model != a.Model
-	if in.Model != nil {
-		a.Model = *in.Model
+	if in.Model != nil && *in.Model != a.Model {
+		a.Model, a.ExtraBody, details["model"] = *in.Model, map[string]any{}, in.Model.String()
 	}
-	if newModel || in.RequiredTags != nil {
-		if err = s.checkModel(ctx, a.RequiredTags, a.Model); err != nil {
+	if in.Fallbacks != nil {
+		a.Fallbacks = nonNil(*in.Fallbacks)
+		names := make([]string, 0, len(a.Fallbacks))
+		for _, f := range a.Fallbacks {
+			names = append(names, f.String())
+		}
+		details["fallbacks"] = names
+	}
+	if in.Model != nil || in.Fallbacks != nil || in.RequiredTags != nil {
+		if err = s.checkModels(ctx, a); err != nil {
 			return AgentView{}, err
 		}
 	}
-	var st *state
-	if in.Model != nil {
-		cur, stateErr := s.readState(ctx)
-		if stateErr != nil {
-			return AgentView{}, stateErr
-		}
-		if newModel && len(cur.providersOf(a.Model)) == 0 {
-			return AgentView{}, domain.ErrModelNotFound
-		}
-		st = &cur
-		if newModel {
-			details["model"] = a.Model
-		}
-	}
 	if in.MonthlyBudgetUSD.Set {
-		if v := in.MonthlyBudgetUSD.Value; v != nil && *v < 0 {
-			return AgentView{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", apperr.OutOfRange, "negative")
+		if v := in.MonthlyBudgetUSD.Value; v != nil && *v <= 0 {
+			return AgentView{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", apperr.OutOfRange, "not above 0")
 		}
 		a.MonthlyBudgetUSD, details["monthly_budget_usd"] = in.MonthlyBudgetUSD.Value, in.MonthlyBudgetUSD.Value
+	}
+	if in.Callers != nil {
+		// The names are the server's code's, which reads its keys by them:
+		// the list names each caller once, and only its limits change.
+		byName := map[string]repository.Caller{}
+		for _, c := range *in.Callers {
+			if _, twice := byName[c.Name]; twice {
+				return AgentView{}, domain.ErrAgentInvalid.WithField("callers", apperr.Duplicate, c.Name)
+			}
+			byName[c.Name] = repository.Caller(c)
+		}
+		have := make([]string, 0, len(a.Callers))
+		for _, c := range a.Callers {
+			have = append(have, c.Name)
+		}
+		if !sameSet(slices.Collect(maps.Keys(byName)), have) {
+			return AgentView{}, domain.ErrAgentInvalid.WithField("callers", apperr.NotAllowed,
+				"name each of the agent's callers: "+strings.Join(have, ", "))
+		}
+		for i := range a.Callers {
+			a.Callers[i] = byName[a.Callers[i].Name]
+		}
+		details["callers"] = *in.Callers
 	}
 	by := caller.MemberID
 	a.UpdatedBy, a.UpdatedAt, a.WriteID = &by, s.d.Now(), uuid.NewV7()
@@ -287,116 +338,10 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	case err != nil:
 		return AgentView{}, fmt.Errorf("save the agent: %w", err)
 	}
-	if in.Model == nil && !in.MonthlyBudgetUSD.Set {
-		return agentView(a), nil
-	}
-	if a, err = s.applyAgent(ctx, a, st, newModel, in.MonthlyBudgetUSD.Set); err != nil {
-		return AgentView{}, err
-	}
-	return agentView(a), nil
-}
-
-// applyRounds bounds how often applyAgent follows saves that landed while
-// it wrote LiteLLM.
-const applyRounds = 3
-
-// applyAgent writes LiteLLM from a's row: the alias's deployments for a
-// new model or when they serve another, a console agent's alias in the
-// agent service's key, and with budget its monthly budget. When another
-// save landed meanwhile it applies that row too, so LiteLLM ends on the
-// newest; st is LiteLLM's state when the caller has just read it.
-func (s *Agent) applyAgent(ctx context.Context, a repository.Agent, st *state, newModel, budget bool) (repository.Agent, error) {
-	for range applyRounds {
-		if st == nil {
-			read, err := s.readState(ctx)
-			if err != nil {
-				return a, err
-			}
-			st = &read
-		}
-		if newModel || !st.aliasServes(a.Alias, a.Model) {
-			if err := s.writeAlias(ctx, *st, a.Alias, a.Model); err != nil {
-				return a, err
-			}
-		}
-		if a.Kind == domain.AgentConsole {
-			if err := s.allowAlias(ctx, a.Alias); err != nil {
-				return a, err
-			}
-		}
-		if budget {
-			if err := s.applyBudget(ctx, a, a.MonthlyBudgetUSD); err != nil {
-				return a, err
-			}
-		}
-		cur, err := s.agentOf(ctx, a.ID)
-		if err != nil {
-			return a, err
-		}
-		if cur.WriteID == a.WriteID {
-			return cur, nil
-		}
-		a, st, newModel, budget = cur, nil, false, true
-	}
-	return a, nil
-}
-
-// allowAlias adds alias to the agent service's key, when that key names
-// its models; a key with no list may call every model already.
-func (s *Agent) allowAlias(ctx context.Context, alias string) error {
-	keys, err := s.d.Gateway.KeysByAlias(ctx, consoleKey)
-	if err != nil {
-		return gatewayError(err)
-	}
-	for _, k := range keys {
-		if len(k.Models) == 0 || slices.Contains(k.Models, alias) {
-			continue
-		}
-		if err = s.d.Gateway.UpdateKey(ctx, k.Token, map[string]any{"models": append(k.Models, alias)}); err != nil {
-			return gatewayError(err)
+	if in.Model != nil || in.Fallbacks != nil || in.MonthlyBudgetUSD.Set || in.Callers != nil || in.Enabled != nil {
+		if err = s.Reconcile(ctx); err != nil {
+			return AgentView{}, err
 		}
 	}
-	return nil
-}
-
-// applyBudget writes an agent's monthly budget to LiteLLM, nil for none:
-// an app agent's is the budget of each of its keys; a console agent's is
-// its alias's budget on the agent service's key.
-func (s *Agent) applyBudget(ctx context.Context, a repository.Agent, budget *float64) error {
-	for _, alias := range a.KeyAliases {
-		keys, err := s.d.Gateway.KeysByAlias(ctx, alias)
-		if err != nil {
-			return gatewayError(err)
-		}
-		for _, k := range keys {
-			fields := map[string]any{}
-			if a.Kind == domain.AgentApp {
-				fields["max_budget"] = budget
-				if budget != nil {
-					fields["budget_duration"] = budgetPeriod
-				}
-			} else {
-				per := map[string]any{}
-				for model, b := range k.ModelMaxBudget {
-					per[model] = b
-				}
-				delete(per, a.Alias)
-				if budget != nil {
-					per[a.Alias] = map[string]any{"max_budget": *budget, "budget_duration": budgetPeriod}
-				}
-				fields["model_max_budget"] = per
-			}
-			if err = s.d.Gateway.UpdateKey(ctx, k.Token, fields); err != nil {
-				return gatewayError(err)
-			}
-		}
-	}
-	return nil
-}
-
-func nonNil(in []string) []string {
-	if in == nil {
-		return []string{}
-	}
-	return in
+	return s.agentView(ctx, a), nil
 }

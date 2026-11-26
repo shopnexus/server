@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"slices"
 	"time"
 	"uuid"
 
@@ -248,12 +250,24 @@ func (s *Agent) resume(ctx context.Context, caller authn.ConsoleMember, t reposi
 		steers = append(steers, runSteer{SteerID: res.Steers[i].ID, Text: res.Steers[i].Text})
 	}
 	req.Steers = steers
-	if id, parseErr := uuid.Parse(t.AgentID); parseErr == nil {
-		if a, agentErr := s.d.Settings.Agent(ctx, id); agentErr == nil {
-			req.AgentConfig = configOf(a)
-		}
+	// A run goes through its agent's key, so a turn of an agent that is
+	// gone does not resume.
+	id, err := uuid.Parse(t.AgentID)
+	if err != nil {
+		id = domain.ConsoleAssistant
 	}
-	stream, cancel, err := s.startRun(ctx, req, time.Duration(t.DeadlineMS)*time.Millisecond)
+	a, err := s.d.Settings.Agent(ctx, id)
+	if err != nil {
+		err = fmt.Errorf("read the turn's agent: %w", err)
+	} else {
+		req.AgentConfig = configOf(a)
+		req.Gateway, err = s.gatewayOf(ctx, a)
+	}
+	var stream io.ReadCloser
+	var cancel context.CancelFunc
+	if err == nil {
+		stream, cancel, err = s.startRun(ctx, req, time.Duration(t.DeadlineMS)*time.Millisecond)
+	}
 	if err != nil {
 		var input *uuid.UUID
 		if in != nil {
@@ -276,9 +290,36 @@ func (s *Agent) resume(ctx context.Context, caller authn.ConsoleMember, t reposi
 // configOf is the agent_config a run of a goes out with.
 func configOf(a repository.Agent) *AgentConfig {
 	return &AgentConfig{
-		ID: a.ID, Name: a.Name, Alias: a.Alias, Instructions: a.Instructions, InstructionsVersion: a.InstructionsVersion,
+		ID: a.ID, Name: a.Name, Instructions: a.Instructions, InstructionsVersion: a.InstructionsVersion,
 		Tools: a.Tools, Limits: a.Limits,
 	}
+}
+
+// gatewayOf is the gateway a run of a calls models through: its caller's
+// key, the model and fallbacks the key allows, and their prices, which the
+// agent counts the run's cost with.
+func (s *Agent) gatewayOf(ctx context.Context, a repository.Agent) (*runGateway, error) {
+	if len(a.Callers) == 0 {
+		return nil, domain.ErrUnavailable.WithCause(fmt.Errorf("agent %s has no caller", a.Slug))
+	}
+	route, err := s.d.Ring.Route(ctx, a.Callers[0].Name)
+	if err != nil {
+		return nil, domain.ErrUnavailable.WithCause(err)
+	}
+	prices, err := s.d.Settings.Prices(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read the prices: %w", err)
+	}
+	g := &runGateway{Key: route.Key, Model: route.Model, Fallbacks: nonNil(route.Fallbacks), Prices: map[string]runPrice{}}
+	for _, m := range append([]string{route.Model}, route.Fallbacks...) {
+		i := slices.IndexFunc(prices, func(p repository.Price) bool { return p.Model.String() == m })
+		if i < 0 {
+			return nil, domain.ErrUnavailable.WithCause(fmt.Errorf("model %s has no price", m))
+		}
+		p := prices[i]
+		g.Prices[m] = runPrice{Input: p.Input, Output: p.Output, CacheRead: p.CacheRead, CacheWrite: p.CacheWrite}
+	}
+	return g, nil
 }
 
 // TurnControl is what a running segment polls: the pauses, stops and

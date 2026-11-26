@@ -34,8 +34,8 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 	"github.com/shopnexus/server/internal/provider/embed"
-	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 // k is the depth the set is scored at.
@@ -55,7 +55,7 @@ type result struct {
 func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against shared real models
 	cfg, err := config.FromDotEnv("../../../.env")
 	if err != nil {
-		t.Fatalf("the developer's .env, with LLM_* and EMBED_* for real models: %v", err)
+		t.Fatalf("the developer's .env, with GATEWAY_* and EMBED_* for real models: %v", err)
 	}
 	listings, queries, err := eval.Load("testdata")
 	if err != nil {
@@ -66,11 +66,16 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 	in, p := restatetest.Ingress(t), restatetest.Prefix()
 	store := objectstoretest.New(t)
 	m := mediatest.Service(db, store, in, p)
-	text := func(key string) embed.OpenAI {
-		return embed.OpenAI{
-			BaseURL: cfg.Embed.TextBaseURL, APIKey: key, Model: cfg.Embed.TextModel, Dims: catalogdomain.TextDims,
-			HTTP: &http.Client{Timeout: cfg.Embed.Timeout},
-		}
+	// The models are the agents' in Bifrost, called with the server's keys.
+	ring := bifrost.NewRing(bifrost.Admin{
+		BaseURL: cfg.Gateway.URL, Username: cfg.Gateway.AdminUsername, Password: cfg.Gateway.AdminPassword,
+		HTTP: &http.Client{Timeout: time.Minute},
+	}, time.Now)
+	caller := func(name string, timeout time.Duration) bifrost.Caller {
+		return bifrost.Caller{BaseURL: cfg.Gateway.URL, Name: name, Ring: ring, HTTP: &http.Client{Timeout: timeout}}
+	}
+	text := func(name string) embed.Model {
+		return bifrost.Embedder{Caller: caller(name, cfg.Embed.Timeout), Dims: catalogdomain.TextDims}
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	// SigLIP 2 runs here, in module ai, from the models AI_* names.
@@ -82,7 +87,7 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 	aim := ai.Mount(module.Deps{Ingress: in, ServicePrefix: p, Log: log}, ai.Settings{Engines: engines, Objects: store, Config: cfg.AI})
 	photos := aisvc.Photos{AI: aim.Service, Dims: catalogdomain.PhotoDims, Timeout: cfg.Embed.Timeout}
 	c := catalogtest.Service(db, accounttest.Service(db), m, in, p, func(d *catalogsvc.Deps) {
-		d.Text, d.Image = text(cfg.Embed.IndexAPIKey), photos
+		d.Text, d.Image = text("server-embed-index"), photos
 		d.TextVersion, d.ImageVersion, d.EmbedSlots, d.Log = cfg.Embed.TextVersion, cfg.Embed.ImageVersion, cfg.Embed.Slots, log
 	})
 	restatetest.Start(t, slices.Concat(m.Durable(), c.Durable(), aim.Services)...)
@@ -91,8 +96,8 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 		History: repository.NewHistory(db), Hidden: repository.NewHidden(db), Watches: repository.NewWatches(db), Accounts: accounttest.Service(db),
 		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db), ModelUses: repository.NewModelUses(db),
 		Catalog: c, Media: m,
-		LLM:         llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, Effort: cfg.LLM.Effort, HTTP: &http.Client{}},
-		Text:        text(cfg.Embed.SearchAPIKey),
+		LLM:         bifrost.Chat{Caller: caller("server-search", 0), Effort: cfg.LLM.Effort},
+		Text:        text("server-embed-search"),
 		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, LookMin: cfg.Embed.LookMinSimilarity,

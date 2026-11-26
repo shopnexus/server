@@ -15,6 +15,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server/internal/catalog/repository"
 	"github.com/shopnexus/server/internal/platform/locale"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/seedpack"
 )
@@ -134,9 +135,14 @@ func embedText(ctx context.Context, s *stack, p *seedpack.Pack, batch int, missi
 	if !cfg.TextOn() {
 		return 0, errors.New("text vectors are off in the stack: EMBED_TEXT_MODEL is empty")
 	}
-	model := embed.OpenAI{
-		BaseURL: cfg.TextBaseURL, APIKey: cfg.IndexAPIKey, Model: cfg.TextModel, Dims: catalogdomain.TextDims,
-		HTTP: &http.Client{Timeout: cfg.Timeout},
+	// The index caller's key, as ListingEmbed calls, read from Bifrost.
+	gw := s.cfg.Gateway
+	ring := bifrost.NewRing(bifrost.Admin{
+		BaseURL: gw.URL, Username: gw.AdminUsername, Password: gw.AdminPassword, HTTP: &http.Client{Timeout: cfg.Timeout},
+	}, time.Now)
+	model := bifrost.Embedder{
+		Caller: bifrost.Caller{BaseURL: gw.URL, Name: "server-embed-index", Ring: ring, HTTP: &http.Client{Timeout: cfg.Timeout}},
+		Dims:   catalogdomain.TextDims,
 	}
 	tree, err := catalogrepo.NewCategories(s.pool).Tree(ctx, locale.Vietnamese)
 	if err != nil {
@@ -287,7 +293,7 @@ func embedPhotos(ctx context.Context, s *stack, p *seedpack.Pack, u *ui) (int, e
 // fillText embeds the rows of the pack's text.npy that hold no vector, the
 // texts the old model had none for, and keeps the other rows, the lines and
 // the manifest as they are. A call the endpoint throttles is sent again.
-func fillText(ctx context.Context, model embed.OpenAI, p *seedpack.Pack, version string, texts []string, batch int, u *ui) (int, error) {
+func fillText(ctx context.Context, model embed.Model, p *seedpack.Pack, version string, texts []string, batch int, u *ui) (int, error) {
 	if set := p.Manifest.Vectors.Text; set == nil || set.Model != version || !p.Has(seedpack.TextVectors) {
 		return 0, fmt.Errorf("--missing needs the pack's text vectors of %s", version)
 	}

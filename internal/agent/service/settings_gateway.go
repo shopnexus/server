@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -11,300 +13,214 @@ import (
 
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
-	"github.com/shopnexus/server/internal/platform/apperr"
-	"github.com/shopnexus/server/internal/platform/audit"
-	"github.com/shopnexus/server/internal/platform/authn"
-	"github.com/shopnexus/server/internal/provider/litellm"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 )
 
 // gatewayTimeout bounds one settings call, which may make several calls to
-// LiteLLM's admin API.
+// Bifrost's admin API.
 const gatewayTimeout = 30 * time.Second
 
-// The deployments the server writes in LiteLLM carry model_info.shopnexus,
-// their role, and model_info.provider and model_info.model:
-//
-//   - catalog: a model a provider serves, model_name "<provider>/<model>";
-//     the provider's model list.
-//   - alias: an agent's alias, one per provider that has the agent's model,
-//     with that provider's weight and order.
-//   - lister: "<provider>/*" with the provider's route, which LiteLLM's
-//     /model/info expands into the models the provider lists; a provider
-//     in sync mode has one.
-const (
-	roleKey     = "shopnexus"
-	roleCatalog = "catalog"
-	roleAlias   = "alias"
-	roleLister  = "lister"
-)
+// ReconcileEvery is how often the reconciler runs besides after each
+// settings write, so a change made in Bifrost's UI or a write Bifrost
+// missed is put right.
+const ReconcileEvery = 5 * time.Minute
 
-// The credential_info keys of a provider. custom_llm_provider is LiteLLM's
-// own, which its UI shows.
-const (
-	infoKind     = "custom_llm_provider"
-	infoBaseURL  = "base_url"
-	infoWeight   = "weight"
-	infoOrder    = "order"
-	infoMode     = "mode"
-	infoSyncedAt = "synced_at"
-	infoEnabled  = "enabled"
-)
+// overridePrefix starts the name of each pricing override the server
+// writes; the rest is provider/model.
+const overridePrefix = "server:"
 
-// gatewayError is what a member sees of a LiteLLM failure: its refusal as
+// rateWindow is the window of every caller's rate limits.
+const rateWindow = "1m"
+
+// gatewayError is what a member sees of a Bifrost failure: its refusal as
 // ai_gateway_refused with the detail logged, anything else as
 // ai_gateway_unavailable.
 func gatewayError(err error) error {
-	if errors.Is(err, litellm.ErrRefused) {
+	if errors.Is(err, bifrost.ErrRefused) {
 		return domain.ErrGatewayRefused.WithCause(err)
 	}
 	return domain.ErrGatewayUnavailable.WithCause(err)
 }
 
-// state is LiteLLM's credentials and deployments, read once per change.
-type state struct {
-	creds []litellm.Credential
-	deps  []litellm.Deployment
-}
-
-func (s *Agent) readState(ctx context.Context) (state, error) {
-	creds, err := s.d.Gateway.Credentials(ctx)
-	if err != nil {
-		return state{}, gatewayError(err)
-	}
-	deps, err := s.d.Gateway.Deployments(ctx)
-	if err != nil {
-		return state{}, gatewayError(err)
-	}
-	return state{creds: creds, deps: deps}, nil
-}
-
-func (st state) credential(id string) (litellm.Credential, bool) {
-	i := slices.IndexFunc(st.creds, func(c litellm.Credential) bool { return c.Name == id })
-	if i < 0 {
-		return litellm.Credential{}, false
-	}
-	return st.creds[i], true
-}
-
-// role is a deployment's role, or "" for one the server did not write.
-func role(d litellm.Deployment) string { return d.InfoString(roleKey) }
-
-// catalog lists provider's models, each once, sorted.
-func (st state) catalog(provider string) []string {
-	var out []string
-	for _, d := range st.deps {
-		if role(d) == roleCatalog && d.InfoString("provider") == provider {
-			out = append(out, d.InfoString("model"))
+// Reconcile writes the AI policy into Bifrost: a team per agent with its
+// monthly budget, a virtual key per caller with its agent's models and its
+// rate limits, and a pricing override per priced model. It deletes the
+// keys and overrides the server wrote that nothing names any more, turns
+// off the keys of agents turned off, and hands the ring the keys. One
+// process at a time runs it.
+func (s *Agent) Reconcile(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
+	defer cancel()
+	err := s.d.Settings.Exclusive(ctx, func(ctx context.Context) error {
+		agents, err := s.d.Settings.Agents(ctx)
+		if err != nil {
+			return fmt.Errorf("read the agents: %w", err)
 		}
-	}
-	slices.Sort(out)
-	return slices.Compact(out)
-}
-
-// providersOf lists the enabled providers that serve model, in the
-// credentials' order.
-func (st state) providersOf(model string) []litellm.Credential {
-	var out []litellm.Credential
-	for _, c := range st.creds {
-		if enabled(c) && slices.Contains(st.catalog(c.Name), model) {
-			out = append(out, c)
+		prices, err := s.d.Settings.Prices(ctx)
+		if err != nil {
+			return fmt.Errorf("read the prices: %w", err)
 		}
-	}
-	return out
-}
-
-// enabled says a provider serves the aliases: info's enabled, true when
-// unset.
-func enabled(c litellm.Credential) bool {
-	v, ok := c.Info[infoEnabled].(bool)
-	return !ok || v
-}
-
-// providerOf is the Provider view of c.
-func (st state) providerOf(c litellm.Credential) Provider {
-	p := Provider{
-		ID: c.Name, Name: c.DisplayName, Kind: infoString(c.Info, infoKind), BaseURL: infoString(c.Info, infoBaseURL),
-		KeyHint: c.Values["api_key"], Weight: infoFloat(c.Info, infoWeight, 1), Order: int(infoFloat(c.Info, infoOrder, 1)),
-		Mode: domain.ProviderMode(infoString(c.Info, infoMode)), Enabled: enabled(c), Models: st.catalog(c.Name),
-	}
-	if p.Name == "" {
-		p.Name = c.Name
-	}
-	if p.Mode == "" {
-		p.Mode = domain.ModePick
-	}
-	if p.Models == nil {
-		p.Models = []string{}
-	}
-	if t, err := time.Parse(time.RFC3339, infoString(c.Info, infoSyncedAt)); err == nil {
-		p.SyncedAt = &t
-	}
-	return p
-}
-
-func infoString(m map[string]any, key string) string {
-	if v, ok := m[key].(string); ok {
-		return v
-	}
-	return ""
-}
-
-func infoFloat(m map[string]any, key string, def float64) float64 {
-	if v, ok := m[key].(float64); ok {
-		return v
-	}
-	return def
-}
-
-// route is the litellm_params.model of a provider's model: its kind, the
-// LiteLLM provider route, then the model.
-func route(kind, model string) string { return kind + "/" + model }
-
-// modelOfRoute is the model of a LiteLLM route, without the route's first
-// segment: openai/baai/bge-m3 is baai/bge-m3.
-func modelOfRoute(r string) string {
-	_, model, ok := strings.Cut(r, "/")
-	if !ok {
-		return r
-	}
-	return model
-}
-
-// catalogDeployment is the deployment that puts model in provider's list.
-func catalogDeployment(p Provider, model string, cost litellm.Params) litellm.Deployment {
-	return litellm.Deployment{
-		ModelName: p.ID + "/" + model,
-		Params: litellm.Params{
-			Model: route(p.Kind, model), Credential: p.ID, InputCost: cost.InputCost, OutputCost: cost.OutputCost,
-		},
-		Info: map[string]any{roleKey: roleCatalog, "provider": p.ID, "model": model},
-	}
-}
-
-// writeAlias rewrites alias's deployments: one per provider that serves
-// model, with that provider's weight and order and the catalog's price.
-// It adds the new ones before it deletes the old, so the alias always has
-// a deployment; a model no provider serves is ErrModelNotFound and
-// changes nothing.
-func (s *Agent) writeAlias(ctx context.Context, st state, alias, model string) error {
-	serving := st.providersOf(model)
-	if len(serving) == 0 {
-		return domain.ErrModelNotFound
-	}
-	var old []string
-	for _, d := range st.deps {
-		if d.ModelName == alias && d.ID() != "" {
-			old = append(old, d.ID())
-		}
-	}
-	for _, c := range serving {
-		p := st.providerOf(c)
-		w, o := p.Weight, p.Order
-		cost := st.cost(p.ID, model)
-		if err := s.d.Gateway.AddDeployment(ctx, litellm.Deployment{
-			ModelName: alias,
-			Params: litellm.Params{
-				Model: route(p.Kind, model), Credential: p.ID, Weight: &w, Order: &o,
-				InputCost: cost.InputCost, OutputCost: cost.OutputCost,
-			},
-			Info: map[string]any{roleKey: roleAlias, "provider": p.ID, "model": model},
-		}); err != nil {
+		teams, err := s.d.Gateway.Teams(ctx)
+		if err != nil {
 			return gatewayError(err)
 		}
-	}
-	for _, id := range old {
-		if err := s.d.Gateway.DeleteDeployment(ctx, id); err != nil {
+		keys, err := s.d.Gateway.VirtualKeys(ctx)
+		if err != nil {
 			return gatewayError(err)
 		}
+		overrides, err := s.d.Gateway.PricingOverrides(ctx)
+		if err != nil {
+			return gatewayError(err)
+		}
+		// Teams are named after the agents' slugs. An agent is never
+		// deleted, so no team is.
+		callers := map[string]bool{}
+		for i := range agents {
+			a := &agents[i]
+			j := slices.IndexFunc(teams, func(t bifrost.Team) bool { return t.Name == a.Slug })
+			var team bifrost.Team
+			switch {
+			case j < 0:
+				if team, err = s.d.Gateway.CreateTeam(ctx, a.Slug, a.MonthlyBudgetUSD); err != nil {
+					return gatewayError(err)
+				}
+			case !teamHas(teams[j], a.MonthlyBudgetUSD):
+				team = teams[j]
+				if err = s.d.Gateway.UpdateTeam(ctx, team.ID, a.Slug, a.MonthlyBudgetUSD); err != nil {
+					return gatewayError(err)
+				}
+			default:
+				team = teams[j]
+			}
+			for _, c := range a.Callers {
+				callers[c.Name] = true
+				want := keyOf(*a, c, team.ID)
+				k := slices.IndexFunc(keys, func(v bifrost.VirtualKey) bool { return v.Name == c.Name })
+				switch {
+				case k < 0:
+					_, err = s.d.Gateway.CreateVirtualKey(ctx, want)
+				case !keyHas(keys[k], want):
+					err = s.d.Gateway.UpdateVirtualKey(ctx, keys[k].ID, want)
+				}
+				if err != nil {
+					return gatewayError(err)
+				}
+			}
+		}
+		for _, k := range keys {
+			if k.Metadata[bifrost.MetaOwner] == bifrost.OwnerServer && !callers[k.Name] {
+				if err = s.d.Gateway.DeleteVirtualKey(ctx, k.ID); err != nil {
+					return gatewayError(err)
+				}
+			}
+		}
+		priced := map[string]bool{}
+		for _, p := range prices {
+			name := overridePrefix + p.Model.String()
+			priced[name] = true
+			price := bifrost.Price{Input: p.Input, Output: p.Output, CacheRead: p.CacheRead, CacheWrite: p.CacheWrite}
+			o := slices.IndexFunc(overrides, func(v bifrost.PricingOverride) bool { return v.Name == name })
+			switch {
+			case o < 0:
+				err = s.d.Gateway.CreatePricingOverride(ctx, name, p.Model.Provider, p.Model.Model, price)
+			case overrides[o].Provider != p.Model.Provider || overrides[o].Pattern != p.Model.Model ||
+				!maps.Equal(overrides[o].Patch, bifrost.PricePatch(price)):
+				err = s.d.Gateway.UpdatePricingOverride(ctx, overrides[o].ID, name, p.Model.Provider, p.Model.Model, price)
+			}
+			if err != nil {
+				return gatewayError(err)
+			}
+		}
+		for _, o := range overrides {
+			if strings.HasPrefix(o.Name, overridePrefix) && !priced[o.Name] {
+				if err = s.d.Gateway.DeletePricingOverride(ctx, o.ID); err != nil {
+					return gatewayError(err)
+				}
+			}
+		}
+		if keys, err = s.d.Gateway.VirtualKeys(ctx); err != nil {
+			return gatewayError(err)
+		}
+		s.d.Ring.Set(keys)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("reconcile Bifrost: %w", err)
 	}
 	return nil
 }
 
-// aliasServes says whether alias has a deployment and each one the server
-// wrote serves model. One of LiteLLM's config is left to a new model, since
-// its route need not name the agent's model.
-func (st state) aliasServes(alias, model string) bool {
-	n := 0
-	for _, d := range st.deps {
-		if d.ModelName != alias {
-			continue
+// teamHas says whether t carries monthly as its one calendar-aligned
+// monthly budget, or none for nil.
+func teamHas(t bifrost.Team, monthly *float64) bool {
+	if monthly == nil {
+		return len(t.Budgets) == 0
+	}
+	return len(t.Budgets) == 1 && t.Budgets[0].MaxLimit == *monthly && t.Budgets[0].ResetDuration == "1M" && t.CalendarAligned
+}
+
+// keyOf is the virtual key caller c of agent a should be: under a's team,
+// on a when a is on, allowed a's model and fallbacks exactly, with c's
+// rate limits and metadata that tell the ring what c calls.
+func keyOf(a repository.Agent, c repository.Caller, teamID string) bifrost.KeyInput {
+	models := map[string][]string{}
+	fallbacks := make([]string, 0, len(a.Fallbacks))
+	for _, m := range append([]domain.ModelRef{a.Model}, a.Fallbacks...) {
+		if !slices.Contains(models[m.Provider], m.Model) {
+			models[m.Provider] = append(models[m.Provider], m.Model)
 		}
-		if role(d) == roleAlias && d.InfoString("model") != model {
+	}
+	for _, f := range a.Fallbacks {
+		fallbacks = append(fallbacks, f.String())
+	}
+	meta := map[string]string{
+		bifrost.MetaOwner: bifrost.OwnerServer, bifrost.MetaAgent: a.Slug, bifrost.MetaModel: a.Model.String(),
+	}
+	if len(fallbacks) > 0 {
+		meta[bifrost.MetaFallbacks] = bifrost.JoinList(fallbacks)
+	}
+	if len(a.ExtraBody) > 0 {
+		// The map encodes as a JSON object, which cannot fail.
+		raw, _ := json.Marshal(a.ExtraBody)
+		meta[bifrost.MetaExtraBody] = string(raw)
+	}
+	in := bifrost.KeyInput{Name: c.Name, TeamID: teamID, Models: models, Active: a.Enabled, Metadata: meta}
+	window := rateWindow
+	if c.TokensPerMin != nil {
+		in.Rate.TokenMaxLimit, in.Rate.TokenResetDuration = new(int64(*c.TokensPerMin)), &window
+	}
+	if c.RequestsPerMin != nil {
+		in.Rate.RequestMaxLimit, in.Rate.RequestResetDuration = new(int64(*c.RequestsPerMin)), &window
+	}
+	return in
+}
+
+// keyHas says whether k is what in writes.
+func keyHas(k bifrost.VirtualKey, in bifrost.KeyInput) bool {
+	if k.TeamID == nil || *k.TeamID != in.TeamID || k.Active() != in.Active || !maps.Equal(k.Metadata, in.Metadata) ||
+		len(k.ProviderConfigs) != len(in.Models) {
+		return false
+	}
+	for _, pc := range k.ProviderConfigs {
+		want, ok := in.Models[pc.Provider]
+		if !ok || !pc.AllowAllKeys || !sameSet(pc.AllowedModels, want) {
 			return false
 		}
-		n++
 	}
-	return n > 0
+	var have bifrost.RateLimit
+	if k.RateLimit != nil {
+		have = *k.RateLimit
+	}
+	return samePtr(have.TokenMaxLimit, in.Rate.TokenMaxLimit) && samePtr(have.RequestMaxLimit, in.Rate.RequestMaxLimit) &&
+		(have.TokenMaxLimit == nil || samePtr(have.TokenResetDuration, in.Rate.TokenResetDuration)) &&
+		(have.RequestMaxLimit == nil || samePtr(have.RequestResetDuration, in.Rate.RequestResetDuration))
 }
 
-// cost is the price on provider's catalog deployment of model.
-func (st state) cost(provider, model string) litellm.Params {
-	for _, d := range st.deps {
-		if role(d) == roleCatalog && d.InfoString("provider") == provider && d.InfoString("model") == model {
-			return d.Params
-		}
-	}
-	return litellm.Params{}
+func sameSet(a, b []string) bool {
+	return len(a) == len(b) && !slices.ContainsFunc(a, func(s string) bool { return !slices.Contains(b, s) })
 }
 
-// rewriteAliases rewrites the alias of every agent on a model provider
-// serves, after the provider's weight, order or models changed. An agent
-// whose model no provider serves any more keeps its deployments.
-func (s *Agent) rewriteAliases(ctx context.Context, provider string) error {
-	agents, err := s.d.Settings.Agents(ctx)
-	if err != nil {
-		return fmt.Errorf("read the agents: %w", err)
-	}
-	st, err := s.readState(ctx)
-	if err != nil {
-		return err
-	}
-	for i := range agents {
-		a := &agents[i]
-		uses := slices.ContainsFunc(st.deps, func(d litellm.Deployment) bool {
-			return d.ModelName == a.Alias && d.InfoString("provider") == provider
-		})
-		if !uses && !slices.ContainsFunc(st.providersOf(a.Model), func(c litellm.Credential) bool { return c.Name == provider }) {
-			continue
-		}
-		if err = s.writeAlias(ctx, st, a.Alias, a.Model); err != nil && !errors.Is(err, domain.ErrModelNotFound) {
-			return err
-		}
-	}
-	return nil
-}
-
-// inUse refuses to take model away from provider when an agent's model
-// would be left with no provider.
-func (s *Agent) inUse(ctx context.Context, st state, provider string, models []string) error {
-	agents, err := s.d.Settings.Agents(ctx)
-	if err != nil {
-		return fmt.Errorf("read the agents: %w", err)
-	}
-	for i := range agents {
-		a := &agents[i]
-		if !slices.Contains(models, a.Model) {
-			continue
-		}
-		others := slices.DeleteFunc(st.providersOf(a.Model), func(c litellm.Credential) bool { return c.Name == provider })
-		if len(others) == 0 {
-			return domain.ErrProviderInUse.WithField("agent", apperr.InUse, a.Name)
-		}
-	}
-	return nil
-}
-
-// record writes the console action of a change made in LiteLLM.
-func (s *Agent) record(ctx context.Context, caller authn.ConsoleMember, action audit.ActionKind, target audit.Target,
-	details map[string]any,
-) error {
-	if err := s.d.Settings.Record(ctx, audit.Entry{
-		Actor: audit.ByMember(caller), Action: action, Target: target, Details: details, At: s.d.Now(),
-	}); err != nil {
-		return fmt.Errorf("record %s: %w", action, err)
-	}
-	return nil
-}
+func samePtr[T comparable](a, b *T) bool { return (a == nil) == (b == nil) && (a == nil || *a == *b) }
 
 // agentOf maps the repository's not found.
 func (s *Agent) agentOf(ctx context.Context, id uuid.UUID) (repository.Agent, error) {
@@ -316,4 +232,11 @@ func (s *Agent) agentOf(ctx context.Context, id uuid.UUID) (repository.Agent, er
 		return repository.Agent{}, fmt.Errorf("read the agent: %w", err)
 	}
 	return a, nil
+}
+
+func nonNil[T any](in []T) []T {
+	if in == nil {
+		return []T{}
+	}
+	return in
 }

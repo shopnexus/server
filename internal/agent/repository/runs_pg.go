@@ -1199,25 +1199,6 @@ func (s pgRuns) AgentDays(ctx context.Context, from time.Time) ([]DayCount, erro
 WHERE started_at >= @from GROUP BY 1, 2`, from)
 }
 
-func (s pgRuns) MemberTurns(ctx context.Context, from time.Time) ([]MemberCount, error) {
-	rows, err := s.db.Query(ctx, `SELECT member_id, count(*)::int FROM agent_turns WHERE started_at >= @from
-GROUP BY 1 ORDER BY 2 DESC, 1`, pgx.StrictNamedArgs{"from": from})
-	if err != nil {
-		return nil, fmt.Errorf("select agent member turns: %w", err)
-	}
-	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (MemberCount, error) {
-		var m MemberCount
-		if scanErr := r.Scan(&m.MemberID, &m.Count); scanErr != nil {
-			return m, fmt.Errorf("scan agent member turns: %w", scanErr)
-		}
-		return m, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("read agent member turns: %w", err)
-	}
-	return out, nil
-}
-
 func (s pgRuns) ListenTurns(ctx context.Context, ring func(uuid.UUID), resync func()) {
 	postgres.Listen(ctx, s.db, turnChannel, s.log, resync, func(payload string) {
 		if id, err := uuid.Parse(payload); err == nil {

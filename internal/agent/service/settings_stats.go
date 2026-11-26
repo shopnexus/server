@@ -11,34 +11,10 @@ import (
 
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/authn"
-	"github.com/shopnexus/server/internal/provider/litellm"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 )
-
-// AvailableModel is the AIProviderModel schema: a model a provider lists,
-// with its tags and price, and whether it is in the provider's list.
-type AvailableModel struct {
-	Model             string   `json:"model"`
-	Tags              []string `json:"tags,omitempty"`
-	InputCostPerMTok  *float64 `json:"input_cost_per_mtok,omitempty"`
-	OutputCostPerMTok *float64 `json:"output_cost_per_mtok,omitempty"`
-	ContextTokens     *int     `json:"context_tokens,omitempty"`
-	Added             bool     `json:"added"`
-}
-
-// ProviderHealth is the AIProviderHealth schema: a provider's last 24
-// hours as LiteLLM logged them.
-type ProviderHealth struct {
-	ID          string  `json:"id"`
-	Requests24h int     `json:"requests_24h"`
-	SharePct    float64 `json:"share_pct"`
-	SuccessPct  float64 `json:"success_pct"`
-	P50MS       int     `json:"p50_ms"`
-	// CoolingUntil is the end of a cooldown; LiteLLM keeps cooldowns in
-	// its router and shows none, so the server leaves it out.
-	CoolingUntil *time.Time `json:"cooling_until,omitempty"`
-	LastError    string     `json:"last_error,omitempty"`
-}
 
 // AgentUsage is the AIAgentUsage schema: an agent's requests over a range,
 // by day.
@@ -52,15 +28,6 @@ type AgentUsage struct {
 type DayCount struct {
 	Date     string `json:"date"`
 	Requests int    `json:"requests"`
-}
-
-// MemberSpend is what a member spent through the console agents over a
-// range, and how many questions they asked.
-type MemberSpend struct {
-	MemberID    uuid.UUID `json:"member_id"`
-	DisplayName string    `json:"display_name"`
-	USD         float64   `json:"usd"`
-	Requests    int       `json:"requests"`
 }
 
 // ToolStats is the AIToolStats schema: the agent's tool calls over a range,
@@ -101,10 +68,9 @@ type GuardrailCount = repository.RuleCount
 // GuardrailNotice is one time a rule acted.
 type GuardrailNotice = repository.RecentGuardrail
 
-// turnStats counts the console turns of a range by agent and by member.
+// turnStats counts the console turns of a range by agent.
 type turnStats struct {
-	ByAgent  []agentTurns
-	ByMember []repository.MemberCount
+	ByAgent []agentTurns
 }
 
 type agentTurns struct {
@@ -160,17 +126,12 @@ func byDay(rows []repository.DayCount, dates []string) map[string][]int {
 	return out
 }
 
-// turnsOf counts the console turns of the last n days by agent and by
-// member.
+// turnsOf counts the console turns of the last n days by agent.
 func (s *Agent) turnsOf(ctx context.Context, n int) (turnStats, error) {
 	from, dates := rangeDays(s.d.Now(), n)
 	days, err := s.d.Runs.AgentDays(ctx, from)
 	if err != nil {
 		return turnStats{}, fmt.Errorf("count the turns by agent: %w", err)
-	}
-	members, err := s.d.Runs.MemberTurns(ctx, from)
-	if err != nil {
-		return turnStats{}, fmt.Errorf("count the turns by member: %w", err)
 	}
 	var out turnStats
 	for agent, counts := range byDay(days, dates) {
@@ -187,191 +148,11 @@ func (s *Agent) turnsOf(ctx context.Context, n int) (turnStats, error) {
 		}
 		return strings.Compare(a.AgentID, b.AgentID)
 	})
-	out.ByMember = members
 	return out, nil
-}
-
-// ProviderModels lists the models a provider lists, through its lister,
-// and the ones in its list, each with whether it is added. A provider
-// without a lister gets one first.
-func (s *Agent) ProviderModels(ctx context.Context, id string) ([]AvailableModel, error) {
-	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
-	defer cancel()
-	st, err := s.readState(ctx)
-	if err != nil {
-		return nil, err
-	}
-	c, ok := st.credential(id)
-	if !ok {
-		return nil, domain.ErrProviderNotFound
-	}
-	if st, err = s.ensureLister(ctx, st, st.providerOf(c)); err != nil {
-		return nil, err
-	}
-	tags, err := s.d.Settings.ModelTags(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("read the model tags: %w", err)
-	}
-	byModel := map[string]*AvailableModel{}
-	for _, d := range st.deps {
-		var model string
-		switch r := role(d); {
-		case r == roleCatalog && d.InfoString("provider") == id:
-			model = d.InfoString("model")
-		case r == roleLister && strings.HasPrefix(d.ModelName, id+"/") && d.ModelName != id+"/*":
-			model = strings.TrimPrefix(d.ModelName, id+"/")
-		default:
-			continue
-		}
-		m, seen := byModel[model]
-		if !seen {
-			m = &AvailableModel{Model: model, Tags: tags[model]}
-			byModel[model] = m
-		}
-		m.Added = m.Added || role(d) == roleCatalog
-		// The catalog deployment's own price, which the admin set, wins
-		// over the cost map's on the lister's row.
-		own := role(d) == roleCatalog && (d.Params.InputCost != nil || d.Params.OutputCost != nil)
-		if m.InputCostPerMTok == nil || own {
-			m.InputCostPerMTok, m.OutputCostPerMTok = priceOf(d)
-		}
-		if m.ContextTokens == nil {
-			m.ContextTokens = contextOf(d)
-		}
-	}
-	out := make([]AvailableModel, 0, len(byModel))
-	for _, m := range byModel {
-		out = append(out, *m)
-	}
-	slices.SortFunc(out, func(a, b AvailableModel) int { return strings.Compare(a.Model, b.Model) })
-	return out, nil
-}
-
-// priceOf is a deployment's price per million tokens. LiteLLM keeps a
-// stored deployment's own price in litellm_params, where the server
-// writes it, and drops one written in model_info alone; its model_info
-// otherwise carries the price of its model cost map, or 0 or null for a
-// model the map lacks. So the price is litellm_params', else model_info's
-// when it is above 0, else none.
-func priceOf(d litellm.Deployment) (in, out *float64) {
-	if d.Params.InputCost != nil || d.Params.OutputCost != nil {
-		return perMTok(d.Params.InputCost), perMTok(d.Params.OutputCost)
-	}
-	return perMTok(infoPositive(d.Info, "input_cost_per_token")), perMTok(infoPositive(d.Info, "output_cost_per_token"))
-}
-
-// contextOf is the input tokens LiteLLM's model_info gives the model, from
-// its cost map.
-func contextOf(d litellm.Deployment) *int {
-	v := infoPositive(d.Info, "max_input_tokens")
-	if v == nil {
-		return nil
-	}
-	return new(int(*v))
-}
-
-// infoPositive is a number of model_info above 0, which LiteLLM sets to 0
-// or null when its cost map lacks the model.
-func infoPositive(m map[string]any, key string) *float64 {
-	if v, ok := m[key].(float64); ok && v > 0 {
-		return &v
-	}
-	return nil
-}
-
-// ensureLister gives p its lister when it has none, and reads LiteLLM
-// again so the lister's models are in the state.
-func (s *Agent) ensureLister(ctx context.Context, st state, p Provider) (state, error) {
-	lister := p.ID + "/*"
-	if slices.ContainsFunc(st.deps, func(d litellm.Deployment) bool { return d.ModelName == lister }) {
-		return st, nil
-	}
-	if err := s.d.Gateway.AddDeployment(ctx, litellm.Deployment{
-		ModelName: lister,
-		Params:    litellm.Params{Model: route(p.Kind, "*"), Credential: p.ID},
-		Info:      map[string]any{roleKey: roleLister, "provider": p.ID},
-	}); err != nil {
-		return state{}, gatewayError(err)
-	}
-	return s.readState(ctx)
-}
-
-// ProviderHealth counts each provider's requests of the last 24 hours in
-// LiteLLM's logs, by the deployment that served them: their share of all,
-// the share that succeeded, the median duration and the last error.
-func (s *Agent) ProviderHealth(ctx context.Context) ([]ProviderHealth, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*gatewayTimeout)
-	defer cancel()
-	st, err := s.readState(ctx)
-	if err != nil {
-		return nil, err
-	}
-	now := s.d.Now()
-	logs, err := s.d.Gateway.SpendLogs(ctx, now.Add(-24*time.Hour), now)
-	if err != nil {
-		return nil, gatewayError(err)
-	}
-	providerOf := map[string]string{}
-	for _, d := range st.deps {
-		if p := d.Params.Credential; p != "" && d.ID() != "" {
-			providerOf[d.ID()] = p
-		}
-	}
-	type tally struct {
-		n, ok     int
-		durations []int
-		lastErr   string
-		lastAt    time.Time
-	}
-	tallies := map[string]*tally{}
-	total := 0
-	for _, l := range logs {
-		p, known := providerOf[l.ModelID]
-		if !known {
-			continue
-		}
-		t := tallies[p]
-		if t == nil {
-			t = &tally{}
-			tallies[p] = t
-		}
-		total++
-		t.n++
-		t.durations = append(t.durations, l.DurationMS)
-		if l.Status == "" || l.Status == "success" {
-			t.ok++
-		} else if l.Start.After(t.lastAt) || t.lastErr == "" {
-			t.lastErr, t.lastAt = l.Error, l.Start
-			if t.lastErr == "" {
-				t.lastErr = l.Status
-			}
-		}
-	}
-	out := make([]ProviderHealth, 0, len(st.creds))
-	for _, c := range st.creds {
-		h := ProviderHealth{ID: c.Name}
-		if t := tallies[c.Name]; t != nil {
-			h.Requests24h, h.LastError = t.n, t.lastErr
-			h.SharePct = pct(t.n, total)
-			h.SuccessPct = pct(t.ok, t.n)
-			slices.Sort(t.durations)
-			h.P50MS = t.durations[len(t.durations)/2]
-		}
-		out = append(out, h)
-	}
-	return out, nil
-}
-
-func pct(part, whole int) float64 {
-	if whole == 0 {
-		return 0
-	}
-	return float64(part*1000/whole) / 10
 }
 
 // AgentUsage counts each agent's requests by day over a range: a console
-// agent's turns, an app agent's calls to its alias
-// from LiteLLM.
+// agent's turns, an app agent's calls through Bifrost, by its team.
 func (s *Agent) AgentUsage(ctx context.Context, _ authn.ConsoleMember, rng string) ([]AgentUsage, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
@@ -384,80 +165,134 @@ func (s *Agent) AgentUsage(ctx context.Context, _ authn.ConsoleMember, rng strin
 	if err != nil {
 		return nil, err
 	}
-	end := s.d.Now().UTC()
-	acts, err := s.d.Gateway.DailyActivity(ctx, "/user", end.AddDate(0, 0, -(n-1)).Format(time.DateOnly), end.Format(time.DateOnly))
+	teams, err := s.d.Gateway.Teams(ctx)
 	if err != nil {
 		return nil, gatewayError(err)
 	}
-	slices.SortFunc(acts, func(a, b litellm.Activity) int { return strings.Compare(a.Date, b.Date) })
+	from, dates := rangeDays(s.d.Now(), n)
+	to := from.AddDate(0, 0, n)
 	out := make([]AgentUsage, 0, len(agents))
 	for i := range agents {
 		a := &agents[i]
 		u := AgentUsage{AgentID: a.ID, Days: []DayCount{}}
 		if a.Kind == domain.AgentConsole {
 			for _, t := range turns.ByAgent {
-				if t.AgentID == a.ID.String() || t.AgentID == a.Alias {
+				if t.AgentID == a.ID.String() || t.AgentID == a.Slug {
 					u.Requests += t.Requests
 					u.Days = append(u.Days, t.Days...)
 				}
 			}
-		} else {
-			for _, act := range acts {
-				if m, ok := act.ByModel[a.Alias]; ok {
-					u.Requests += m.Requests
-					u.Days = append(u.Days, DayCount{Date: act.Date, Requests: m.Requests})
-				}
+			out = append(out, u)
+			continue
+		}
+		j := slices.IndexFunc(teams, func(t bifrost.Team) bool { return t.Name == a.Slug })
+		if j < 0 {
+			out = append(out, u)
+			continue
+		}
+		perDay := map[string]int{}
+		for _, w := range windows(from, to) {
+			buckets, reqErr := s.d.Gateway.Requests(ctx, teams[j].ID, w[0], w[1])
+			if reqErr != nil {
+				return nil, gatewayError(reqErr)
 			}
+			for _, b := range buckets {
+				perDay[b.At.UTC().Format(time.DateOnly)] += b.Count
+			}
+		}
+		for _, d := range dates {
+			u.Requests += perDay[d]
+			u.Days = append(u.Days, DayCount{Date: d, Requests: perDay[d]})
 		}
 		out = append(out, u)
 	}
 	return out, nil
 }
 
-// memberSpend is each member's spend through the console agents over a
-// range, from LiteLLM's end users, with their questions; members with
-// neither are left out.
-func (s *Agent) memberSpend(ctx context.Context, rng, start, end string) ([]MemberSpend, error) {
-	acts, err := s.d.Gateway.DailyActivity(ctx, "/customer", start, end)
+// SpendRanges are the ranges the stats take, in days.
+var SpendRanges = map[string]int{"7d": 7, "30d": 30, "90d": 90}
+
+// maxSpendDays bounds the days Spend reads.
+const maxSpendDays = 366
+
+// spendLagS is how far Bifrost's cost totals may trail real time.
+const spendLagS = 60
+
+// Spend reads Bifrost's logged cost of each UTC day from from to to, both
+// dates included, in all and by agent slug. A team that is no agent's
+// counts in the total only.
+func (s *Agent) Spend(ctx context.Context, _ authn.ConsoleMember, from, to string) (Spend, error) {
+	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
+	defer cancel()
+	start, err := time.Parse(time.DateOnly, from)
 	if err != nil {
-		return nil, gatewayError(err)
+		return Spend{}, domain.ErrSpendRange.WithField("from", apperr.Invalid, "not a date")
 	}
-	n := rangeOf(rng)
-	turns, err := s.turnsOf(ctx, n)
+	last, err := time.Parse(time.DateOnly, to)
 	if err != nil {
-		return nil, err
+		return Spend{}, domain.ErrSpendRange.WithField("to", apperr.Invalid, "not a date")
 	}
-	members, err := s.members(ctx)
+	n := int(last.Sub(start).Hours()/24) + 1
+	if n < 1 || n > maxSpendDays {
+		return Spend{}, domain.ErrSpendRange
+	}
+	teams, err := s.d.Gateway.Teams(ctx)
 	if err != nil {
-		return nil, err
+		return Spend{}, gatewayError(err)
 	}
-	out := make([]MemberSpend, 0, len(members))
-	for i := range members {
-		m := &members[i]
-		ms := MemberSpend{MemberID: m.ID, DisplayName: m.DisplayName}
-		for _, act := range acts {
-			ms.USD += act.ByEntity[m.ID.String()].Spend
+	slugOf := map[string]string{}
+	for _, t := range teams {
+		slugOf[t.ID] = t.Name
+	}
+	agents, err := s.d.Settings.Agents(ctx)
+	if err != nil {
+		return Spend{}, fmt.Errorf("list the agents: %w", err)
+	}
+	out := Spend{Days: make([]SpendDay, 0, n), LagS: spendLagS}
+	at := map[string]int{}
+	for i := range n {
+		d := start.AddDate(0, 0, i).Format(time.DateOnly)
+		at[d] = i
+		out.Days = append(out.Days, SpendDay{Date: d, ByAgent: map[string]float64{}})
+	}
+	for _, w := range windows(start, last.AddDate(0, 0, 1)) {
+		buckets, costErr := s.d.Gateway.CostByTeam(ctx, w[0], w[1])
+		if costErr != nil {
+			return Spend{}, gatewayError(costErr)
 		}
-		for _, t := range turns.ByMember {
-			if t.MemberID == m.ID {
-				ms.Requests += t.Count
+		for _, b := range buckets {
+			i, ok := at[b.At.UTC().Format(time.DateOnly)]
+			if !ok {
+				continue
+			}
+			day := &out.Days[i]
+			day.TotalUSD += b.Total
+			for team, usd := range b.ByTeam {
+				slug := slugOf[team]
+				if slug != "" && slices.ContainsFunc(agents, func(a repository.Agent) bool { return a.Slug == slug }) {
+					day.ByAgent[slug] += usd
+				}
 			}
 		}
-		if ms.USD > 0 || ms.Requests > 0 {
-			out = append(out, ms)
-		}
 	}
-	slices.SortFunc(out, func(a, b MemberSpend) int {
-		switch {
-		case a.USD > b.USD:
-			return -1
-		case a.USD < b.USD:
-			return 1
-		default:
-			return 0
-		}
-	})
 	return out, nil
+}
+
+// windowDays is the longest window Bifrost answers in buckets of a day or
+// less, which start at UTC midnight.
+const windowDays = 31
+
+// windows cuts from to to into windows of windowDays at most.
+func windows(from, to time.Time) [][2]time.Time {
+	var out [][2]time.Time
+	for start := from; start.Before(to); start = start.AddDate(0, 0, windowDays) {
+		end := start.AddDate(0, 0, windowDays)
+		if end.After(to) {
+			end = to
+		}
+		out = append(out, [2]time.Time{start, end})
+	}
+	return out
 }
 
 // Tools reads the agent's tool calls over a range: each tool's calls,

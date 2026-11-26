@@ -56,6 +56,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/restatex"
 	"github.com/shopnexus/server/internal/platform/secret"
 	"github.com/shopnexus/server/internal/platform/stream"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/provider/chotot"
 	"github.com/shopnexus/server/internal/provider/email"
@@ -63,7 +64,6 @@ import (
 	"github.com/shopnexus/server/internal/provider/firebase"
 	"github.com/shopnexus/server/internal/provider/google"
 	"github.com/shopnexus/server/internal/provider/indexnow"
-	"github.com/shopnexus/server/internal/provider/llm"
 	"github.com/shopnexus/server/internal/provider/push"
 	"github.com/shopnexus/server/internal/screen"
 	"github.com/shopnexus/server/internal/shipping"
@@ -125,12 +125,15 @@ func (a *App) AgentMCPAddr() net.Addr { return a.agent.Addr() }
 // Routes lists every registered route, for the route-versus-spec test.
 func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 
-// New builds the server for cfg and starts its background work. It refuses to
-// start while migrations are pending, so the server never runs against an
-// older schema.
 // carrierTimeout bounds a call to GHTK or GHN.
 const carrierTimeout = 20 * time.Second
 
+// gatewayTimeout bounds one call to Bifrost's admin API.
+const gatewayTimeout = 30 * time.Second
+
+// New builds the server for cfg and starts its background work. It refuses to
+// start while migrations are pending, so the server never runs against an
+// older schema.
 func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (_ *App, err error) {
 	o := options{hasher: consoledomain.Production}
 	for _, opt := range opts {
@@ -408,23 +411,30 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if engines != nil {
 		aiServices = ai.Mount(d, ai.Settings{Engines: *engines, Objects: store, Config: cfg.AI}).Services
 	}
+	// Every model call goes through Bifrost with its caller's key, which
+	// the ring reads from Bifrost; module agent's reconciler writes them.
+	gateway := bifrost.Admin{
+		BaseURL: cfg.Gateway.URL, Username: cfg.Gateway.AdminUsername, Password: cfg.Gateway.AdminPassword,
+		HTTP: httpx.NewClient(gatewayTimeout),
+	}
+	ring := bifrost.NewRing(gateway, time.Now)
+	caller := func(name string, timeout time.Duration) bifrost.Caller {
+		return bifrost.Caller{BaseURL: cfg.Gateway.URL, Name: name, Ring: ring, HTTP: httpx.NewClient(timeout)}
+	}
 	// An empty model turns its kind off: the modules get nil and write and
 	// read no vectors of that kind.
-	embedder := func(key string) embed.Model {
-		if cfg.Embed.TextModel == "" {
+	embedder := func(name string) embed.Model {
+		if !cfg.Embed.TextOn() {
 			return nil
 		}
-		return embed.OpenAI{
-			BaseURL: cfg.Embed.TextBaseURL, APIKey: key, Model: cfg.Embed.TextModel, Dims: catalogdomain.TextDims,
-			HTTP: httpx.NewClient(cfg.Embed.Timeout),
-		}
+		return bifrost.Embedder{Caller: caller(name, cfg.Embed.Timeout), Dims: catalogdomain.TextDims}
 	}
 	var photos embed.Model
 	if cfg.AI.EmbedOn() {
 		photos = aisvc.Photos{AI: aiClient, Dims: catalogdomain.PhotoDims, Timeout: cfg.Embed.Timeout}
 	}
 	catalogm := catalog.Mount(d, catalog.Settings{
-		Text:        embedder(cfg.Embed.IndexAPIKey),
+		Text:        embedder("server-embed-index"),
 		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion, EmbedSlots: cfg.Embed.Slots,
 		IndexNow: catalogsvc.IndexNowSettings{
@@ -451,31 +461,25 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
 	feedbackm := feedback.Mount(d, mediam.Service, accounts)
 	trustm := trust.Mount(d, trust.Settings{
-		Classifier: trust.LLMClassifier(
-			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: httpx.NewClient(0)},
-			cfg.Trust.LLMModel, cfg.Trust.CallTimeout, log),
+		Classifier: trust.LLMClassifier(bifrost.Chat{Caller: caller("server-trust", 0)}, "scam-check", cfg.Trust.CallTimeout, log),
 		ScamChecks: cfg.Trust.ScamChecks,
 		TextMin:    cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, accounts, catalogm.Service, dealm.Service, chatm.Service, mediam.Service)
 	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service, feedbackm.Service, trustm.Service,
 		catalogm.Service)
-	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, Effort: cfg.LLM.Effort, HTTP: httpx.NewClient(0)}
 	discoverym := discovery.Mount(d, discovery.Settings{
-		Model:       model,
-		Text:        embedder(cfg.Embed.SearchAPIKey),
+		Model:       bifrost.Chat{Caller: caller("server-search", 0), Effort: cfg.LLM.Effort},
+		Text:        embedder("server-embed-search"),
 		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, LookMin: cfg.Embed.LookMinSimilarity,
 	}, catalogm.Service, mediam.Service, accounts)
 	chototClient := chotot.Client{GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: httpx.NewClient(0)}
 	assistm := assist.Mount(d, assist.Settings{
-		AI: aiClient,
-		Model: llm.OpenAI{
-			BaseURL: cfg.Assist.LLMBaseURL, APIKey: cfg.Assist.LLMAPIKey, Model: cfg.Assist.LLMModel,
-			Effort: cfg.Assist.LLMEffort, HTTP: httpx.NewClient(0),
-		},
+		AI:      aiClient,
+		Model:   bifrost.Chat{Caller: caller("server-assist", 0), Effort: cfg.Assist.LLMEffort},
 		Relay:   rel,
-		Text:    embedder(cfg.Embed.SearchAPIKey),
+		Text:    embedder("server-embed-search"),
 		Image:   photos,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, CallTimeout: cfg.Assist.CallTimeout,
 		Source: chototClient,
@@ -501,6 +505,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		supportm.Service, shippingm.Service, chototm.Service)
 	agentm, agentErr := agent.Mount(d, agent.Settings{
 		Config: cfg.Agent, TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
+		Gateway: gateway, Ring: ring,
 	}, consolem.Moderator, consolem.Admin, consolem.Service, supportm.Service, accounts, catalogm.Service, dealm.Service, shippingm.Service, trustm.Service)
 	if agentErr != nil {
 		return nil, nil, fmt.Errorf("agent: %w", agentErr)

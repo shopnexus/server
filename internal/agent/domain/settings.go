@@ -3,6 +3,7 @@ package domain
 import (
 	"regexp"
 	"slices"
+	"strings"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
@@ -24,14 +25,26 @@ var ConsoleAssistant = uuid.MustParse("0193e000-0000-7000-8000-00000000a101")
 // TagKind is a tag's kind: a model's type or something it can do.
 type TagKind string
 
-// ProviderMode says how a provider's models are kept: the ones an admin
-// picked, or every model the provider lists, synced every 6 hours.
-type ProviderMode string
+// TagEmbedding is the type of an embedding model. An agent that requires it
+// takes no fallback: another model's vectors are in another space.
+const TagEmbedding = "Embedding"
 
-const (
-	ModePick ProviderMode = "pick"
-	ModeSync ProviderMode = "sync"
-)
+// ModelRef is a provider's model, which callers send as provider/model.
+type ModelRef struct {
+	Provider string `json:"provider"`
+	Model    string `json:"model_id"`
+}
+
+func (m ModelRef) String() string { return m.Provider + "/" + m.Model }
+
+// ParseModelRef reads provider/model; the model may hold more slashes.
+func ParseModelRef(s string) (ModelRef, bool) {
+	provider, model, ok := strings.Cut(s, "/")
+	if !ok || provider == "" || model == "" {
+		return ModelRef{}, false
+	}
+	return ModelRef{Provider: provider, Model: model}, true
+}
 
 // Limits are an agent's limits. A console agent's go to the agent service
 // in agent_config.limits: the turn's deadline, the model calls a segment
@@ -69,18 +82,11 @@ func (l Limits) Check(kind AgentKind) (Limits, error) {
 	return l, nil
 }
 
-var (
-	aliasPattern    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}$`)
-	providerPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,40}$`)
-)
+var agentSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}$`)
 
-// ValidAlias says whether s may be an agent's alias, the model name sent
-// to LiteLLM.
-func ValidAlias(s string) bool { return aliasPattern.MatchString(s) }
-
-// ValidProviderID says whether s may be a provider's id, its LiteLLM
-// credential name.
-func ValidProviderID(s string) bool { return providerPattern.MatchString(s) }
+// ValidAgentSlug says whether s may be an agent's slug, its team's name in
+// Bifrost and a console agent's caller.
+func ValidAgentSlug(s string) bool { return agentSlugPattern.MatchString(s) }
 
 // MissingTags is the tags of required that have lacks, in required's
 // order.
@@ -96,34 +102,27 @@ func MissingTags(required, has []string) []string {
 
 var (
 	ErrGatewayUnavailable = apperr.New(apperr.KindUnavailable, "ai_gateway_unavailable",
-		"LiteLLM cannot be reached; the settings stay as they were")
+		"Bifrost cannot be reached; a saved change goes to Bifrost when it is back")
 	ErrGatewayRefused = apperr.New(apperr.KindInvalid, "ai_gateway_refused",
-		"LiteLLM refused the change; the settings stay as they were")
-	ErrProviderNotFound = apperr.New(apperr.KindNotFound, "ai_provider_not_found", "no such provider")
-	ErrProviderExists   = apperr.New(apperr.KindConflict, "ai_provider_exists", "a provider has this id already")
-	ErrProviderInvalid  = apperr.New(apperr.KindInvalid, "ai_provider_invalid",
-		"the id is 2 to 41 lower-case letters, digits or dashes, and the kind is LiteLLM's provider route")
-	ErrProviderInUse = apperr.New(apperr.KindConflict, "ai_provider_in_use",
-		"an agent's model has no other provider; pick another model for the agent first")
-	ErrModelNotFound  = apperr.New(apperr.KindNotFound, "ai_model_not_found", "no provider has this model")
+		"Bifrost refused the change")
+	ErrProviderNotFound = apperr.New(apperr.KindNotFound, "ai_provider_not_found", "Bifrost runs no such provider")
+	ErrModelUnpriced    = apperr.New(apperr.KindInvalid, "ai_model_unpriced",
+		"the model has no price; set its price on the models page first")
 	ErrModelLacksTags = apperr.New(apperr.KindInvalid, "ai_model_lacks_tags",
 		"the model lacks a tag the agent requires")
 	ErrTagUnknown    = apperr.New(apperr.KindInvalid, "ai_tag_unknown", "no such tag")
 	ErrAgentNotFound = apperr.New(apperr.KindNotFound, "ai_agent_not_found",
 		"no such agent, or not a console agent a member may pick")
-	ErrMemberNotFound = apperr.New(apperr.KindNotFound, "member_not_found", "no such console member")
-	ErrAgentDisabled  = apperr.New(apperr.KindConflict, "ai_agent_disabled", "the agent is turned off")
-	ErrAgentInvalid   = apperr.New(apperr.KindInvalid, "ai_agent_invalid",
-		"the agent's name, alias, tools or limits do not fit")
-	ErrAgentTaken = apperr.New(apperr.KindConflict, "ai_agent_taken", "another agent has this name or alias")
+	ErrAgentDisabled = apperr.New(apperr.KindConflict, "ai_agent_disabled", "the agent is turned off")
+	ErrAgentInvalid  = apperr.New(apperr.KindInvalid, "ai_agent_invalid",
+		"the agent's name, slug, fallbacks, callers, budget, tools or limits do not fit")
+	ErrAgentTaken = apperr.New(apperr.KindConflict, "ai_agent_taken", "another agent or caller has this name or slug")
 	// ErrAppAgentFixed answers a change to an app agent other than its
-	// model, limits and budget.
+	// model, fallbacks, limits, budget and callers' rate limits.
 	ErrAppAgentFixed = apperr.New(apperr.KindInvalid, "ai_agent_app_fixed",
-		"an app agent's model, limits and budget may change; the rest is the server's code")
+		"an app agent's model, fallbacks, limits, budget and rate limits may change; the rest is the server's code")
+	ErrPriceInvalid = apperr.New(apperr.KindInvalid, "ai_price_invalid",
+		"a price is a number of USD per token, 0 or more")
+	ErrSpendRange = apperr.New(apperr.KindInvalid, "ai_spend_range_invalid",
+		"from is on or before to, at most 366 days apart")
 )
-
-var kindPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{1,30}$`)
-
-// ValidProviderKind says whether s may be a provider's kind, LiteLLM's
-// provider route such as openai, anthropic or openrouter.
-func ValidProviderKind(s string) bool { return kindPattern.MatchString(s) }

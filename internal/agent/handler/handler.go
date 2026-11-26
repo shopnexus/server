@@ -1,7 +1,7 @@
 // Package handler serves the console's agent endpoints under
 // /v1/console/agent, the console agents a member may pick, and the AI
-// settings under /v1/console/settings, which admins change over LiteLLM's
-// admin API.
+// settings under /v1/console/settings, which the server writes into
+// Bifrost.
 package handler
 
 import (
@@ -52,25 +52,15 @@ func (h *Handler) Register(r *httpx.Router, moderator, admin func(http.Handler) 
 	mod("GET /v1/console/listings/{id}", h.GetListing)
 
 	adm("GET /v1/console/settings/providers", h.ListProviders)
-	adm("POST /v1/console/settings/providers", h.CreateProvider)
-	adm("PATCH /v1/console/settings/providers/{id}", h.UpdateProvider)
-	adm("DELETE /v1/console/settings/providers/{id}", h.DeleteProvider)
-	adm("POST /v1/console/settings/providers/{id}/models", h.AddProviderModel)
-	adm("DELETE /v1/console/settings/providers/{id}/models", h.RemoveProviderModel)
-	adm("POST /v1/console/settings/providers/{id}/test", h.TestProvider)
+	adm("GET /v1/console/settings/providers/{name}/models", h.ProviderModels)
 	adm("GET /v1/console/settings/models", h.ListModels)
 	adm("PUT /v1/console/settings/models/tags", h.SetModelTags)
+	adm("PUT /v1/console/settings/models/price", h.SetModelPrice)
 	adm("GET /v1/console/settings/agents", h.ListAgents)
 	adm("POST /v1/console/settings/agents", h.CreateAgent)
 	adm("PATCH /v1/console/settings/agents/{id}", h.UpdateAgent)
 	adm("GET /v1/console/settings/agents/{id}/versions", h.AgentVersions)
-	adm("GET /v1/console/settings/rotation", h.GetRotation)
-	adm("PATCH /v1/console/settings/rotation", h.UpdateRotation)
-	adm("GET /v1/console/settings/budgets", h.GetBudgets)
-	adm("PATCH /v1/console/settings/budgets", h.UpdateBudgets)
 	adm("GET /v1/console/settings/spend", h.GetSpend)
-	adm("GET /v1/console/settings/providers/health", h.ProviderHealth)
-	adm("GET /v1/console/settings/providers/{id}/models", h.ProviderModels)
 	adm("GET /v1/console/settings/agents/usage", h.AgentUsage)
 	adm("GET /v1/console/settings/tools", h.Tools)
 	adm("GET /v1/console/settings/guardrails", h.Guardrails)

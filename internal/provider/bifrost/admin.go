@@ -35,7 +35,9 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("bifrost answered %d: %s", e.Status, e.Message)
 }
 
-func (e *Error) Is(target error) bool { return target == ErrRefused && e.Status >= 400 && e.Status < 500 }
+func (e *Error) Is(target error) bool {
+	return target == ErrRefused && e.Status >= 400 && e.Status < 500
+}
 
 // maxReply caps how much of an answer is read.
 const maxReply = 16 << 20
@@ -157,13 +159,13 @@ type Provider struct {
 
 // Model is a model of Bifrost's catalog, with its list price per token.
 type Model struct {
-	Name          string   `json:"name"`
-	Provider      string   `json:"provider"`
-	ContextLength *int     `json:"context_length"`
-	Input         *float64 `json:"input_cost_per_token"`
-	Output        *float64 `json:"output_cost_per_token"`
-	CacheRead     *float64 `json:"cache_read_input_token_cost"`
-	CacheWrite    *float64 `json:"cache_creation_input_token_cost"`
+	Name       string   `json:"name"`
+	Provider   string   `json:"provider"`
+	MaxInput   *int     `json:"max_input_tokens"`
+	Input      *float64 `json:"input_cost_per_token"`
+	Output     *float64 `json:"output_cost_per_token"`
+	CacheRead  *float64 `json:"cache_read_input_token_cost"`
+	CacheWrite *float64 `json:"cache_creation_input_token_cost"`
 }
 
 // Teams lists every team.

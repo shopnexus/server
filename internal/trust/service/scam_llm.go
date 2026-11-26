@@ -39,8 +39,8 @@ var scamSchema = []byte(`{"type":"object","additionalProperties":false,"required
 	`"b":{"type":"array","items":{"type":"string","enum":["prepayment_request","off_app_contact","suspicious_link",` +
 	`"sensitive_info_request","impersonation","fake_payment_proof","pressure"]}}}}`)
 
-// LLMClassifier asks a language model through provider/llm. Alias is the
-// model's name at the gateway, scam-check in the cluster.
+// LLMClassifier asks a language model through provider/llm. Alias names
+// the agent whose model it is, scam-check, in each check it records.
 type LLMClassifier struct {
 	Model   llm.Client
 	Alias   string

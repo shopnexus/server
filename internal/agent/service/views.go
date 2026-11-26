@@ -139,7 +139,6 @@ type Attachment = domain.Attachment
 type AgentConfig struct {
 	ID                  uuid.UUID     `json:"id"`
 	Name                string        `json:"name"`
-	Alias               string        `json:"alias"`
 	Instructions        string        `json:"instructions"`
 	InstructionsVersion int           `json:"instructions_version"`
 	Tools               []string      `json:"tools"`

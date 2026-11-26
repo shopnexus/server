@@ -77,16 +77,13 @@ func required() map[string]string {
 		"OBJECT_STORE_SECRET_KEY":      "secret",
 		"OBJECT_STORE_BUCKET":          "server",
 		"MEDIA_PUBLIC_URL":             "http://rustfs:9000/server",
-		"LLM_BASE_URL":                 "https://llm.example.test/v1",
-		"LLM_API_KEY":                  "llm-key",
-		"LLM_MODEL":                    "a-model",
+		"GATEWAY_URL":                  "http://bifrost.example.test:8080",
+		"GATEWAY_ADMIN_USERNAME":       "admin",
+		"GATEWAY_ADMIN_PASSWORD":       "admin-pass",
 		"LLM_REASONING_EFFORT":         "none",
-		"EMBED_TEXT_BASE_URL":          "http://openrouter.example.test/v1",
 		"EMBED_TEXT_MODEL":             "embed-text",
 		"EMBED_TEXT_VERSION":           "bge-m3@5617a9f6",
 		"EMBED_IMAGE_VERSION":          "siglip2-so400m-patch16-384-fp32@29f74e67",
-		"EMBED_INDEX_API_KEY":          "",
-		"EMBED_SEARCH_API_KEY":         "search-key",
 		"EMBED_TIMEOUT":                "10s",
 		"EMBED_SLOTS":                  "2",
 		"EMBED_TEXT_MIN_SIMILARITY":    "0.45",
@@ -104,24 +101,16 @@ func required() map[string]string {
 		"AI_FRAMES_MAX_CONCURRENT":     "2",
 		"AI_FRAMES_MAX_SECONDS":        "35",
 		"AI_FRAMES_MIN_SHARPNESS":      "30",
-		"ASSIST_LLM_BASE_URL":          "http://litellm.example.test/v1",
-		"ASSIST_LLM_API_KEY":           "assist-key",
-		"ASSIST_LLM_MODEL":             "video-read",
 		"ASSIST_LLM_REASONING_EFFORT":  "none",
 		"ASSIST_CALL_TIMEOUT":          "30s",
 		"CHOTOT_GATEWAY_URL":           "https://gateway.chotot.com",
 		"CHOTOT_CDN_URL":               "https://cdn.chotot.com",
-		"TRUST_LLM_BASE_URL":           "http://litellm.example.test/v1",
-		"TRUST_LLM_API_KEY":            "trust-key",
-		"TRUST_LLM_MODEL":              "scam-check",
 		"TRUST_CALL_TIMEOUT":           "20s",
 		"TRUST_SCAM_CHECKS":            "on",
 		"AGENT_BASE_URL":               "http://agent.example.test:3000",
 		"AGENT_SERVICE_TOKEN":          "agent-service-token-of-32-characters",
 		"AGENT_MCP_ADDR":               "0.0.0.0:9090",
 		"AGENT_MCP_TOKEN":              "agent-mcp-token-of-at-least-32-chars",
-		"LITELLM_URL":                  "http://litellm.example.test:4000",
-		"LITELLM_MASTER_KEY":           "sk-master",
 		"FCM_CREDENTIALS":              "",
 		"FIREBASE_PROJECT_ID":          "shopnexus-test",
 		"FIREBASE_PROJECT_NUMBER":      "123456789",
@@ -207,11 +196,12 @@ func TestLoadAllSet(t *testing.T) {
 			AccessKey: "access", SecretKey: "secret", Bucket: "server", PublicURL: "http://rustfs:9000/server",
 			UploadOrigins: []string{"https://example.test"},
 		},
-		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model", Effort: "none"},
+		Gateway: GatewayConfig{URL: "http://bifrost.example.test:8080", AdminUsername: "admin", AdminPassword: "admin-pass"},
+		LLM:     LLMConfig{Effort: "none"},
 		Embed: EmbedConfig{
-			TextBaseURL: "http://openrouter.example.test/v1", TextModel: "embed-text",
+			TextModel:   "embed-text",
 			TextVersion: "bge-m3@5617a9f6", ImageVersion: "siglip2-so400m-patch16-384-fp32@29f74e67",
-			IndexAPIKey: "", SearchAPIKey: "search-key", Timeout: 10 * time.Second, Slots: 2,
+			Timeout: 10 * time.Second, Slots: 2,
 			TextMinSimilarity: 0.45, PhotoMinSimilarity: 0.6, LookMinSimilarity: 0.08,
 		},
 		AI: AIConfig{
@@ -222,18 +212,15 @@ func TestLoadAllSet(t *testing.T) {
 			FramesMaxConcurrent: 2, FramesMaxSeconds: 35, FramesMinSharpness: 30,
 		},
 		Assist: AssistConfig{
-			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "assist-key", LLMModel: "video-read",
 			LLMEffort: "none", CallTimeout: 30 * time.Second,
 			ChototGatewayURL: "https://gateway.chotot.com", ChototCDNURL: "https://cdn.chotot.com",
 		},
 		Trust: TrustConfig{
-			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "trust-key", LLMModel: "scam-check",
 			CallTimeout: 20 * time.Second, ScamChecks: true,
 		},
 		Agent: AgentConfig{
 			BaseURL: "http://agent.example.test:3000", ServiceToken: "agent-service-token-of-32-characters",
 			MCPAddr: "0.0.0.0:9090", MCPToken: "agent-mcp-token-of-at-least-32-chars",
-			LiteLLMURL: "http://litellm.example.test:4000", LiteLLMMasterKey: "sk-master",
 		},
 		Firebase: FirebaseConfig{
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
@@ -446,13 +433,13 @@ func TestLoadRejectsBadDashboardHosts(t *testing.T) {
 func TestEmbedValuesAreChecked(t *testing.T) {
 	t.Parallel()
 	for name, tc := range map[string]struct{ key, value, want string }{
-		"timeout":   {"EMBED_TIMEOUT", "soon", "EMBED_TIMEOUT"},
-		"slots":     {"EMBED_SLOTS", "0", "EMBED_SLOTS"},
-		"pool":      {"DATABASE_MAX_CONNS", "0", "DATABASE_MAX_CONNS"},
-		"statement": {"DATABASE_STATEMENT_TIMEOUT", "0s", "DATABASE_STATEMENT_TIMEOUT"},
-		"floor":     {"EMBED_TEXT_MIN_SIMILARITY", "1.5", "EMBED_TEXT_MIN_SIMILARITY"},
-		"no floor":  {"EMBED_PHOTO_MIN_SIMILARITY", "", "EMBED_PHOTO_MIN_SIMILARITY"},
-		"no search": {"EMBED_SEARCH_API_KEY", "\x00unset", "EMBED_SEARCH_API_KEY is not set"},
+		"timeout":    {"EMBED_TIMEOUT", "soon", "EMBED_TIMEOUT"},
+		"slots":      {"EMBED_SLOTS", "0", "EMBED_SLOTS"},
+		"pool":       {"DATABASE_MAX_CONNS", "0", "DATABASE_MAX_CONNS"},
+		"statement":  {"DATABASE_STATEMENT_TIMEOUT", "0s", "DATABASE_STATEMENT_TIMEOUT"},
+		"floor":      {"EMBED_TEXT_MIN_SIMILARITY", "1.5", "EMBED_TEXT_MIN_SIMILARITY"},
+		"no floor":   {"EMBED_PHOTO_MIN_SIMILARITY", "", "EMBED_PHOTO_MIN_SIMILARITY"},
+		"no gateway": {"GATEWAY_URL", "\x00unset", "GATEWAY_URL is not set"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -567,7 +554,7 @@ func TestLoadEmbedKindsOff(t *testing.T) {
 	t.Parallel()
 	env := required()
 	for _, k := range []string{
-		"EMBED_TEXT_MODEL", "EMBED_TEXT_BASE_URL", "EMBED_TEXT_VERSION", "EMBED_TEXT_MIN_SIMILARITY",
+		"EMBED_TEXT_MODEL", "EMBED_TEXT_VERSION", "EMBED_TEXT_MIN_SIMILARITY",
 		"AI_EMBED_MODELS", "EMBED_IMAGE_VERSION", "EMBED_PHOTO_MIN_SIMILARITY", "EMBED_LOOK_MIN_SIMILARITY",
 	} {
 		env[k] = ""
@@ -585,10 +572,10 @@ func TestLoadEmbedKindsOff(t *testing.T) {
 		t.Fatalf("image on without a version: %v", err)
 	}
 	env = required()
-	delete(env, "EMBED_TEXT_BASE_URL")
+	delete(env, "EMBED_TEXT_VERSION")
 	env["EMBED_TEXT_MODEL"] = ""
-	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "EMBED_TEXT_BASE_URL is not set") {
-		t.Fatalf("text off without its base URL set: %v", err)
+	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "EMBED_TEXT_VERSION is not set") {
+		t.Fatalf("text off without its version set: %v", err)
 	}
 }
 

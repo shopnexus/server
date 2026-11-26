@@ -71,3 +71,40 @@ func TestNoRawAdvisoryLock(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestWithLock(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	key := "with-lock:" + uuid.NewV7().String()
+	// free tries the lock on a connection of its own, as another replica.
+	free := func() bool {
+		conn, err := db.Acquire(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Release()
+		var ok bool
+		if err = conn.QueryRow(ctx, `SELECT pg_try_advisory_lock(hashtextextended(@key, 0))`,
+			pgx.StrictNamedArgs{"key": key}).Scan(&ok); err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			_, _ = conn.Exec(ctx, `SELECT pg_advisory_unlock(hashtextextended(@key, 0))`, pgx.StrictNamedArgs{"key": key})
+		}
+		return ok
+	}
+	ran := false
+	if err := postgres.WithLock(ctx, db, key, func(context.Context) error {
+		ran = true
+		if free() {
+			t.Error("the lock was free while held")
+		}
+		return nil
+	}); err != nil || !ran {
+		t.Fatalf("WithLock = %v, ran %v", err, ran)
+	}
+	if !free() {
+		t.Error("the lock stayed held")
+	}
+}

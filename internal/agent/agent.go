@@ -27,7 +27,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/module"
-	"github.com/shopnexus/server/internal/provider/litellm"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -49,6 +49,10 @@ type Settings struct {
 	// TextMin and PhotoMin are the similarity floors price_guide samples
 	// with, EMBED_TEXT_MIN_SIMILARITY and EMBED_PHOTO_MIN_SIMILARITY.
 	TextMin, PhotoMin float64
+	// Gateway is Bifrost's admin API, and Ring the server's keys, which
+	// the reconciler fills.
+	Gateway bifrost.Admin
+	Ring    *bifrost.Ring
 }
 
 // Mounted is the agent module as app runs it: its Service, its Restate
@@ -73,7 +77,7 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 ) (*Mounted, error) {
 	svc := service.New(service.Deps{
 		Reads: repository.NewReads(d.Pool), Settings: repository.NewSettings(d.Pool), Runs: repository.NewRuns(d.Pool, d.Log),
-		Gateway: litellm.Admin{BaseURL: s.Config.LiteLLMURL, MasterKey: s.Config.LiteLLMMasterKey, HTTP: httpx.NewClient(0)},
+		Gateway: s.Gateway, Ring: s.Ring,
 		Console: consoles, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping, Support: support, Trust: trust,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin,
 		BaseURL: s.Config.BaseURL, Token: s.Config.ServiceToken, HTTP: httpx.NewClient(0), Now: d.Now,
@@ -102,9 +106,9 @@ func (m *Mounted) Addr() net.Addr { return m.listener.Addr() }
 
 // Run serves the MCP server, hands the turns' event streams their rings,
 // sweeps old reads and tool outputs at start and every hour, closes stuck turns at start
-// and every minute, and syncs the models of the providers in sync mode at
-// start and every 6 hours, until ctx is done; then it waits for the calls
-// in flight and returns nil.
+// and every minute, and reconciles Bifrost with the AI settings at start
+// and every 5 minutes, until ctx is done; then it waits for the calls in
+// flight and returns nil.
 func (m *Mounted) Run(ctx context.Context) error {
 	srv := &http.Server{Handler: m.mcp, ReadHeaderTimeout: 10 * time.Second}
 	served := make(chan error, 1)
@@ -125,20 +129,20 @@ func (m *Mounted) Run(ctx context.Context) error {
 			m.d.Log.WarnContext(ctx, "agent: sweep reads", "err", err)
 		}
 	}
-	sync := func() {
-		if err := m.Service.SyncProviders(ctx); err != nil && ctx.Err() == nil {
-			m.d.Log.WarnContext(ctx, "agent: sync the providers' models", "err", err)
+	reconcile := func() {
+		if err := m.Service.Reconcile(ctx); err != nil && ctx.Err() == nil {
+			m.d.Log.WarnContext(ctx, "agent: reconcile Bifrost", "err", err)
 		}
 	}
 	sweep()
 	sweepTurns()
-	sync()
+	reconcile()
 	tick := time.NewTicker(sweepEvery)
 	defer tick.Stop()
 	turnTick := time.NewTicker(turnSweepEvery)
 	defer turnTick.Stop()
-	syncTick := time.NewTicker(service.SyncEvery)
-	defer syncTick.Stop()
+	reconcileTick := time.NewTicker(service.ReconcileEvery)
+	defer reconcileTick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -152,8 +156,8 @@ func (m *Mounted) Run(ctx context.Context) error {
 			sweep()
 		case <-turnTick.C:
 			sweepTurns()
-		case <-syncTick.C:
-			sync()
+		case <-reconcileTick.C:
+			reconcile()
 		}
 	}
 }

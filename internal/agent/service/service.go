@@ -8,7 +8,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"sync"
 	"time"
 	"uuid"
 
@@ -19,7 +18,7 @@ import (
 	consolesvc "github.com/shopnexus/server/internal/console/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/platform/authn"
-	"github.com/shopnexus/server/internal/provider/litellm"
+	"github.com/shopnexus/server/internal/provider/bifrost"
 	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -103,26 +102,16 @@ type Service interface {
 
 	// The AI settings, an admin's. Each change is a console action.
 
-	// Providers lists the providers with their models.
+	// Providers lists the providers Bifrost runs, with their status.
 	Providers(ctx context.Context) ([]Provider, error)
-	// CreateProvider stores a provider in LiteLLM.
-	CreateProvider(ctx context.Context, caller authn.ConsoleMember, in NewProvider) (Provider, error)
-	// UpdateProvider changes a provider.
-	UpdateProvider(ctx context.Context, caller authn.ConsoleMember, id string, in ProviderPatch) (Provider, error)
-	// DeleteProvider deletes a provider and its deployments.
-	DeleteProvider(ctx context.Context, caller authn.ConsoleMember, id string) error
-	// AddProviderModel adds a model to a provider's list.
-	AddProviderModel(ctx context.Context, caller authn.ConsoleMember, id, model string, inPerMTok, outPerMTok *float64) (Provider, error)
-	// RemoveProviderModel takes a model out of a provider's list.
-	RemoveProviderModel(ctx context.Context, caller authn.ConsoleMember, id, model string) (Provider, error)
-	// TestProvider calls a provider's model once through LiteLLM.
-	TestProvider(ctx context.Context, id, model string) (ProviderTest, error)
-	// SyncProviders adds the new models of the providers in sync mode.
-	SyncProviders(ctx context.Context) error
-	// Models lists the models with their tags.
+	// ProviderModels lists a provider's catalog in Bifrost.
+	ProviderModels(ctx context.Context, name string) ([]CatalogModel, error)
+	// Models lists the models agents use or that have a price or tags.
 	Models(ctx context.Context) (ModelList, error)
 	// SetModelTags replaces a model's tags.
-	SetModelTags(ctx context.Context, caller authn.ConsoleMember, model string, tags []string) ([]string, error)
+	SetModelTags(ctx context.Context, caller authn.ConsoleMember, in ModelTags) (ModelTags, error)
+	// SetModelPrice writes a model's price.
+	SetModelPrice(ctx context.Context, caller authn.ConsoleMember, in ModelPrice) (ModelPrice, error)
 	// Agents lists the app and console agents.
 	Agents(ctx context.Context) ([]AgentView, error)
 	// CreateAgent makes a console agent.
@@ -131,22 +120,12 @@ type Service interface {
 	UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in AgentPatch) (AgentView, error)
 	// AgentVersions lists an agent's instructions' versions.
 	AgentVersions(ctx context.Context, id uuid.UUID) ([]AgentVersion, error)
-	// Rotation reads the router's settings.
-	Rotation(ctx context.Context) (Rotation, error)
-	// UpdateRotation changes the router's settings.
-	UpdateRotation(ctx context.Context, caller authn.ConsoleMember, in RotationPatch) (Rotation, error)
-	// Budgets reads the agents' and members' budgets.
-	Budgets(ctx context.Context) (Budgets, error)
-	// UpdateBudgets changes them.
-	UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, in BudgetsPatch) (Budgets, error)
-	// Spend reads the daily spend over a range, in all, by agent and by
-	// member.
-	Spend(ctx context.Context, caller authn.ConsoleMember, rng string) (Spend, error)
-	// ProviderModels lists the models a provider lists, and which are
-	// added.
-	ProviderModels(ctx context.Context, id string) ([]AvailableModel, error)
-	// ProviderHealth reads each provider's last 24 hours.
-	ProviderHealth(ctx context.Context) ([]ProviderHealth, error)
+	// Reconcile writes the agents, their callers and the prices into
+	// Bifrost and hands the key ring the keys.
+	Reconcile(ctx context.Context) error
+	// Spend reads the daily spend from one date to another, in all and by
+	// agent.
+	Spend(ctx context.Context, caller authn.ConsoleMember, from, to string) (Spend, error)
 	// AgentUsage counts each agent's requests over a range.
 	AgentUsage(ctx context.Context, caller authn.ConsoleMember, rng string) ([]AgentUsage, error)
 	// Tools reads the agent's tool calls over a range.
@@ -189,11 +168,12 @@ type Deps struct {
 	Reads    repository.Reads
 	Settings repository.Settings
 	Runs     repository.Runs
-	// Gateway is LiteLLM's admin API, with LITELLM_URL and
-	// LITELLM_MASTER_KEY.
-	Gateway litellm.Admin
-	// Console lists the console's members, for their budgets and names,
-	// and the audit log.
+	// Gateway is Bifrost's admin API, and Ring the server's virtual keys,
+	// which a console run's key comes from.
+	Gateway bifrost.Admin
+	Ring    *bifrost.Ring
+	// Console lists the console's members, for their names, and the audit
+	// log.
 	Console consolesvc.Service
 	// The services the record pages read, as the MCP tools do, and the
 	// similarity floors of the price guide.
@@ -215,15 +195,9 @@ type Deps struct {
 
 // Agent implements Service in this process.
 type Agent struct {
-	d Deps
-	// mu guards the month's spend the cap check reuses and the budget
-	// each member's end user was put on.
-	mu       sync.Mutex
-	month    float64
-	monthAt  time.Time
-	budgetOf map[uuid.UUID]string
-	limiter  *limiter
-	hub      *hub
+	d       Deps
+	limiter *limiter
+	hub     *hub
 }
 
 var _ Service = (*Agent)(nil)
@@ -232,5 +206,5 @@ func New(d Deps) *Agent {
 	if d.Log == nil {
 		d.Log = slog.New(slog.DiscardHandler)
 	}
-	return &Agent{d: d, budgetOf: map[uuid.UUID]string{}, limiter: newLimiter(), hub: newHub()}
+	return &Agent{d: d, limiter: newLimiter(), hub: newHub()}
 }

@@ -356,12 +356,6 @@ type RecentGuardrail struct {
 	At       time.Time `json:"at"`
 }
 
-// MemberCount is a member's turns since a moment.
-type MemberCount struct {
-	MemberID uuid.UUID
-	Count    int
-}
-
 // Runs keeps the console agent's conversations, turns, inputs, events,
 // tool calls, documents and skills. Each method is its own transaction.
 // A turn's event takes the turn's next event_seq and rings agent_turn.
@@ -498,7 +492,6 @@ type Runs interface {
 	GuardrailRules(ctx context.Context, from time.Time) ([]RuleCount, error)
 	RecentGuardrails(ctx context.Context, from time.Time, limit int) ([]RecentGuardrail, error)
 	AgentDays(ctx context.Context, from time.Time) ([]DayCount, error)
-	MemberTurns(ctx context.Context, from time.Time) ([]MemberCount, error)
 
 	// ListenTurns calls ring with each turn agent_turn rings for until ctx
 	// is done, and resync each time it starts to listen.
