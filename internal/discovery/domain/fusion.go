@@ -3,7 +3,7 @@ package domain
 import catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 
 // The weights of each list in a hybrid search's RRF, starting values that
-// make search-eval tunes (see ARCHITECTURE.md, Search).
+// make search-eval tunes (see the docs, architecture/search-and-discovery).
 var (
 	FuseQuery = catalogdomain.Weights{BM25: 1, Text: 1, Photo: 0.5, Boost: 0.75}
 	FuseLike  = catalogdomain.Weights{BM25: 0.5, Text: 1, Photo: 1, Boost: 0.5}

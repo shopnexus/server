@@ -22,7 +22,7 @@ type Members interface {
 	// List is a query: members with IDs below p.Before(), newest first, at
 	// most p.Fetch().
 	List(ctx context.Context, p page.Request) ([]domain.Member, error)
-	// Save writes m under the write_id rule of ARCHITECTURE.md and sets m's
+	// Save writes m under the write_id rule and sets m's
 	// write ID; a lost race is ErrConflict. It writes entry, when not nil,
 	// in the same transaction; a conflict writes none.
 	Save(ctx context.Context, m *domain.Member, writeID uuid.UUID, entry *audit.Entry) error

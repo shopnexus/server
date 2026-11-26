@@ -252,7 +252,7 @@ type TrustConfig struct {
 }
 
 // AgentConfig says where the console agent is and how it and the server
-// trust each other (see ARCHITECTURE.md, Console agent). No token is ever
+// trust each other (see the docs, agent/). No token is ever
 // logged.
 type AgentConfig struct {
 	// BaseURL is AGENT_BASE_URL, the agent service on the internal

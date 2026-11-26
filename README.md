@@ -12,7 +12,7 @@ Two product rules shape the code:
 
 The earlier design, where the buyer paid first and the platform held the money in escrow, lives on the `escrow` branch.
 
-Design decisions are in [ARCHITECTURE.md](ARCHITECTURE.md). The developer docs are in the `docs` repository.
+How the system works, flow by flow, is in the `docs` repository's site (Architecture, API, Operations). Code conventions are in [AGENTS.md](AGENTS.md).
 
 ## Why
 
