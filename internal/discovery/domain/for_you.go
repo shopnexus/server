@@ -3,6 +3,7 @@ package domain
 import (
 	"cmp"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -49,7 +50,9 @@ const MaxForYouBoosts = 5
 // by code: each subcategory weighs SaveWeight for every code in saved,
 // SearchWeight for every one in searched and ViewWeight for every one in
 // opened. A code without a dot, a root or none, adds nothing. Only the
-// MaxForYouBoosts heaviest are kept, a tie going to the lower code.
+// MaxForYouBoosts heaviest are kept, a tie going to the lower code. A
+// boost's weight is the square root of its points, so one interest read
+// many times does not crowd out the others.
 func ForYouBoosts(saved, searched, opened []string) []catalogdomain.Boost {
 	points := map[string]int{}
 	for _, signal := range []struct {
@@ -69,7 +72,7 @@ func ForYouBoosts(saved, searched, opened []string) []catalogdomain.Boost {
 	slices.Sort(codes)
 	out := make([]catalogdomain.Boost, 0, len(codes))
 	for _, code := range codes {
-		out = append(out, catalogdomain.Boost{Kind: catalogdomain.BoostCategory, Code: code, Weight: float64(points[code])})
+		out = append(out, catalogdomain.Boost{Kind: catalogdomain.BoostCategory, Code: code, Weight: math.Sqrt(float64(points[code]))})
 	}
 	return out
 }

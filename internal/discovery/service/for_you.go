@@ -32,9 +32,9 @@ type ViewedRail struct {
 // the viewer's newest domain.MaxSaveSignals saves and
 // domain.MaxViewSignals marks since domain.ForYouSince, and the entries of
 // their search history, at most domain.MaxHistory, searched since then.
-// The feed is every active listing nationwide in
-// catalogdomain.SortPointsNewest order under domain.ForYouBoosts of those
-// signals; with no viewer or no signal it is the newest listings. The rail
+// The feed is every active listing nationwide in catalogdomain.SortBlend
+// order under domain.ForYouBoosts of those signals; with no viewer or no
+// signal it is the newest listings. The rail
 // is the newest listings of domain.ViewedCategory outside the marks read.
 // Both leave out the viewer's own listings and the ones search leaves out,
 // and measure each card from near when it names a position.
@@ -44,7 +44,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 		return ForYou{}, fmt.Errorf("read the position: %w", originErr)
 	}
 	feed := catalogdomain.Search{
-		Filters: catalogdomain.Filters{Origin: origin}, Sort: catalogdomain.SortPointsNewest, Limit: overfetch * page.DefaultLimit,
+		Filters: catalogdomain.Filters{Origin: origin}, Sort: catalogdomain.SortBlend, Limit: overfetch * page.DefaultLimit,
 	}
 	var rail catalogdomain.Search
 	if viewer != nil {

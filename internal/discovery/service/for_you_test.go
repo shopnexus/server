@@ -21,8 +21,8 @@ func cardIDs(items []service.SearchItem) []uuid.UUID {
 	return out
 }
 
-// Dành cho bạn puts the subcategories of the viewer's saves (3), searches
-// (2) and views (1) of the last 30 days first, then the newest listings;
+// Dành cho bạn blends the subcategories of the viewer's saves (3),
+// searches (2) and views (1) of the last 30 days with the newest listings;
 // their own, hidden and blocked listings stay out. The rail is the
 // subcategory opened that day, without the listings opened. A guest and an
 // account without signals get the newest listings.
@@ -94,11 +94,12 @@ func TestForYou(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []uuid.UUID{toyNew, toyOld, washer, gymNew, gymOld, bike, fan}; !slices.Equal(cardIDs(got.Items), want) {
+	// Toys and the rest weigh √3, the washer √2, gym 1.
+	if want := []uuid.UUID{toyNew, bike, washer, gymNew, toyOld, fan, gymOld}; !slices.Equal(cardIDs(got.Items), want) {
 		t.Fatalf("feed: %v, want %v", cardIDs(got.Items), want)
 	}
-	if !got.Items[1].Saved || got.Items[0].Saved || got.Items[0].DistanceKm == nil {
-		t.Fatalf("saved and distance: %+v", got.Items[:2])
+	if !got.Items[4].Saved || got.Items[0].Saved || got.Items[0].DistanceKm == nil {
+		t.Fatalf("saved and distance: %+v", got.Items[:5])
 	}
 	if got.Viewed == nil || got.Viewed.Category != "sports.gym" || !slices.Equal(cardIDs(got.Viewed.Items), []uuid.UUID{gymNew}) {
 		t.Fatalf("rail: %+v", got.Viewed)
@@ -111,8 +112,9 @@ func TestForYou(t *testing.T) {
 			t.Errorf("%s: %v %+v %v", name, cardIDs(got.Items), got.Viewed, err)
 		}
 	}
-	// solo opened the only washer: the rail has nothing else to show.
-	if got, err = e.discovery.ForYou(ctx, &solo, catalogdomain.Near{}); err != nil || got.Viewed != nil || got.Items[0].ID != washer {
+	// solo opened the only washer: the rail has nothing else to show, and
+	// the washer shares the first slot with the newest listing.
+	if got, err = e.discovery.ForYou(ctx, &solo, catalogdomain.Near{}); err != nil || got.Viewed != nil || got.Items[1].ID != washer {
 		t.Fatalf("solo: %v %+v %v", cardIDs(got.Items), got.Viewed, err)
 	}
 }

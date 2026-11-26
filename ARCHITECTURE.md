@@ -2489,18 +2489,20 @@ page that shows two views calls both at once.
   browser's Home at two reads of at most 100 rows each and one catalog
   `Summaries` call for at most 200 listings, which gives the subcategory of
   each. The feed is one catalog search over the active listings
-  nationwide in `SortPointsNewest` order: each weighed subcategory is a
-  `BoostCategory` boost at its weight, and the listings sort by boost
-  points, then `published_at`, then ID, each descending. A listing outside
-  the weighed subcategories has 0 points, so the newest listings fill the
-  page after the weighed ones in the same query, and no ID repeats. A
-  guest and an account without signals get no boost, which is the newest
-  order. Every listing of one subcategory has the same points, so the
-  first 20 of the order are among the newest 20 of each weighed
-  subcategory and the newest 20 outside them. Catalog's `pointsNewest`
-  reads those through the listings index, one `UNION ALL` branch each,
-  and orders only them; the branches share one binding of the excluded
-  IDs and build no BM25 should-clauses. It takes category boosts only. Both
+  nationwide in `SortBlend` order. Each weighed subcategory is a
+  `BoostCategory` boost weighing the square root of its points, so one
+  interest read many times does not crowd out the rest, and the listings
+  outside them form one more stream weighing as much as the heaviest
+  boost. Each stream runs newest first; its k-th listing takes the slot
+  (k-½)/weight and the page orders by slot, then `published_at`, then ID.
+  One interest alone fills half the page and the newest listings the
+  other half, two equal interests a third each; no ID repeats, and a
+  guest or an account without signals gets the newest order. A stream
+  gives at most 20 listings to the first 20, so catalog's `blend` reads
+  the newest 20 of each stream through the listings index, one `UNION
+  ALL` branch each, and orders only them; the branches share one binding
+  of the excluded IDs and build no BM25 should-clauses. It takes category
+  boosts with positive weights only. Both
   lists leave out what search leaves out (`exclusions`: the hides, and the
   accounts on either side of the viewer's blocks) and the viewer's own
   listings through `ExcludeSellers`, as a `like` search does. The cards

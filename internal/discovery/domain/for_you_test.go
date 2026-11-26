@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"math"
 	"slices"
 	"testing"
 	"time"
@@ -19,7 +20,8 @@ func TestForYouSince(t *testing.T) {
 	}
 }
 
-// A save weighs 3, a search 2 and a view 1 in its subcategory; a root or an
+// A save weighs 3, a search 2 and a view 1 in its subcategory, and a boost
+// the square root of its points; a root or an
 // empty code weighs nothing, and the boosts come sorted by code.
 func TestForYouBoosts(t *testing.T) {
 	t.Parallel()
@@ -29,9 +31,9 @@ func TestForYouBoosts(t *testing.T) {
 		[]string{"home.washer", "baby.toys", "sports.gym", "sports.gym"},
 	)
 	want := []catalogdomain.Boost{
-		{Kind: catalogdomain.BoostCategory, Code: "baby.toys", Weight: 4},
-		{Kind: catalogdomain.BoostCategory, Code: "home.washer", Weight: 3},
-		{Kind: catalogdomain.BoostCategory, Code: "sports.gym", Weight: 2},
+		{Kind: catalogdomain.BoostCategory, Code: "baby.toys", Weight: 2},
+		{Kind: catalogdomain.BoostCategory, Code: "home.washer", Weight: math.Sqrt(3)},
+		{Kind: catalogdomain.BoostCategory, Code: "sports.gym", Weight: math.Sqrt(2)},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("%+v", got)
@@ -52,9 +54,9 @@ func TestForYouBoostsKeepsTheHeaviest(t *testing.T) {
 	want := []catalogdomain.Boost{
 		{Kind: catalogdomain.BoostCategory, Code: "a.a", Weight: 1},
 		{Kind: catalogdomain.BoostCategory, Code: "a.b", Weight: 1},
-		{Kind: catalogdomain.BoostCategory, Code: "a.e", Weight: 2},
-		{Kind: catalogdomain.BoostCategory, Code: "a.f", Weight: 2},
-		{Kind: catalogdomain.BoostCategory, Code: "sports.gym", Weight: 3},
+		{Kind: catalogdomain.BoostCategory, Code: "a.e", Weight: math.Sqrt(2)},
+		{Kind: catalogdomain.BoostCategory, Code: "a.f", Weight: math.Sqrt(2)},
+		{Kind: catalogdomain.BoostCategory, Code: "sports.gym", Weight: math.Sqrt(3)},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("%+v", got)

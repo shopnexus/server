@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -408,8 +409,8 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 	if in.Hybrid() {
 		return s.hybridSearch(ctx, in)
 	}
-	if in.Sort == domain.SortPointsNewest {
-		return s.pointsNewest(ctx, in)
+	if in.Sort == domain.SortBlend {
+		return s.blend(ctx, in)
 	}
 	q := query{args: pgx.StrictNamedArgs{"limit": in.Limit, "offset": in.Offset}}
 	sql := `SELECT id, lat, lng FROM listings WHERE ` + q.where(in)
@@ -439,23 +440,30 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 	return collectHits(rows)
 }
 
-// pointsNewest runs a SortPointsNewest search over a bounded set of
-// candidates. Every listing of one subcategory has the same points, so a
-// listing in the first offset+limit of the order is among the newest
-// offset+limit of its boosted subcategory, or of the listings outside
-// every boosted one. One branch per boosted subcategory and one for the
-// rest read those through the index, and the outer query orders them.
-// The branches share one binding of the ID lists the search leaves out.
-func (s pgSearches) pointsNewest(ctx context.Context, in domain.Search) ([]domain.Hit, error) {
+// blend runs a SortBlend search. A stream's k-th listing takes the slot
+// (k-½)/weight, and the outer query orders by slot. A stream gives at most
+// offset+limit listings to the first offset+limit, so each branch reads
+// that many through the index. The branches share one binding of the ID
+// lists the search leaves out.
+func (s pgSearches) blend(ctx context.Context, in domain.Search) ([]domain.Hit, error) {
 	q := query{args: pgx.StrictNamedArgs{"limit": in.Limit, "offset": in.Offset, "branch": in.Offset + in.Limit}}
 	var codes []string
+	weights := map[string]float64{}
 	for _, b := range in.Boosts {
 		if b.Kind != domain.BoostCategory {
 			return nil, fmt.Errorf("sort %s takes category boosts only, not %s", in.Sort, b.Kind)
 		}
-		if !slices.Contains(codes, b.Code) {
+		if b.Weight <= 0 {
+			return nil, fmt.Errorf("sort %s takes positive weights, not %v", in.Sort, b.Weight)
+		}
+		if _, ok := weights[b.Code]; !ok {
 			codes = append(codes, b.Code)
 		}
+		weights[b.Code] += b.Weight
+	}
+	rest := 1.0 // the listings outside weigh as much as the heaviest boost
+	if len(codes) > 0 {
+		rest = slices.Max(slices.Collect(maps.Values(weights)))
 	}
 	var shared string
 	if ex := q.plain(in, ""); len(ex) > 0 {
@@ -465,9 +473,10 @@ func (s pgSearches) pointsNewest(ctx context.Context, in domain.Search) ([]domai
 		q.args["olat"], q.args["olng"], q.args["radius"] = o.Lat, o.Lng, in.Filters.RadiusKm
 		shared += ` AND ` + distanceSQL + ` <= @radius`
 	}
-	branch := func(f domain.Search, cond string) string {
-		return `(SELECT id FROM listings WHERE id @@@ paradedb.boolean(must => ` + array(q.must(f)) + `)` + shared + cond +
-			` ORDER BY published_at DESC, id DESC LIMIT @branch)`
+	branch := func(f domain.Search, cond string, weight float64) string {
+		return `(SELECT id, (row_number() OVER (ORDER BY published_at DESC, id DESC) - 0.5) / ` + q.arg(weight, "float8") + ` AS slot
+FROM (SELECT id, published_at FROM listings WHERE id @@@ paradedb.boolean(must => ` + array(q.must(f)) + `)` + shared + cond +
+			` ORDER BY published_at DESC, id DESC LIMIT @branch) b)`
 	}
 	branches := make([]string, 0, len(codes)+1)
 	for _, code := range codes {
@@ -476,19 +485,17 @@ func (s pgSearches) pointsNewest(ctx context.Context, in domain.Search) ([]domai
 		}
 		f := in
 		f.Filters.CategoryCode = code
-		branches = append(branches, branch(f, ""))
+		branches = append(branches, branch(f, "", weights[code]))
 	}
-	rest := ""
+	outside := ""
 	if len(codes) > 0 {
-		rest = ` AND category_code <> ALL(` + q.arg(codes, "text[]") + `)`
+		outside = ` AND category_code <> ALL(` + q.arg(codes, "text[]") + `)`
 	}
-	branches = append(branches, branch(in, rest))
-	// The cast keeps the points of no boost, a bare 0, from reading as a
-	// column position.
+	branches = append(branches, branch(in, outside, rest))
 	rows, err := s.db.Query(ctx, `SELECT l.id, l.lat, l.lng FROM listings AS l JOIN (`+strings.Join(branches, " UNION ALL ")+`) AS c ON c.id = l.id
-ORDER BY (`+q.points(in.Boosts)+`)::float8 DESC, l.published_at DESC, l.id DESC LIMIT @limit OFFSET @offset`, q.args)
+ORDER BY c.slot, l.published_at DESC, l.id DESC LIMIT @limit OFFSET @offset`, q.args)
 	if err != nil {
-		return nil, fmt.Errorf("search by points: %w", err)
+		return nil, fmt.Errorf("search by blend: %w", err)
 	}
 	return collectHits(rows)
 }
