@@ -57,7 +57,7 @@ func (c *Chat) Search(ctx context.Context, account uuid.UUID, q string, p page.R
 		r := &threads[i]
 		items = append(items, InboxItem{
 			ID: r.Conversation.ID, Other: PersonFromAccount(r.Other, others[r.Other]), LastMessage: c.messageView(r.Last),
-			Unread: r.Unread, Archived: r.Archived,
+			Unread: r.Unread, Archived: r.Archived, Ignored: r.Ignored,
 		})
 	}
 	found := make([]MessageHit, 0, len(hits))

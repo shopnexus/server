@@ -25,6 +25,8 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("POST /v1/conversations/{id}/unread", protect(http.HandlerFunc(h.MarkUnread)))
 	r.Handle("POST /v1/conversations/{id}/archive", protect(http.HandlerFunc(h.Archive)))
 	r.Handle("POST /v1/conversations/{id}/unarchive", protect(http.HandlerFunc(h.Unarchive)))
+	r.Handle("POST /v1/conversations/{id}/ignore", protect(http.HandlerFunc(h.Ignore)))
+	r.Handle("POST /v1/conversations/{id}/unignore", protect(http.HandlerFunc(h.Unignore)))
 	r.Handle("GET /v1/me/quick-replies", protect(http.HandlerFunc(h.QuickReplies)))
 	r.Handle("PUT /v1/me/quick-replies", protect(http.HandlerFunc(h.PutQuickReplies)))
 }

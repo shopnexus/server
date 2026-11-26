@@ -230,9 +230,21 @@ func (c Conversation) Other(account uuid.UUID) uuid.UUID {
 }
 
 // Member is one person's place in a conversation: when they archived it,
-// nil while it is not archived, and the newest message they read, nil
-// before the first.
+// nil while it is not archived, when they ignored it, nil while they hear
+// of it, and the newest message they read, nil before the first.
 type Member struct {
 	ArchivedAt *time.Time
+	IgnoredAt  *time.Time
 	LastRead   *uuid.UUID
 }
+
+// Box is which of a member's conversations a list reads: the inbox, the
+// archived ones, or the ignored ones. An ignored conversation is in no
+// other box, archived or not.
+type Box string
+
+const (
+	BoxInbox    Box = "inbox"
+	BoxArchived Box = "archived"
+	BoxIgnored  Box = "ignored"
+)

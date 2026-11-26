@@ -83,6 +83,9 @@ type Listings interface {
 	// SitemapAreas is a query: the root categories and provinces with at
 	// least that many active listings, by category then province.
 	SitemapAreas(ctx context.Context, least int) ([]SitemapArea, error)
+	// SitemapCategories is a query: the subcategories with at least that
+	// many active listings, by code.
+	SitemapCategories(ctx context.Context, least int) ([]SitemapCategory, error)
 	// WebAddresses is a query: the address parts of the listings among ids
 	// that were ever on sale, in any status now; another ID is left out.
 	WebAddresses(ctx context.Context, ids []uuid.UUID) ([]WebAddress, error)
@@ -112,6 +115,13 @@ type SitemapArea struct {
 	CategoryRoot, ProvinceCode string
 	Count                      int
 	UpdatedAt                  time.Time
+}
+
+// SitemapCategory is a subcategory with enough active listings and the
+// latest change to one.
+type SitemapCategory struct {
+	Code      string
+	UpdatedAt time.Time
 }
 
 // SitemapSeller is a seller with a public listing and the latest change to

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
@@ -38,7 +39,7 @@ func TestOpenAndSend(t *testing.T) {
 		t.Fatalf("%+v %v", reply, err)
 	}
 	for _, who := range []uuid.UUID{buyer, seller} {
-		p, inboxErr := e.chat.Inbox(ctx, who, false, page.Request{})
+		p, inboxErr := e.chat.Inbox(ctx, who, domain.BoxInbox, page.Request{})
 		if inboxErr != nil || len(p.Items) != 1 || p.Items[0].LastMessage.ID != reply.ID || p.Items[0].Other.ID == who {
 			t.Fatalf("inbox of %s: %+v %v", who, p, inboxErr)
 		}
@@ -120,7 +121,7 @@ func TestSendRefusals(t *testing.T) {
 			t.Errorf("blocked: %v", err)
 		}
 	}
-	if p, _ := e.chat.Inbox(ctx, seller, false, page.Request{}); len(p.Items) != 0 {
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxInbox, page.Request{}); len(p.Items) != 0 {
 		t.Errorf("the blocker still lists it: %+v", p.Items)
 	}
 }
@@ -152,13 +153,13 @@ func TestArchive(t *testing.T) {
 	if err := e.chat.Archive(ctx, seller, c.ID); err != nil {
 		t.Fatal(err)
 	}
-	if p, _ := e.chat.Inbox(ctx, seller, true, page.Request{}); len(p.Items) != 1 || !p.Items[0].Archived {
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxArchived, page.Request{}); len(p.Items) != 1 || !p.Items[0].Archived {
 		t.Fatalf("archived: %+v", p.Items)
 	}
 	if _, err := e.chat.Send(ctx, buyer, c.ID, key(), service.SendInput{Text: "Bạn ơi"}); err != nil {
 		t.Fatal(err)
 	}
-	if p, _ := e.chat.Inbox(ctx, seller, false, page.Request{}); len(p.Items) != 1 {
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxInbox, page.Request{}); len(p.Items) != 1 {
 		t.Fatalf("not back: %+v", p.Items)
 	}
 	if err := e.chat.Archive(ctx, seller, c.ID); err != nil {
@@ -167,8 +168,90 @@ func TestArchive(t *testing.T) {
 	if err := e.chat.Unarchive(ctx, seller, c.ID); err != nil {
 		t.Fatal(err)
 	}
-	if p, _ := e.chat.Inbox(ctx, seller, false, page.Request{}); len(p.Items) != 1 {
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxInbox, page.Request{}); len(p.Items) != 1 {
 		t.Fatalf("unarchive: %+v", p.Items)
+	}
+}
+
+// A deal's move does not bring an archived conversation back: only a
+// message someone wrote does.
+func TestArchiveStaysOnADealMove(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
+	if err := e.chat.Archive(ctx, seller, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	move := service.MoveInput{
+		ID: uuid.NewV7(), ConversationID: c.ID, DealID: dealIn(t, e.db, c.ID, buyer, seller), SenderID: buyer,
+		Kind: "offer", By: "buyer", Amount: 900_000, At: time.Now(),
+	}
+	if err := e.chat.PostMove(ctx, move); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxArchived, page.Request{}); len(p.Items) != 1 {
+		t.Fatalf("a move brought it back: %+v", p.Items)
+	}
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxInbox, page.Request{}); len(p.Items) != 0 {
+		t.Fatalf("in the inbox: %+v", p.Items)
+	}
+}
+
+// An ignored conversation lists under BoxIgnored alone, counts as unread
+// nowhere and pushes nothing, and the other member's messages leave it
+// there. Writing to it, or Unignore, brings it back.
+func TestIgnore(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
+	if err := e.chat.Ignore(ctx, seller, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	sent, err := e.chat.Send(ctx, buyer, c.ID, key(), service.SendInput{Text: "Bạn ơi, 500k nhé"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, box := range []domain.Box{domain.BoxInbox, domain.BoxArchived} {
+		if p, _ := e.chat.Inbox(ctx, seller, box, page.Request{}); len(p.Items) != 0 {
+			t.Fatalf("%s lists it: %+v", box, p.Items)
+		}
+	}
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxIgnored, page.Request{}); len(p.Items) != 1 || !p.Items[0].Ignored {
+		t.Fatalf("ignored: %+v", p.Items)
+	}
+	if n, _ := e.chat.Unread(ctx, seller); n != 0 {
+		t.Fatalf("unread %d", n)
+	}
+	if f, _, _ := e.chat.MessageFacts(ctx, sent.ID); !f.Ignored {
+		t.Fatalf("facts: %+v", f)
+	}
+	if v, _ := e.chat.Get(ctx, seller, c.ID); !v.Ignored {
+		t.Fatalf("view: %+v", v)
+	}
+	if on, _ := e.chat.Ignores(ctx, seller, buyer); !on {
+		t.Fatal("seller ignores buyer")
+	}
+	if on, _ := e.chat.Ignores(ctx, buyer, seller); on {
+		t.Fatal("the buyer ignores no one")
+	}
+	if _, err = e.chat.Send(ctx, seller, c.ID, key(), service.SendInput{Text: "Không bán giá đó bạn"}); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxInbox, page.Request{}); len(p.Items) != 1 {
+		t.Fatalf("writing did not bring it back: %+v", p.Items)
+	}
+	if err = e.chat.Ignore(ctx, seller, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err = e.chat.Unignore(ctx, seller, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := e.chat.Inbox(ctx, seller, domain.BoxInbox, page.Request{}); len(p.Items) != 1 {
+		t.Fatalf("unignore: %+v", p.Items)
 	}
 }
 
@@ -204,7 +287,7 @@ func TestGetShowsWhenTheOtherWasActive(t *testing.T) {
 	if got, err = e.chat.Get(ctx, seller, c.ID); err != nil || got.Other.LastActiveAt == nil {
 		t.Fatalf("after: %+v %v", got.Other, err)
 	}
-	inbox, err := e.chat.Inbox(ctx, seller, false, page.Request{})
+	inbox, err := e.chat.Inbox(ctx, seller, domain.BoxInbox, page.Request{})
 	if err != nil || len(inbox.Items) != 1 || inbox.Items[0].Other.LastActiveAt == nil {
 		t.Fatalf("inbox: %+v %v", inbox, err)
 	}

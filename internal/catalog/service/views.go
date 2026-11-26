@@ -241,6 +241,12 @@ type SitemapAreaView struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// SitemapCategoryView is the SitemapCategory schema.
+type SitemapCategoryView struct {
+	Code      string    `json:"category_code"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // SitemapSellerView is the SitemapSeller schema.
 type SitemapSellerView struct {
 	ID        uuid.UUID `json:"id"`

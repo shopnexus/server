@@ -56,7 +56,11 @@ WHERE conversation_id = @c AND account_id = @account`, pgx.StrictNamedArgs{"c": 
 
 func inbox(t *testing.T, s repository.Chats, viewer uuid.UUID, archived bool) []repository.InboxRow {
 	t.Helper()
-	rows, err := s.Inbox(context.Background(), viewer, archived, page.Request{})
+	box := domain.BoxInbox
+	if archived {
+		box = domain.BoxArchived
+	}
+	rows, err := s.Inbox(context.Background(), viewer, box, page.Request{})
 	if err != nil {
 		t.Fatal(err)
 	}

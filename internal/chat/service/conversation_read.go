@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/chat/domain"
@@ -71,4 +72,41 @@ func (c *Chat) Unarchive(ctx context.Context, account, conversation uuid.UUID) e
 		return fmt.Errorf("unarchive: %w", err)
 	}
 	return nil
+}
+
+func (c *Chat) Ignore(ctx context.Context, account, conversation uuid.UUID) error {
+	return c.setIgnored(ctx, account, conversation, new(c.d.Now()))
+}
+
+func (c *Chat) Unignore(ctx context.Context, account, conversation uuid.UUID) error {
+	return c.setIgnored(ctx, account, conversation, nil)
+}
+
+func (c *Chat) setIgnored(ctx context.Context, account, conversation uuid.UUID, at *time.Time) error {
+	conv, err := c.member(ctx, account, conversation)
+	if err != nil {
+		return err
+	}
+	if conv.Kind == domain.KindSupport {
+		return domain.ErrSupportConversation
+	}
+	if err = c.d.Chats.SetIgnored(ctx, conversation, account, at); err != nil {
+		return fmt.Errorf("set ignored: %w", err)
+	}
+	return nil
+}
+
+func (c *Chat) Ignores(ctx context.Context, account, other uuid.UUID) (bool, error) {
+	conv, err := c.d.Chats.FindPair(ctx, account, other)
+	if errors.Is(err, repository.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("find pair: %w", err)
+	}
+	members, err := c.d.Chats.Members(ctx, conv.ID)
+	if err != nil {
+		return false, fmt.Errorf("get members: %w", err)
+	}
+	return members[account].IgnoredAt != nil, nil
 }

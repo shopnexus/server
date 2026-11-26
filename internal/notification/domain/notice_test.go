@@ -403,3 +403,25 @@ func TestFeedbackNotices(t *testing.T) {
 		}
 	}
 }
+
+// A bid to a side that ignores the bidder tells them nothing; what moves
+// the order still does.
+func TestFromMovesIgnored(t *testing.T) {
+	t.Parallel()
+	at := time.Now()
+	f := facts(domain.Move{Kind: "offer", By: "buyer", Amount: 500_000}, domain.Move{Kind: "cod_requested", By: "buyer"})
+	f.SellerIgnores = true
+	got := domain.FromMoves(f, at)
+	if len(got) != 1 || got[0].Type != domain.TypeCodRequested {
+		t.Fatalf("got %+v", got)
+	}
+	f = facts(domain.Move{Kind: "counter", By: "seller", Amount: 600_000})
+	f.BuyerIgnores = true
+	if got = domain.FromMoves(f, at); len(got) != 0 {
+		t.Fatalf("counter told %+v", got)
+	}
+	f.BuyerIgnores, f.SellerIgnores = false, true
+	if got = domain.FromMoves(f, at); len(got) != 1 {
+		t.Fatalf("a seller who ignores still bids: %+v", got)
+	}
+}

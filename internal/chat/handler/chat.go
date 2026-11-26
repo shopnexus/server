@@ -93,3 +93,17 @@ func (h *Handler) Unarchive(w http.ResponseWriter, r *http.Request) {
 		return httpx.None{}, h.svc.Unarchive(r.Context(), p.AccountID, in.ID)
 	})
 }
+
+// Ignore serves POST /v1/conversations/{id}/ignore.
+func (h *Handler) Ignore(w http.ResponseWriter, r *http.Request) {
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in conversationRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Ignore(r.Context(), p.AccountID, in.ID)
+	})
+}
+
+// Unignore serves POST /v1/conversations/{id}/unignore.
+func (h *Handler) Unignore(w http.ResponseWriter, r *http.Request) {
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in conversationRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Unignore(r.Context(), p.AccountID, in.ID)
+	})
+}

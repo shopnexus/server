@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/chat/domain"
 	"github.com/shopnexus/server/internal/chat/repository"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
-func (c *Chat) Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (page.Page[InboxItem], error) {
-	rows, err := c.d.Chats.Inbox(ctx, account, archived, p)
+func (c *Chat) Inbox(ctx context.Context, account uuid.UUID, box domain.Box, p page.Request) (page.Page[InboxItem], error) {
+	rows, err := c.d.Chats.Inbox(ctx, account, box, p)
 	if err != nil {
 		return page.Page[InboxItem]{}, fmt.Errorf("read inbox: %w", err)
 	}
@@ -27,7 +28,7 @@ func (c *Chat) Inbox(ctx context.Context, account uuid.UUID, archived bool, p pa
 	for i := range rows {
 		items = append(items, InboxItem{
 			ID: rows[i].Conversation.ID, Other: PersonFromAccount(rows[i].Other, others[rows[i].Other]),
-			LastMessage: c.messageView(rows[i].Last), Unread: rows[i].Unread, Archived: rows[i].Archived,
+			LastMessage: c.messageView(rows[i].Last), Unread: rows[i].Unread, Archived: rows[i].Archived, Ignored: rows[i].Ignored,
 		})
 	}
 	return page.Of(items, p, func(it InboxItem) uuid.UUID { return it.LastMessage.ID }), nil
@@ -51,6 +52,7 @@ func (c *Chat) Get(ctx context.Context, account, conversation uuid.UUID) (Conver
 	}
 	return ConversationView{
 		ID: conv.ID, Other: PersonFromAccount(id, other), Archived: members[account].ArchivedAt != nil,
+		Ignored:   members[account].IgnoredAt != nil,
 		OtherRead: members[id].LastRead,
 	}, nil
 }

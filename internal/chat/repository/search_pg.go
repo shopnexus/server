@@ -37,9 +37,10 @@ func (s pgChats) SearchThreads(ctx context.Context, viewer uuid.UUID, t Terms, l
 	// The page of matching conversations comes first, then each row's last
 	// message and unread count, as selectInbox reads them.
 	rows, err := s.db.Query(ctx, `
-SELECT `+messageColumns+`, c.id, c.account_a, c.account_b, c.kind, c.created_at, `+rowUnread+`, page.archived
+SELECT `+messageColumns+`, c.id, c.account_a, c.account_b, c.kind, c.created_at, `+rowUnread+`, page.archived, page.ignored
 FROM (
-    SELECT c.id, cm.last_read_message_id AS last_read, cm.marked_unread AS marked, cm.archived_at IS NOT NULL AS archived
+    SELECT c.id, cm.last_read_message_id AS last_read, cm.marked_unread AS marked, cm.archived_at IS NOT NULL AS archived,
+        cm.ignored_at IS NOT NULL AS ignored
     FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
     JOIN accounts o ON o.id = CASE WHEN c.account_a = @viewer THEN c.account_b ELSE c.account_a END
     WHERE cm.account_id = @viewer AND c.kind = 'pair' AND c.last_message_id IS NOT NULL AND `+notBlocked+`
@@ -62,7 +63,7 @@ ORDER BY c.last_message_id DESC`, pgx.StrictNamedArgs{
 			m messageScan
 		)
 		if scanErr := row.Scan(append(m.dest(), &r.Conversation.ID, &r.Conversation.AccountA, &r.Conversation.AccountB,
-			&r.Conversation.Kind, &r.Conversation.CreatedAt, &r.Unread, &r.Archived)...); scanErr != nil {
+			&r.Conversation.Kind, &r.Conversation.CreatedAt, &r.Unread, &r.Archived, &r.Ignored)...); scanErr != nil {
 			return InboxRow{}, fmt.Errorf("scan thread: %w", scanErr)
 		}
 		r.Other = r.Conversation.Other(viewer)

@@ -92,6 +92,20 @@ WHERE l.status = @active GROUP BY 1, 2 HAVING count(*) >= @min ORDER BY 1, 2`,
 	return as, nil
 }
 
+func (s pgListings) SitemapCategories(ctx context.Context, least int) ([]SitemapCategory, error) {
+	rows, err := s.db.Query(ctx, `SELECT category_code, max(updated_at) FROM listings
+WHERE status = @active GROUP BY 1 HAVING count(*) >= @min ORDER BY 1`,
+		pgx.StrictNamedArgs{"active": domain.StatusActive, "min": least})
+	if err != nil {
+		return nil, fmt.Errorf("select sitemap categories: %w", err)
+	}
+	cs, err := pgx.CollectRows(rows, pgx.RowToStructByPos[SitemapCategory])
+	if err != nil {
+		return nil, fmt.Errorf("read sitemap categories: %w", err)
+	}
+	return cs, nil
+}
+
 func (s pgListings) WebAddresses(ctx context.Context, ids []uuid.UUID) ([]WebAddress, error) {
 	rows, err := s.db.Query(ctx, `SELECT title, code FROM listings WHERE id = ANY(@ids) AND published_at IS NOT NULL ORDER BY id`,
 		pgx.StrictNamedArgs{"ids": ids})

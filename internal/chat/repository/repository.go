@@ -68,18 +68,21 @@ type Chats interface {
 	// SetArchived archives the conversation for account at at, or
 	// unarchives it for nil, touching nothing else.
 	SetArchived(ctx context.Context, conversation, account uuid.UUID, at *time.Time) error
+	// SetIgnored ignores the conversation for account at at, or hears of it
+	// again for nil, touching nothing else.
+	SetIgnored(ctx context.Context, conversation, account uuid.UUID, at *time.Time) error
 	// Messages lists the messages viewer may see with IDs below p.Before(),
 	// newest first, at most p.Fetch().
 	Messages(ctx context.Context, conversation, viewer uuid.UUID, p page.Request) ([]domain.Message, error)
 	// Window lists conversation's sent messages with text whose IDs are at
 	// most upTo, or every one for the zero upTo, newest first, at most n.
 	Window(ctx context.Context, conversation, upTo uuid.UUID, n int) ([]domain.Message, error)
-	// Inbox lists viewer's conversations with a sent message, archived or
-	// not, without those whose other member viewer blocks, by last message
-	// below p.Before(), newest first, at most p.Fetch().
-	Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p page.Request) ([]InboxRow, error)
-	// Unread counts viewer's unread messages over unarchived conversations
-	// the inbox lists, a conversation marked unread counting at least 1.
+	// Inbox lists viewer's conversations with a sent message in box,
+	// without those whose other member viewer blocks, by last message below
+	// p.Before(), newest first, at most p.Fetch().
+	Inbox(ctx context.Context, viewer uuid.UUID, box domain.Box, p page.Request) ([]InboxRow, error)
+	// Unread counts viewer's unread messages over the conversations of
+	// BoxInbox, a conversation marked unread counting at least 1.
 	Unread(ctx context.Context, viewer uuid.UUID) (int, error)
 	// SupportUnread sums viewer's unread messages over its support chats,
 	// which Unread leaves out.
@@ -137,8 +140,8 @@ type InboxRow struct {
 	Other        uuid.UUID
 	Last         domain.Message
 	Unread       int
-	// Archived is whether viewer archived it.
-	Archived bool
+	// Archived and Ignored are whether viewer archived or ignored it.
+	Archived, Ignored bool
 }
 
 // ThreadRow is a conversation's last message and a viewer's unread count.

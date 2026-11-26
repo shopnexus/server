@@ -739,6 +739,28 @@ sitemapAreas:
           application/json:
             schema:
               $ref: "../schemas/catalog.yaml#/SitemapAreaList"
+sitemapCategories:
+  get:
+    operationId: listSitemapCategories
+    summary: The subcategories with a page of their own on the website.
+    description: |
+      Each subcategory with at least 5 listings on sale (active), with the
+      latest change to one of them, by code. The website lists their pages
+      in its sitemap and links to them; a subcategory with fewer makes a
+      thin page. Public, and cacheable for an hour.
+    tags: [catalog, internal]
+    responses:
+      "200":
+        description: The subcategories.
+        headers:
+          Cache-Control:
+            description: public, max-age=3600
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/SitemapCategoryList"
 sitemapIndexNow:
   get:
     operationId: getIndexNowKey

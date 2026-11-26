@@ -17,7 +17,7 @@ InboxScreen:
 InboxItem:
   type: object
   additionalProperties: false
-  required: [id, other, last_message, unread, archived, other_active_deals]
+  required: [id, other, last_message, unread, archived, ignored, other_active_deals]
   description: |
     deal is the pair's deal the row is about, absent when the two have none:
     the newest, by last move, of those where it is the caller's turn, else
@@ -36,6 +36,8 @@ InboxItem:
       type: integer
       description: The other member's sent messages after the caller's read marker; at least 1 while the caller's unread mark is set.
     archived:
+      type: boolean
+    ignored:
       type: boolean
     deal:
       $ref: "deal.yaml#/DealSummary"
@@ -76,7 +78,7 @@ MessageHit:
 ChatScreen:
   type: object
   additionalProperties: false
-  required: [id, other, archived, blocked, deals, messages]
+  required: [id, other, archived, ignored, blocked, deals, messages]
   properties:
     id:
       type: string
@@ -85,6 +87,9 @@ ChatScreen:
       $ref: "chat.yaml#/Person"
     archived:
       type: boolean
+    ignored:
+      type: boolean
+      description: The caller ignores the conversation.
     blocked:
       type: boolean
       description: A block stands between the two, either way, so neither can send a message.

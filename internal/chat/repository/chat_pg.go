@@ -144,14 +144,23 @@ WHERE account_a = LEAST(@one::uuid, @other::uuid) AND account_b = GREATEST(@one:
 
 // moveLast makes a sent message the conversation's last one when it is the
 // newest, and then brings the conversation back from both members'
-// archives.
+// archives; the sender, who wrote to it, hears of it again if they had
+// ignored it. Only a message someone wrote does this: moveLastQuiet, for a
+// deal's move, leaves both boxes as they are.
 const moveLast = `
 WITH moved AS (
     UPDATE conversations
     SET last_message_id = @id, last_message_at = @at
     WHERE id = @conversation AND (last_message_id IS NULL OR last_message_id < @id)
     RETURNING id)
-UPDATE conversation_members SET archived_at = NULL WHERE conversation_id IN (SELECT id FROM moved)`
+UPDATE conversation_members SET archived_at = NULL,
+    ignored_at = CASE WHEN account_id = @sender THEN NULL ELSE ignored_at END
+WHERE conversation_id IN (SELECT id FROM moved)`
+
+const moveLastQuiet = `
+UPDATE conversations
+SET last_message_id = @id, last_message_at = @at
+WHERE id = @conversation AND (last_message_id IS NULL OR last_message_id < @id)`
 
 // queueMembers queues into b the read of m's conversation's members into
 // accounts, beside the statement that writes m.
@@ -171,7 +180,11 @@ func queueMembers(b *pgx.Batch, m domain.Message, accounts *[]uuid.UUID) {
 func written(ctx context.Context, tx pgx.Tx, m domain.Message, accounts []uuid.UUID) error {
 	b := &pgx.Batch{}
 	if m.Status() == domain.StatusSent {
-		b.Queue(moveLast, pgx.StrictNamedArgs{"id": m.ID(), "at": m.CreatedAt(), "conversation": m.ConversationID()})
+		if m.Deal() == nil {
+			b.Queue(moveLast, pgx.StrictNamedArgs{"id": m.ID(), "at": m.CreatedAt(), "conversation": m.ConversationID(), "sender": m.SenderID()})
+		} else {
+			b.Queue(moveLastQuiet, pgx.StrictNamedArgs{"id": m.ID(), "at": m.CreatedAt(), "conversation": m.ConversationID()})
+		}
 		// The message's ID is the event's, so writing it sent again inserts
 		// no second event. A deal message has none: deal.moved already
 		// told whoever hears of the move.
@@ -339,7 +352,7 @@ WHERE id = @id AND status = 'processing'`,
 }
 
 func (s pgChats) Members(ctx context.Context, conversation uuid.UUID) (map[uuid.UUID]domain.Member, error) {
-	rows, err := s.db.Query(ctx, `SELECT account_id, archived_at, last_read_message_id FROM conversation_members
+	rows, err := s.db.Query(ctx, `SELECT account_id, archived_at, ignored_at, last_read_message_id FROM conversation_members
 WHERE conversation_id = @conversation`, pgx.StrictNamedArgs{"conversation": conversation})
 	if err != nil {
 		return nil, fmt.Errorf("select members: %w", err)
@@ -350,7 +363,7 @@ WHERE conversation_id = @conversation`, pgx.StrictNamedArgs{"conversation": conv
 			account uuid.UUID
 			m       domain.Member
 		)
-		if scanErr := row.Scan(&account, &m.ArchivedAt, &m.LastRead); scanErr != nil {
+		if scanErr := row.Scan(&account, &m.ArchivedAt, &m.IgnoredAt, &m.LastRead); scanErr != nil {
 			return struct{}{}, fmt.Errorf("scan member: %w", scanErr)
 		}
 		out[account] = m
@@ -435,6 +448,15 @@ WHERE conversation_id = @conversation AND account_id = @account`,
 	return nil
 }
 
+func (s pgChats) SetIgnored(ctx context.Context, conversation, account uuid.UUID, at *time.Time) error {
+	if _, err := s.db.Exec(ctx, `UPDATE conversation_members SET ignored_at = @at
+WHERE conversation_id = @conversation AND account_id = @account`,
+		pgx.StrictNamedArgs{"at": at, "conversation": conversation, "account": account}); err != nil {
+		return fmt.Errorf("set ignored: %w", err)
+	}
+	return nil
+}
+
 func (s pgChats) Messages(ctx context.Context, conversation, viewer uuid.UUID, p page.Request) ([]domain.Message, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+messageColumns+` FROM messages m
 WHERE m.conversation_id = @conversation AND (m.status = 'sent' OR m.sender_id = @viewer) AND m.id < @before
@@ -469,11 +491,13 @@ ORDER BY m.id DESC LIMIT @limit`, pgx.StrictNamedArgs{"conversation": conversati
 }
 
 // listed is the condition for a conversation of the viewer's member row cm
-// to show in the inbox: a sent message, archived or not as @archived asks,
-// and no block of the other member by the viewer.
+// to show in box @box: a sent message, ignored for 'ignored', else not
+// ignored and archived or not as the box asks, and no block of the other
+// member by the viewer.
 const listed = `
 cm.account_id = @viewer AND c.kind = 'pair' AND c.last_message_id IS NOT NULL
-  AND @archived = (cm.archived_at IS NOT NULL)
+  AND CASE WHEN @box = 'ignored' THEN cm.ignored_at IS NOT NULL
+      ELSE cm.ignored_at IS NULL AND (@box = 'archived') = (cm.archived_at IS NOT NULL) END
   AND ` + notBlocked
 
 // notBlocked holds for a conversation c of the viewer's when the viewer
@@ -635,9 +659,9 @@ func (s pgChats) Threads(ctx context.Context, viewer uuid.UUID, ids []uuid.UUID)
 	return out, nil
 }
 
-func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p page.Request) ([]InboxRow, error) {
+func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, box domain.Box, p page.Request) ([]InboxRow, error) {
 	rows, err := s.db.Query(ctx, selectInbox, pgx.StrictNamedArgs{
-		"viewer": viewer, "archived": archived, "before": p.Before(), "limit": p.Fetch(),
+		"viewer": viewer, "box": string(box), "before": p.Before(), "limit": p.Fetch(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("select inbox: %w", err)
@@ -651,7 +675,7 @@ func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p p
 			&r.Conversation.Kind, &r.Conversation.CreatedAt, &r.Unread)...); scanErr != nil {
 			return InboxRow{}, fmt.Errorf("scan inbox row: %w", scanErr)
 		}
-		r.Other, r.Archived = r.Conversation.Other(viewer), archived
+		r.Other, r.Archived, r.Ignored = r.Conversation.Other(viewer), box == domain.BoxArchived, box == domain.BoxIgnored
 		last, msgErr := m.message()
 		r.Last = last
 		return r, msgErr
@@ -665,7 +689,7 @@ func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p p
 func (s pgChats) Unread(ctx context.Context, viewer uuid.UUID) (int, error) {
 	var n int
 	if err := s.db.QueryRow(ctx, countUnread,
-		pgx.StrictNamedArgs{"viewer": viewer, "archived": false}).Scan(&n); err != nil {
+		pgx.StrictNamedArgs{"viewer": viewer, "box": string(domain.BoxInbox)}).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count unread: %w", err)
 	}
 	return n, nil

@@ -37,7 +37,7 @@ VALUES (@id, @conversation, @listing, @buyer, @seller, 'negotiating', 1500000, @
 // inbox does not list the conversation.
 func (e env) unread(t *testing.T, viewer uuid.UUID) int {
 	t.Helper()
-	p, err := e.chat.Inbox(context.Background(), viewer, false, page.Request{})
+	p, err := e.chat.Inbox(context.Background(), viewer, domain.BoxInbox, page.Request{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestOpenPair(t *testing.T) {
 	if n := e.unread(t, a); n != 0 {
 		t.Fatalf("unread %d", n)
 	}
-	if p, err := e.chat.Inbox(ctx, a, false, page.Request{}); err != nil || len(p.Items) != 0 {
+	if p, err := e.chat.Inbox(ctx, a, domain.BoxInbox, page.Request{}); err != nil || len(p.Items) != 0 {
 		t.Fatalf("inbox: %+v %v", p.Items, err)
 	}
 }
@@ -182,10 +182,11 @@ func TestPostMove(t *testing.T) {
 	}
 }
 
-// A deal message that lands older than the last message, as a late event
-// does, joins the thread and tells the streams but brings the conversation
-// back from no archive; a newer one does.
-func TestLateMoveKeepsTheArchive(t *testing.T) {
+// A deal message joins the thread and tells the streams but brings the
+// conversation back from no archive, whether it lands older than the last
+// message, as a late event does, or newest: only a message someone writes
+// does.
+func TestMovesKeepTheArchive(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
@@ -217,8 +218,8 @@ func TestLateMoveKeepsTheArchive(t *testing.T) {
 	if err := e.chat.PostMove(ctx, move); err != nil {
 		t.Fatal(err)
 	}
-	if archived() {
-		t.Fatal("the newest move left the conversation archived")
+	if ms := e.messages(t, seller, c.ID); len(ms) != 3 || !archived() {
+		t.Fatalf("the newest move: %d messages, archived %v", len(ms), archived())
 	}
 }
 

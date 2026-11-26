@@ -41,6 +41,7 @@ func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler)
 	r.Handle("GET /v1/sitemap/listings", http.HandlerFunc(h.SitemapListings))
 	r.Handle("GET /v1/sitemap/sellers", http.HandlerFunc(h.SitemapSellers))
 	r.Handle("GET /v1/sitemap/areas", http.HandlerFunc(h.SitemapAreas))
+	r.Handle("GET /v1/sitemap/categories", http.HandlerFunc(h.SitemapCategories))
 	r.Handle("GET /v1/sitemap/indexnow", http.HandlerFunc(h.IndexNowKey))
 }
 

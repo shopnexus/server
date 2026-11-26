@@ -156,11 +156,20 @@ func TestSitemap(t *testing.T) {
 	if areas, areasErr := e.catalog.SitemapAreas(ctx); areasErr != nil || len(areas) != 0 {
 		t.Fatalf("one listing makes no area: %+v %v", areas, areasErr)
 	}
+	if cats, catsErr := e.catalog.SitemapCategories(ctx); catsErr != nil || len(cats) != 0 {
+		t.Fatalf("one listing makes no subcategory page: %+v %v", cats, catsErr)
+	}
 	for range 4 {
 		catalogtest.Listing(t, e.db, seller, func(d *domain.ListingInput, _ *domain.Refs) { d.CategoryCode = "phones.android" })
 	}
 	areas, err := e.catalog.SitemapAreas(ctx)
 	if err != nil || len(areas) != 1 || areas[0].CategoryCode != "phones" || areas[0].ProvinceCode != "01" || areas[0].Count != 5 {
 		t.Fatalf("areas: %+v %v", areas, err)
+	}
+	// The root's five span two subcategories; a fifth Android makes a page.
+	catalogtest.Listing(t, e.db, seller, func(d *domain.ListingInput, _ *domain.Refs) { d.CategoryCode = "phones.android" })
+	cats, err := e.catalog.SitemapCategories(ctx)
+	if err != nil || len(cats) != 1 || cats[0].Code != "phones.android" {
+		t.Fatalf("subcategories: %+v %v", cats, err)
 	}
 }

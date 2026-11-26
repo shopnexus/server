@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/platform/locale"
@@ -32,8 +33,8 @@ type InboxItem struct {
 // Inbox reads a page of account's conversations, the deals of their pairs,
 // account's scam warnings in them and account's unread count, one call
 // each.
-func (s *Screen) Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request, t locale.Tag) (InboxScreen, error) {
-	conversations, err := s.d.Chats.Inbox(ctx, account, archived, p)
+func (s *Screen) Inbox(ctx context.Context, account uuid.UUID, box chatdomain.Box, p page.Request, t locale.Tag) (InboxScreen, error) {
+	conversations, err := s.d.Chats.Inbox(ctx, account, box, p)
 	if err != nil {
 		return InboxScreen{}, fmt.Errorf("read inbox: %w", err)
 	}

@@ -158,4 +158,8 @@ func TestSitemapAreas(t *testing.T) {
 	if a := got[1]; a.CategoryRoot != "vehicles" || a.ProvinceCode != "79" || a.Count != 5 {
 		t.Fatalf("TP Hồ Chí Minh: %+v", a)
 	}
+	cats, err := repository.NewListings(db).SitemapCategories(ctx, 5)
+	if err != nil || len(cats) != 2 || cats[0].Code != "vehicles.bicycle" || !cats[0].UpdatedAt.Equal(latest) || cats[1].Code != "vehicles.motorbike" {
+		t.Fatalf("subcategories, four iPhones on sale too few: %+v %v", cats, err)
+	}
 }

@@ -11,6 +11,7 @@ import (
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	chototsvc "github.com/shopnexus/server/internal/chotot/service"
 	dealdomain "github.com/shopnexus/server/internal/deal/domain"
@@ -56,7 +57,7 @@ type Service interface {
 	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error)
 	// Inbox reads a page of account's inbox view, archived or not, scam
 	// signals written in t.
-	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request, t locale.Tag) (InboxScreen, error)
+	Inbox(ctx context.Context, account uuid.UUID, box chatdomain.Box, p page.Request, t locale.Tag) (InboxScreen, error)
 	// InboxSearch reads the inbox search view: the conversations matching q
 	// with their pairs' deals, on the first page only, and a page of
 	// matching messages. Scam signals are written in t.
