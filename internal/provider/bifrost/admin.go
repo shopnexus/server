@@ -21,8 +21,9 @@ import (
 	"time"
 )
 
-// ErrRefused is a 4xx of the admin API: the same request would be refused
-// again. An *Error wraps it with Bifrost's message.
+// ErrRefused is a 4xx of the admin API that refuses the request itself, so
+// the same request would be refused again: not 401 or 403 (the server's
+// admin password), 408 or 429. An *Error wraps it with Bifrost's message.
 var ErrRefused = errors.New("bifrost: refused")
 
 // Error is an answer other than 2xx, with the message Bifrost gave.
@@ -36,7 +37,12 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Is(target error) bool {
-	return target == ErrRefused && e.Status >= 400 && e.Status < 500
+	switch e.Status {
+	case http.StatusUnauthorized, http.StatusForbidden, http.StatusRequestTimeout, http.StatusTooManyRequests:
+		return false
+	default:
+		return target == ErrRefused && e.Status >= 400 && e.Status < 500
+	}
 }
 
 // maxReply caps how much of an answer is read.

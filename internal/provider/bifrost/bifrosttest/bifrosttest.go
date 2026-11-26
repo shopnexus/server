@@ -211,6 +211,18 @@ func (f *Fake) Calls(caller string) []Call {
 	return slices.Clone(f.calls[caller])
 }
 
+// spent says whether a team's budget is used up.
+func (f *Fake) spent(teamID string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, t := range f.teams {
+		if t.ID == teamID {
+			return t.Budget != nil && t.Usage >= *t.Budget
+		}
+	}
+	return false
+}
+
 // Teams are the fake's teams, by name.
 func (f *Fake) Teams() map[string]bifrost.Team {
 	f.mu.Lock()
@@ -264,6 +276,13 @@ func reply(w http.ResponseWriter, status int, v any) {
 
 func refuse(w http.ResponseWriter, status int, msg string) {
 	reply(w, status, map[string]any{"error": map[string]any{"message": msg}})
+}
+
+// govern refuses an inference call as Bifrost's governance does: the
+// decision as the body's type, the error type in X-Bifrost-Error-Type.
+func govern(w http.ResponseWriter, status int, decision, errorType, msg string) {
+	w.Header().Set("X-Bifrost-Error-Type", errorType)
+	reply(w, status, map[string]any{"type": decision, "is_bifrost_error": true, "error": map[string]any{"message": msg}})
 }
 
 func teamOut(t *team) bifrost.Team {
@@ -622,7 +641,7 @@ func (f *Fake) infer(w http.ResponseWriter, r *http.Request) {
 	}
 	f.mu.Unlock()
 	if i < 0 {
-		refuse(w, http.StatusUnauthorized, "virtual key not found")
+		govern(w, http.StatusUnauthorized, "access_not_found", "policy_access_denied", "virtual key not found")
 		return
 	}
 	model, ok := body["model"].(string)
@@ -634,8 +653,16 @@ func (f *Fake) infer(w http.ResponseWriter, r *http.Request) {
 	allowed := slices.ContainsFunc(key.ProviderConfigs, func(p bifrost.ProviderConfig) bool {
 		return p.Provider == provider && p.AllowAllKeys && slices.Contains(p.AllowedModels, name)
 	})
-	if !key.Active() || !allowed {
-		refuse(w, http.StatusForbidden, "model not allowed for this virtual key")
+	if !key.Active() {
+		govern(w, http.StatusForbidden, "access_blocked", "policy_access_denied", "virtual key is inactive")
+		return
+	}
+	if !allowed {
+		govern(w, http.StatusForbidden, "model_blocked", "policy_model_blocked", "model not allowed for this virtual key")
+		return
+	}
+	if key.TeamID != nil && f.spent(*key.TeamID) {
+		govern(w, http.StatusPaymentRequired, "budget_exceeded", "policy_budget_exceeded", "budget exceeded")
 		return
 	}
 	if upstream == "" {

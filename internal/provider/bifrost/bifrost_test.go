@@ -9,11 +9,14 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/shopnexus/server/internal/provider/bifrost"
 	"github.com/shopnexus/server/internal/provider/bifrost/bifrosttest"
+	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/provider/llm"
 )
 
@@ -127,9 +130,10 @@ func TestAdminErrors(t *testing.T) {
 	if _, err := a.CreateTeam(ctx, "t", new(-1.0)); !errors.Is(err, bifrost.ErrRefused) {
 		t.Fatalf("a budget under 0 = %v, want ErrRefused", err)
 	}
+	// A wrong password is the server's fault, not the request's.
 	a.Password = "wrong"
-	if _, err := a.Teams(ctx); !errors.Is(err, bifrost.ErrRefused) {
-		t.Fatalf("a wrong password = %v, want ErrRefused", err)
+	if _, err := a.Teams(ctx); err == nil || errors.Is(err, bifrost.ErrRefused) {
+		t.Fatalf("a wrong password = %v, want an error other than ErrRefused", err)
 	}
 	f.SetDown(true)
 	if _, err := f.Admin().Teams(ctx); err == nil || errors.Is(err, bifrost.ErrRefused) {
@@ -165,5 +169,115 @@ func TestPricePatch(t *testing.T) {
 	}
 	if !slices.Equal(bifrost.SplitList(bifrost.JoinList([]string{"a/b", "c/d"})), []string{"a/b", "c/d"}) {
 		t.Fatal("JoinList and SplitList disagree")
+	}
+}
+
+// counted is f's admin with a count of the virtual-key reads.
+func counted(f *bifrosttest.Fake) (bifrost.Admin, *atomic.Int32) {
+	n := &atomic.Int32{}
+	a := f.Admin()
+	a.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "virtual-keys") {
+			n.Add(1)
+		}
+		return http.DefaultTransport.RoundTrip(r)
+	})}
+	return a, n
+}
+
+type roundTrip func(*http.Request) (*http.Response, error)
+
+func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// clock is a test clock goroutines may read.
+type clock struct {
+	mu sync.Mutex
+	at time.Time
+}
+
+func (c *clock) now() time.Time { c.mu.Lock(); defer c.mu.Unlock(); return c.at }
+
+func (c *clock) add(d time.Duration) { c.mu.Lock(); c.at = c.at.Add(d); c.mu.Unlock() }
+
+// A failed read is not tried again for a few seconds, and a cancelled
+// wait ends at once.
+func TestRingBacksOff(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	f := bifrosttest.New()
+	t.Cleanup(f.Close)
+	serverKey(t, f, "server-trust", map[string]string{bifrost.MetaModel: "upstream/claude-haiku-5-5"},
+		map[string][]string{"upstream": {"claude-haiku-5-5"}})
+	a, reads := counted(f)
+	c := &clock{at: time.Now()}
+	ring := bifrost.NewRing(a, c.now)
+	f.SetDown(true)
+	for range 3 {
+		if _, err := ring.Route(ctx, "server-trust"); err == nil || errors.Is(err, bifrost.ErrNoKey) {
+			t.Fatalf("Route while down = %v, want the read's error", err)
+		}
+	}
+	if n := reads.Load(); n != 1 {
+		t.Fatalf("reads = %d, want 1", n)
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := ring.Route(cancelled, "server-trust"); err == nil || reads.Load() != 1 {
+		t.Fatalf("cancelled Route = %v, reads = %d", err, reads.Load())
+	}
+	f.SetDown(false)
+	c.add(time.Minute)
+	if r, err := ring.Route(ctx, "server-trust"); err != nil || r.Model != "upstream/claude-haiku-5-5" {
+		t.Fatalf("Route after the backoff = %+v, %v", r, err)
+	}
+}
+
+// An upstream 401 passed through is the provider's key, not the server's:
+// the ring is not read again.
+func TestUpstreamRefusalKeepsTheRing(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	f := bifrosttest.New()
+	t.Cleanup(f.Close)
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":{"message":"bad provider key"},"type":"provider_auth_failed"}`))
+	}))
+	t.Cleanup(up.Close)
+	f.SetUpstream("server-search", up.URL)
+	serverKey(t, f, "server-search", map[string]string{bifrost.MetaModel: "openrouter/google/gemini-2.5-flash"},
+		map[string][]string{"openrouter": {"google/gemini-2.5-flash"}})
+	a, reads := counted(f)
+	ring := bifrost.NewRing(a, time.Now)
+	chat := bifrost.Chat{BaseURL: f.URL(), Name: "server-search", Ring: ring, HTTP: http.DefaultClient}
+	var out struct{}
+	if err := chat.Complete(ctx, llm.Request{System: "s", User: "u"}, &out); err == nil {
+		t.Fatal("Complete = nil, want the upstream's 401")
+	}
+	if n := reads.Load(); n != 1 {
+		t.Fatalf("reads = %d, want 1", n)
+	}
+}
+
+// A team whose budget is spent answers 402, which both clients name.
+func TestBudgetSpent(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	f := bifrosttest.New()
+	t.Cleanup(f.Close)
+	f.SetUpstream("server-embed-index", upstream(t))
+	serverKey(t, f, "server-embed-index", map[string]string{bifrost.MetaModel: "openrouter/baai/bge-m3"},
+		map[string][]string{"openrouter": {"baai/bge-m3"}})
+	f.SetSpent("server-embed-index-team", 30)
+	ring := bifrost.NewRing(f.Admin(), time.Now)
+	e := bifrost.Embedder{BaseURL: f.URL(), Name: "server-embed-index", Ring: ring, HTTP: http.DefaultClient, Dims: 2}
+	if _, err := e.Embed(ctx, []string{"x"}); !errors.Is(err, embed.ErrBudgetSpent) || errors.Is(err, embed.ErrRefused) {
+		t.Fatalf("Embed = %v, want ErrBudgetSpent", err)
+	}
+	chat := bifrost.Chat{BaseURL: f.URL(), Name: "server-embed-index", Ring: ring, HTTP: http.DefaultClient}
+	var out struct{}
+	if err := chat.Complete(ctx, llm.Request{System: "s", User: "u"}, &out); !errors.Is(err, llm.ErrBudgetSpent) {
+		t.Fatalf("Complete = %v, want ErrBudgetSpent", err)
 	}
 }

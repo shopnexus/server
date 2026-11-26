@@ -28,6 +28,10 @@ type Model interface {
 // will not help. Load, budget and rate refusals (429, 5xx) are other errors.
 var ErrRefused = errors.New("embed: the input was refused")
 
+// ErrBudgetSpent is a 402: the caller's budget or the provider's credit is
+// spent, so the same input fails until it is topped up or resets.
+var ErrBudgetSpent = errors.New("embed: the budget is spent")
+
 // OpenAI is a Model over an OpenAI-compatible API.
 type OpenAI struct {
 	BaseURL string // ends in /v1
@@ -47,6 +51,24 @@ type OpenAI struct {
 type APIError struct {
 	Model  string
 	Status int
+	// Type is the gateway's error type: Bifrost's X-Bifrost-Error-Type, else
+	// the body's top-level type.
+	Type string
+}
+
+// GatewayErrorType is the gateway's kind of the error, empty when none.
+func (e *APIError) GatewayErrorType() string { return e.Type }
+
+// errorType reads the gateway's error type of an answer.
+func errorType(res *http.Response) string {
+	if h := res.Header.Get("X-Bifrost-Error-Type"); h != "" {
+		return h
+	}
+	var body struct {
+		Type string `json:"type"`
+	}
+	_ = json.NewDecoder(io.LimitReader(res.Body, 4<<10)).Decode(&body)
+	return body.Type
 }
 
 func (e *APIError) Error() string { return fmt.Sprintf("%s answered %d", e.Model, e.Status) }
@@ -55,6 +77,9 @@ func (e *APIError) Error() string { return fmt.Sprintf("%s answered %d", e.Model
 func (e *APIError) HTTPStatus() int { return e.Status }
 
 func (e *APIError) Is(target error) bool {
+	if target == ErrBudgetSpent {
+		return e.Status == http.StatusPaymentRequired
+	}
 	switch e.Status {
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusRequestEntityTooLarge, http.StatusUnprocessableEntity:
 		return target == ErrRefused
@@ -96,7 +121,7 @@ func (c OpenAI) Embed(ctx context.Context, inputs []string) ([][]float32, error)
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
-		return nil, &APIError{Model: c.Model, Status: res.StatusCode}
+		return nil, &APIError{Model: c.Model, Status: res.StatusCode, Type: errorType(res)}
 	}
 	var reply struct {
 		Data []struct {

@@ -56,11 +56,16 @@ func SplitList(s string) []string {
 	return strings.Split(s, ",")
 }
 
-// ringTTL is how long the ring trusts what it read before reading again,
-// and missWait how long a caller it lacks waits before the next read.
+// How the ring reads Bifrost: a route older than ringTTL is served while
+// a read runs behind it; a caller the ring lacks waits for a read, at most
+// one per missWait; a failed read is not tried again for failBackoff; a
+// forced read (a key Bifrost refused) runs at most once per reloadEvery.
 const (
-	ringTTL  = 5 * time.Minute
-	missWait = 10 * time.Second
+	ringTTL     = 5 * time.Minute
+	missWait    = 10 * time.Second
+	failBackoff = 5 * time.Second
+	reloadEvery = 10 * time.Second
+	readTimeout = 30 * time.Second
 )
 
 // Ring keeps the server's virtual keys in memory, by caller (the key's
@@ -68,66 +73,123 @@ const (
 type Ring struct {
 	admin Admin
 	now   func() time.Time
-	// loading lets one read of Bifrost run at a time.
-	loading sync.Mutex
-	mu      sync.Mutex
-	routes  map[string]Route
-	at      time.Time
-	// reads counts the listings read, so a reader that waited knows one
-	// finished while it waited.
-	reads int
+
+	mu       sync.Mutex
+	routes   map[string]Route
+	at       time.Time     // the last good read
+	failedAt time.Time     // the last failed read
+	failErr  error         // its error
+	forcedAt time.Time     // the last Reload that read
+	reading  chan struct{} // closed when the read in flight ends
+	onMiss   func(caller string)
 }
 
 func NewRing(a Admin, now func() time.Time) *Ring { return &Ring{admin: a, now: now} }
 
-// Route is caller's route, read again when the ring is older than its TTL;
-// a failed read serves the last one it had.
+// OnMiss sets what runs when a read finds no key for a caller, such as a
+// reconcile that makes it. It runs in its own goroutine.
+func (r *Ring) OnMiss(f func(caller string)) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.onMiss = f
+}
+
+// Route is caller's route. A route the ring has comes back at once, and a
+// stale one starts a read behind it; a caller the ring lacks waits for a
+// read, or for ctx.
 func (r *Ring) Route(ctx context.Context, caller string) (Route, error) {
 	r.mu.Lock()
 	route, ok := r.routes[caller]
-	age := r.now().Sub(r.at)
+	now := r.now()
 	loaded := r.routes != nil
+	stale := now.Sub(r.at) >= ringTTL
+	recent := loaded && now.Sub(r.at) < missWait
 	r.mu.Unlock()
-	if ok && age < ringTTL {
+	if ok {
+		if stale {
+			r.start()
+		}
 		return route, nil
 	}
-	if !ok && loaded && age < missWait {
-		return Route{}, fmt.Errorf("%w: %s", ErrNoKey, caller)
-	}
-	if err := r.Reload(ctx); err != nil {
-		if ok {
-			return route, nil
+	if !recent {
+		if err := r.wait(ctx, r.start()); err != nil {
+			return Route{}, err
 		}
-		return Route{}, err
 	}
 	r.mu.Lock()
 	route, ok = r.routes[caller]
+	miss := r.onMiss
 	r.mu.Unlock()
 	if !ok {
+		if miss != nil {
+			go miss(caller)
+		}
 		return Route{}, fmt.Errorf("%w: %s", ErrNoKey, caller)
 	}
 	return route, nil
 }
 
-// Reload reads the server's keys from Bifrost. Readers that wait for one
-// in flight take its result.
+// Reload reads Bifrost again after it refused a key, at most once per
+// reloadEvery; it waits for the read, or for ctx.
 func (r *Ring) Reload(ctx context.Context) error {
 	r.mu.Lock()
-	asked := r.reads
+	now := r.now()
+	recent := !r.forcedAt.IsZero() && now.Sub(r.forcedAt) < reloadEvery
+	if !recent {
+		r.forcedAt = now
+	}
 	r.mu.Unlock()
-	r.loading.Lock()
-	defer r.loading.Unlock()
-	r.mu.Lock()
-	done := r.reads != asked
-	r.mu.Unlock()
-	if done {
+	if recent {
 		return nil
 	}
-	keys, err := r.admin.VirtualKeys(ctx)
-	if err != nil {
-		return err
+	return r.wait(ctx, r.start())
+}
+
+// start begins a read unless one is in flight or the last one failed
+// within failBackoff, and returns what ends when it is done.
+func (r *Ring) start() chan struct{} {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.reading != nil {
+		return r.reading
 	}
-	r.Set(keys)
+	done := make(chan struct{})
+	if r.failErr != nil && r.now().Sub(r.failedAt) < failBackoff {
+		close(done)
+		return done
+	}
+	r.reading = done
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
+		defer cancel()
+		keys, err := r.admin.VirtualKeys(ctx)
+		if err == nil {
+			r.Set(keys)
+		}
+		r.mu.Lock()
+		if err != nil {
+			r.failedAt, r.failErr = r.now(), err
+		}
+		r.reading = nil
+		r.mu.Unlock()
+		close(done)
+	}()
+	return done
+}
+
+// wait waits for done or ctx, then gives the last read's error when the
+// ring has nothing.
+func (r *Ring) wait(ctx context.Context, done chan struct{}) error {
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return fmt.Errorf("read the virtual keys: %w", ctx.Err())
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.failErr != nil && r.failedAt.After(r.at) {
+		return fmt.Errorf("read the virtual keys: %w", r.failErr)
+	}
 	return nil
 }
 
@@ -140,7 +202,6 @@ func (r *Ring) Set(keys []VirtualKey) {
 		}
 	}
 	r.mu.Lock()
-	r.routes, r.at = routes, r.now()
-	r.reads++
+	r.routes, r.at, r.failErr = routes, r.now(), nil
 	r.mu.Unlock()
 }

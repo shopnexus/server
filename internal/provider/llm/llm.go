@@ -31,6 +31,10 @@ type Request struct {
 // refused again, so a caller should not retry it. The error is an *APIError.
 var ErrRefused = errors.New("model refused the request")
 
+// ErrBudgetSpent is a 402: the caller's budget or the provider's credit is
+// spent, so the same request fails until it is topped up or resets.
+var ErrBudgetSpent = errors.New("model budget spent")
+
 // Client asks a model.
 type Client interface {
 	// Complete asks for an answer that fits r.Schema and decodes it into out.
@@ -137,7 +141,11 @@ func (c OpenAI) post(ctx context.Context, r Request, stream bool) (*http.Respons
 	}
 	if res.StatusCode != http.StatusOK {
 		defer func() { _ = res.Body.Close() }()
-		return nil, &APIError{Status: res.StatusCode, Message: errorMessage(res.Body)}
+		msg, kind := errorMessage(res.Body)
+		if h := res.Header.Get(GatewayErrorHeader); h != "" {
+			kind = h
+		}
+		return nil, &APIError{Status: res.StatusCode, Message: msg, Type: kind}
 	}
 	return res, nil
 }
@@ -148,7 +156,16 @@ func (c OpenAI) post(ctx context.Context, r Request, stream bool) (*http.Respons
 type APIError struct {
 	Status  int
 	Message string
+	// Type is the gateway's error type: Bifrost's X-Bifrost-Error-Type, else
+	// the body's top-level type.
+	Type string
 }
+
+// GatewayErrorHeader is where Bifrost names the kind of an error.
+const GatewayErrorHeader = "X-Bifrost-Error-Type"
+
+// GatewayErrorType is the gateway's kind of the error, empty when none.
+func (e *APIError) GatewayErrorType() string { return e.Type }
 
 func (e *APIError) Error() string {
 	if e.Message == "" {
@@ -161,32 +178,44 @@ func (e *APIError) Error() string {
 func (e *APIError) HTTPStatus() int { return e.Status }
 
 func (e *APIError) Is(target error) bool {
-	return target == ErrRefused && e.Status >= 400 && e.Status < 500 &&
-		e.Status != http.StatusTooManyRequests && e.Status != http.StatusPaymentRequired
+	switch target {
+	case ErrBudgetSpent:
+		return e.Status == http.StatusPaymentRequired
+	case ErrRefused:
+		return e.Status >= 400 && e.Status < 500 &&
+			e.Status != http.StatusTooManyRequests && e.Status != http.StatusPaymentRequired
+	default:
+		return false
+	}
 }
 
 // maxErrorBody caps how much of an error answer is read.
 const maxErrorBody = 4 << 10
 
 // errorMessage is the message of an OpenAI-style error body, else its
-// first line, at most 300 bytes and without anything that looks like a key.
-func errorMessage(r io.Reader) string {
+// first line, at most 300 bytes and without anything that looks like a key,
+// and the body's top-level type.
+func errorMessage(r io.Reader) (msg, kind string) {
 	b, _ := io.ReadAll(io.LimitReader(r, maxErrorBody))
 	var body struct {
+		Type  string `json:"type"`
 		Error struct {
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	msg := string(b)
-	if json.Unmarshal(b, &body) == nil && body.Error.Message != "" {
-		msg = body.Error.Message
+	msg = string(b)
+	if json.Unmarshal(b, &body) == nil {
+		kind = body.Type
+		if body.Error.Message != "" {
+			msg = body.Error.Message
+		}
 	}
 	msg, _, _ = strings.Cut(strings.TrimSpace(msg), "\n")
 	msg = secretLike.ReplaceAllString(msg, "***")
 	if len(msg) > 300 {
 		msg = strings.ToValidUTF8(msg[:300], "")
 	}
-	return msg
+	return msg, kind
 }
 
 // secretLike is an API key or bearer token in an error message.

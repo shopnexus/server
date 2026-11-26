@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/shopnexus/server/internal/provider/embed"
@@ -25,17 +26,16 @@ type Caller struct {
 	HTTP    *http.Client
 }
 
-// call runs f with the caller's route. When Bifrost refuses the key (401 or
-// 403), the reconciler may have changed it: the ring reads Bifrost again
-// and f runs once more if the route changed.
+// call runs f with the caller's route. When Bifrost itself refused the key
+// (keyRefused), the reconciler may have changed it: the ring reads Bifrost
+// again, at most once per reloadEvery, and f runs once more if the route
+// changed. A 401 or 403 the provider gave passes through as it is.
 func (c Caller) call(ctx context.Context, f func(Route) error) error {
 	route, err := c.Ring.Route(ctx, c.Name)
 	if err != nil {
 		return err
 	}
-	err = f(route)
-	var st interface{ HTTPStatus() int }
-	if !errors.As(err, &st) || (st.HTTPStatus() != http.StatusUnauthorized && st.HTTPStatus() != http.StatusForbidden) {
+	if err = f(route); !keyRefused(err) {
 		return err
 	}
 	if c.Ring.Reload(ctx) != nil {
@@ -46,6 +46,20 @@ func (c Caller) call(ctx context.Context, f func(Route) error) error {
 		return err
 	}
 	return f(again)
+}
+
+// keyRefusals are the error types of Bifrost's governance for a virtual key
+// it does not know, has turned off, or that may not call the model or
+// provider: in X-Bifrost-Error-Type, or as the body's type.
+var keyRefusals = []string{
+	"policy_access_denied", "policy_model_blocked", "policy_provider_blocked",
+	"virtual_key_required", "access_not_found", "access_blocked", "model_blocked", "provider_blocked",
+}
+
+// keyRefused says whether Bifrost refused the call's key itself.
+func keyRefused(err error) bool {
+	var e interface{ GatewayErrorType() string }
+	return errors.As(err, &e) && slices.Contains(keyRefusals, e.GatewayErrorType())
 }
 
 // header asks Bifrost to pass the route's extra body on.
