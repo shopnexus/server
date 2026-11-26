@@ -3,11 +3,12 @@
 import exec from 'k6/execution';
 import { discover } from './lib/catalog.js';
 import { buildScenarios, totalVUs } from './lib/scenarios.js';
-import { sessionCount } from './lib/session.js';
+import { sessionCount, tradeCount } from './lib/session.js';
 import { thresholds } from './lib/thresholds.js';
 import { guestVisit } from './journeys/guest.js';
 import { memberVisit } from './journeys/member.js';
 import { holdSocket } from './journeys/socket.js';
+import { tradeVisit } from './journeys/trade.js';
 
 const scenarios = buildScenarios();
 
@@ -24,6 +25,10 @@ export function setup() {
     exec.test.abort(`the run can have ${needed} VUs and each signed-in VU needs its own session, ` +
       `but there are ${sessionCount()}: go run ./cmd/loadsessions -sessions ${needed}`);
   }
+  if (scenarios.trade && tradeCount() < needed) {
+    exec.test.abort(`the run can have ${needed} VUs and each trade VU needs its own trade, ` +
+      `but there are ${tradeCount()}: go run ./cmd/loadsessions -trades ${needed}`);
+  }
   return discover();
 }
 
@@ -37,4 +42,8 @@ export function member(catalog) {
 
 export function socket() {
   holdSocket();
+}
+
+export async function trade() {
+  await tradeVisit();
 }

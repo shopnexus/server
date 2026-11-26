@@ -51,18 +51,33 @@ search-eval: env models
 	go test -tags eval -run TestSearchEval -count=1 -v -timeout 60m ./internal/discovery/eval/
 
 K6 := grafana/k6:2.3.0
+# psql for the database report, from the image the stacks run.
+PSQL_IMAGE := paradedb/paradedb:0.26.4-pg18
 # The settings loadtest/lib/config.js reads, passed on when set.
-LOADTEST_VARS := BASE_URL PROFILE GUEST_RATE MEMBER_RATE SOCKETS TIME_SCALE THINK_SCALE SOCKET_MINUTES SESSIONS_FILE SPREAD_ADDRESSES
+LOADTEST_VARS := BASE_URL PROFILE GUEST_RATE MEMBER_RATE TRADE_RATE SOCKETS TIME_SCALE THINK_SCALE SOCKET_MINUTES SESSIONS_FILE SPREAD_ADDRESSES
 LOADTEST_NETWORK ?= host
+LOADTEST_PSQL = docker run --rm -i --network $(LOADTEST_NETWORK) $(PSQL_IMAGE) psql -X -q "$(PGSTATS_URL)"
+# K6_OTLP, host:port of an OTLP/HTTP receiver such as the stack's lgtm,
+# sends k6's metrics there, beside the server's.
+LOADTEST_OTEL = $(if $(K6_OTLP),-e K6_OTEL_EXPORTER_PROTOCOL=http/protobuf -e K6_OTEL_HTTP_EXPORTER_ENDPOINT=$(K6_OTLP) \
+	-e K6_OTEL_HTTP_EXPORTER_INSECURE=true -e K6_OTEL_METRIC_PREFIX=k6_)
 
 # Runs the k6 load test in loadtest/ (its README.md), against make run's
 # server unless BASE_URL says otherwise:
 #   make loadtest PROFILE=load GUEST_RATE=20 MEMBER_RATE=5 SOCKETS=500
+# With PGSTATS_URL, a superuser's URL of the stack's database, it resets
+# pg_stat_statements first and writes its report to loadtest/results/ after.
 loadtest:
+	$(if $(PGSTATS_URL),$(LOADTEST_PSQL) < loadtest/pgstats-reset.sql >/dev/null)
 	docker run --rm --network $(LOADTEST_NETWORK) -v $(CURDIR)/loadtest:/loadtest -w /loadtest \
-		$(foreach v,$(LOADTEST_VARS),$(if $($(v)),-e $(v)=$($(v)))) $(K6) run main.js
+		$(foreach v,$(LOADTEST_VARS),$(if $($(v)),-e $(v)=$($(v)))) $(LOADTEST_OTEL) \
+		$(K6) run $(if $(K6_OTLP),-o opentelemetry) main.js; status=$$?; \
+	$(if $(PGSTATS_URL),mkdir -p loadtest/results && f=loadtest/results/pgstats-$$(date +%Y%m%d-%H%M%S).txt && \
+		$(LOADTEST_PSQL) < loadtest/pgstats-report.sql > $$f && echo "database report: $$f";) exit $$status
 
 # Signs in the sessions the signed-in VUs use, SESSIONS of them across
-# ACCOUNTS accounts, into loadtest/sessions.json. Run it before each run.
+# ACCOUNTS accounts, and TRADES trades for the trade VUs, into
+# loadtest/sessions.json. Run it before each run.
 loadtest-sessions: env
-	go run ./cmd/loadsessions -accounts $(or $(ACCOUNTS),200) -sessions $(or $(SESSIONS),1000) > loadtest/sessions.json
+	go run ./cmd/loadsessions -accounts $(or $(ACCOUNTS),200) -sessions $(or $(SESSIONS),1000) \
+		-trades $(or $(TRADES),0) -sellers $(or $(SELLERS),20) -listings $(or $(LISTINGS),10) > loadtest/sessions.json

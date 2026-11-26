@@ -27,10 +27,13 @@ export const config = Object.freeze({
   wsUrl: baseUrl.replace(/^http/, 'ws'),
   // A shape of profiles.js.
   profile: text('PROFILE', 'smoke'),
-  // Peak load, which each profile's stages scale: guest and member visits
-  // started per second, and open sockets (signed-in users with the app open).
+  // Peak load, which each profile's stages scale: guest, member and trade
+  // visits started per second, and open sockets (signed-in users with the
+  // app open). A trade chats in words, so the stack needs
+  // TRUST_SCAM_CHECKS=off, or each message is a paid model call.
   guestRate: number('GUEST_RATE', 1),
   memberRate: number('MEMBER_RATE', 0),
+  tradeRate: number('TRADE_RATE', 0),
   sockets: number('SOCKETS', 0),
   // Stretches every profile's stages; 0.1 runs a load test in a tenth.
   timeScale: number('TIME_SCALE', 1),

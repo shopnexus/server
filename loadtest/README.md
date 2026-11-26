@@ -9,11 +9,19 @@ going: it shows which resource fills first.
 
 | Scenario | VU model | What one iteration does |
 |---|---|---|
-| `guest` | visits started per second (`GUEST_RATE`) | home, a search or a category, a listing, sometimes its seller |
-| `member` | visits started per second (`MEMBER_RATE`) | home and unread counts, a search, a listing marked viewed; sometimes a save that it undoes, the inbox or the saved list |
+| `guest` | visits started per second (`GUEST_RATE`) | home, a search in words or a category with filters, a sort and up to five pages, a listing and half the time the listings like it, sometimes its seller |
+| `member` | visits started per second (`MEMBER_RATE`) | home and unread counts, a category browse, a listing marked viewed; sometimes a save that it undoes, the inbox or the saved list |
+| `trade` | visits started per second (`TRADE_RATE`) | with the seller's app open, a buyer opens a deal on a load-test listing and offers, writes; the seller reads, replies and declines; times how long the seller's socket takes to hear of the offer and the message |
 | `socket` | open apps (`SOCKETS`) | opens `/v1/ws`, waits for `ready`, renews the access token over the socket, closes after about `SOCKET_MINUTES` and opens again |
 
-`guest` and `member` start visits at a fixed rate whether or not earlier
+A search's sort, filters and pages follow the shares in `journeys/browse.js`.
+Every sort but relevance reads each list of a hybrid search at full depth,
+the costliest search. Half the guest searches are a head term from
+`data/queries.json`, the rest a term with a word added or typed without
+diacritics (`lib/queries.js`), so the runs do not search the same twenty
+terms over and over.
+
+`guest`, `member` and `trade` start visits at a fixed rate whether or not earlier
 visits have finished, the way real arrivals behave. When the server slows
 down, visits pile up instead of the load easing off. `socket` keeps one VU per
 open app, so its VU count equals the number of signed-in users online.
@@ -21,6 +29,29 @@ open app, so its VU count equals the number of signed-in users online.
 Every request carries the route as `api/openapi.yaml` writes it
 (`/v1/screens/listing/{id}`) in the `name` tag, which matches the server's
 `http_route`. Requests are also tagged with `journey`.
+
+## What a run costs
+
+Nothing: no scenario reaches a paid model.
+
+- A guest's words go through BM25 alone. A signed-in person's words go
+  through the model and the embedding API, so `member` never searches in
+  words; it browses categories and the listings like one, which read the
+  stored vectors.
+- `trade` chats in words, and every message with text is sent to the scam
+  classifier, a paid call. Run it only against a stack with
+  `TRUST_SCAM_CHECKS=off`: in `server/.env` for `make run`. For the compose
+  stack, recreate the server with a file that sets it and recreate it
+  without the file after the run:
+
+  ```sh
+  printf 'services:\n  server-dev:\n    environment:\n      TRUST_SCAM_CHECKS: "off"\n' > server/tmp/scam-off.yml
+  docker compose -f docker-compose.yml -f server/tmp/scam-off.yml up -d --no-deps server-dev
+  ```
+- Posting a listing embeds its text. `cmd/loadsessions` puts the trade
+  sellers' listings on sale straight into the database instead.
+- No scenario uploads a photo, searches by photo, reads a video or asks for
+  a price guide.
 
 `setup()` searches for the terms in `data/queries.json` and collects the
 listing and seller ids the scenarios open, so the scripts work on any seeded
@@ -51,6 +82,21 @@ make loadtest MEMBER_RATE=2 SOCKETS=200
 If the file holds fewer sessions than the run can have VUs, `setup()` stops
 the run and prints the `-sessions` number it needs.
 
+`trade` needs trades too: `TRADES` of them, each a buyer of its own
+(`+8490997xxxx`) and a session of one of `SELLERS` sellers (`+8490996xxxx`),
+on one of the seller's `LISTINGS` listings. The first run puts those listings
+on sale and later runs reuse them. Deals and messages stay among these
+accounts, so no real person hears of them; the listings show in search like
+any other, so keep `trade` to a stack nobody else uses.
+
+```sh
+make loadtest-sessions SESSIONS=500 TRADES=500
+make loadtest PROFILE=load GUEST_RATE=10 MEMBER_RATE=2 TRADE_RATE=1
+```
+
+As with sessions, a VU takes the trade whose number matches its own, so the
+file needs as many trades as the run can have VUs.
+
 Against the umbrella's compose dev stack, run k6 on its network and point it
 at the server container:
 
@@ -67,6 +113,7 @@ make loadtest LOADTEST_NETWORK=shopnexus_dev BASE_URL=http://server-dev:8080 MEM
 | `PROFILE` | `smoke` | the load shape, from `lib/profiles.js` |
 | `GUEST_RATE` | `1` | guest visits started per second at the peak |
 | `MEMBER_RATE` | `0` | signed-in visits started per second at the peak |
+| `TRADE_RATE` | `0` | trade visits started per second at the peak; needs `TRUST_SCAM_CHECKS=off` on the stack |
 | `SOCKETS` | `0` | open sockets at the peak |
 | `TIME_SCALE` | `1` | multiplies the length of every stage; `0.1` runs the profile in a tenth of the time |
 | `THINK_SCALE` | `1` | multiplies the pauses between steps; `0` removes them |
@@ -74,6 +121,8 @@ make loadtest LOADTEST_NETWORK=shopnexus_dev BASE_URL=http://server-dev:8080 MEM
 | `SESSIONS_FILE` | `./sessions.json` | the output of `cmd/loadsessions`, relative to `loadtest/` |
 | `SPREAD_ADDRESSES` | `false` | gives each VU its own address in 198.18.0.0/15 through `X-Forwarded-For` |
 | `LOADTEST_NETWORK` | `host` | the Docker network `make loadtest` runs k6 in |
+| `PGSTATS_URL` | unset | a superuser's URL of the stack's database: `make loadtest` resets `pg_stat_statements` before the run and writes its report to `results/` after |
+| `K6_OTLP` | unset | host:port of an OTLP/HTTP receiver, such as the stack's lgtm: k6 sends its metrics there with the prefix `k6_`, beside the server's |
 
 ## Profiles
 
@@ -122,5 +171,29 @@ dashboard once there is traffic.
 - Signed-in search calls the model through LiteLLM, and LiteLLM's key limits
   (`infra/stack/values-prod.yaml`) cap it. Each signed-in search in a member run is a paid model call.
 - No scenario signs in: phone tokens come from Firebase and email codes are
-  sent by mail. None writes chat messages or makes deals, because those notify
-  real sellers and start scam checks.
+  sent by mail. Only `trade` writes messages and moves on deals, among the
+  load test's own accounts.
+
+## Reading a run
+
+- k6's summary gives each route's latency, and the targets in
+  `lib/thresholds.js` cover the routes people wait on most one by one, so a
+  slow search does not hide behind fast listing screens. A `stress` run
+  stops a minute after it first misses a target: the level it reached is the
+  answer.
+- With `PGSTATS_URL`, `results/pgstats-*.txt` lists the statements that took
+  the database's time during the run, by total and by mean. With `make run`:
+  `PGSTATS_URL=postgres://server:server@localhost:56432/server`.
+- With `K6_OTLP`, k6's metrics land in the stack's Prometheus beside the
+  Server dashboard's Saturation row: `K6_OTLP=localhost:56318` with
+  `make run`, `K6_OTLP=lgtm-dev:4318` on the compose network.
+
+## Data size
+
+Load alone misses the limit search meets first: the vector and BM25 indexes
+must fit in Postgres's memory, and they grow with the listings. Before
+trusting a result for more listings than the stack holds, load more with
+seedpack (500,000, then 1,000,000) and run `stress` again. Run once right
+after Postgres restarts too: a cold index reads from disk and is ten to fifty
+times slower than a warm one.
+

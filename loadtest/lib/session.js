@@ -10,23 +10,29 @@ const REFRESH_MARGIN_MS = 60 * 1000;
 
 const lost = new Counter('sessions_lost');
 
-// The sessions cmd/loadsessions printed. open() resolves from this file, so a
+// What cmd/loadsessions printed: the sessions of the member and socket VUs,
+// and the trades of the trade VUs. open() resolves from this file, so a
 // relative SESSIONS_FILE is taken from loadtest/.
-const entries = needsSessions()
-  ? new SharedArray('sessions', () => JSON.parse(open(fromLoadtest(config.sessionsFile))))
-  : [];
+// SharedArray reads the file once, not once per VU.
+const read = (part) => (needsSessions() ? JSON.parse(open(fromLoadtest(config.sessionsFile)))[part] ?? [] : []);
+const entries = new SharedArray('sessions', () => read('sessions'));
+const trades = new SharedArray('trades', () => read('trades'));
 
 function needsSessions() {
-  return config.memberRate > 0 || config.sockets > 0;
+  return config.memberRate > 0 || config.sockets > 0 || config.tradeRate > 0;
 }
 
 function fromLoadtest(path) {
   return path.startsWith('/') ? path : `../${path.replace(/^\.\//, '')}`;
 }
 
-// sessionCount is how many sessions the file holds.
+// sessionCount is how many sessions the file holds, tradeCount how many trades.
 export function sessionCount() {
   return entries.length;
+}
+
+export function tradeCount() {
+  return trades.length;
 }
 
 // A Session is one signed-in device. It rotates its own refresh token, so no
@@ -72,4 +78,19 @@ export function vuSession() {
     mine = new Session(entry);
   }
   return mine;
+}
+
+let myTrade;
+
+// vuTrade is this VU's trade, entry number idInTest of the file's trades:
+// its buyer and seller sessions and the listing they deal on.
+export function vuTrade() {
+  if (!myTrade) {
+    const entry = trades[exec.vu.idInTest - 1];
+    if (!entry) {
+      exec.test.abort(`VU ${exec.vu.idInTest} has no trade: ${config.sessionsFile} holds ${trades.length}`);
+    }
+    myTrade = { buyer: new Session(entry.buyer), seller: new Session(entry.seller), listingId: entry.listing_id };
+  }
+  return myTrade;
 }

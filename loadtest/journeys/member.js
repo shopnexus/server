@@ -3,15 +3,16 @@ import { vuSession } from '../lib/session.js';
 import { chance, think } from '../lib/think.js';
 import { openListing, search } from './browse.js';
 
-// A signed-in visit: home and unread counts, a search, a listing it marks as
-// viewed, and now and then a save, the inbox or the saved list. A save is
-// undone in the same visit, so runs leave the accounts as they found them.
+// A signed-in visit: home and unread counts, a browse (never words, which
+// the model reads at a cost), a listing it marks as viewed, and now and then
+// a save, the inbox or the saved list. A save is undone in the same visit,
+// so runs leave the accounts as they found them.
 export function memberVisit(catalog) {
   const api = new Api('member', vuSession());
   api.get('/v1/screens/home');
   api.get('/v1/me/unread');
   think(2, 6);
-  const found = search(api, catalog);
+  const found = search(api, catalog, { words: false });
   think(3, 8);
   const listing = openListing(api, catalog, found);
   api.put('/v1/viewed/{listing_id}', { path: { listing_id: listing.id } });

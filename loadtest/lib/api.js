@@ -41,32 +41,63 @@ export class Api {
   }
 
   put(route, opts) {
-    return this.request('PUT', route, { expect: [204], ...opts });
+    return this.request('PUT', route, opts);
   }
 
   del(route, opts) {
-    return this.request('DELETE', route, { expect: [204], ...opts });
+    return this.request('DELETE', route, opts);
+  }
+
+  post(route, opts) {
+    return this.request('POST', route, opts);
   }
 
   // request sends method to route, filling its {names} from path. k6 drops
-  // response bodies (main.js) unless read is set. A signed-in request that
-  // gets 401 refreshes the session and tries once more.
-  request(method, route, { path = {}, query = {}, body, expect = [200], read = false } = {}) {
-    const url = config.baseUrl + fill(route, path) + queryString(query);
-    const payload = body === undefined ? null : JSON.stringify(body);
-    if (this.session) this.session.ensureFresh();
-    let res = http.request(method, url, payload, this.params(route, expect, read));
+  // response bodies unless read is set. A signed-in request that gets 401
+  // refreshes the session and tries once more. With idempotent set it sends
+  // a new Idempotency-Key, the same on the retry.
+  request(method, route, opts = {}) {
+    const r = this.prepare(method, route, opts);
+    let res = http.request(method, r.url, r.payload, this.params(route, r));
     if (res.status === 401 && this.session) {
       this.session.refresh();
-      res = http.request(method, url, payload, this.params(route, expect, read));
+      res = http.request(method, r.url, r.payload, this.params(route, r));
     }
-    check(res, { [`${method} ${route} answers ${expect.join(' or ')}`]: (r) => expect.includes(r.status) });
+    return this.checked(method, route, r, res);
+  }
+
+  // send is request without blocking the VU's event loop, so a socket's
+  // frames are read while the request is out.
+  async send(method, route, opts = {}) {
+    const r = this.prepare(method, route, opts);
+    let res = await http.asyncRequest(method, r.url, r.payload, this.params(route, r));
+    if (res.status === 401 && this.session) {
+      this.session.refresh();
+      res = await http.asyncRequest(method, r.url, r.payload, this.params(route, r));
+    }
+    return this.checked(method, route, r, res);
+  }
+
+  prepare(method, route, { path = {}, query = {}, body, expect, read = false, idempotent = false }) {
+    if (this.session) this.session.ensureFresh();
+    return {
+      url: config.baseUrl + fill(route, path) + queryString(query),
+      payload: body === undefined ? null : JSON.stringify(body),
+      expect: expect ?? (method === 'PUT' || method === 'DELETE' ? [204] : [200]),
+      read,
+      key: idempotent ? uuid() : undefined,
+    };
+  }
+
+  checked(method, route, r, res) {
+    check(res, { [`${method} ${route} answers ${r.expect.join(' or ')}`]: (x) => r.expect.includes(x.status) });
     return res;
   }
 
-  params(route, expect, read) {
+  params(route, { expect, read, key }) {
     const headers = { Accept: 'application/json', 'Content-Type': 'application/json', ...addressHeaders() };
     if (this.session) headers.Authorization = `Bearer ${this.session.accessToken}`;
+    if (key) headers['Idempotency-Key'] = key;
     return {
       headers,
       tags: { name: route, journey: this.journey },
@@ -74,6 +105,15 @@ export class Api {
       responseType: read ? 'text' : 'none',
     };
   }
+}
+
+// uuid is a random version 4 UUID.
+function uuid() {
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 // body parses a JSON response, or gives null for a failed or empty one.

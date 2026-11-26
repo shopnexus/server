@@ -4,7 +4,7 @@ import { profiles } from './profiles.js';
 // About how long a visit lasts with its pauses at THINK_SCALE=1. Visits
 // started per second times this is how many run at once (Little's law),
 // which sizes each scenario's pool of VUs.
-const VISIT_SECONDS = { guest: 30, member: 45 };
+const VISIT_SECONDS = { guest: 30, member: 45, trade: 60 };
 
 function shape() {
   const stages = profiles[config.profile];
@@ -49,8 +49,9 @@ export function buildScenarios() {
   const scenarios = {};
   if (config.guestRate > 0) scenarios.guest = visits('guest', config.guestRate);
   if (config.memberRate > 0) scenarios.member = visits('member', config.memberRate);
+  if (config.tradeRate > 0) scenarios.trade = visits('trade', config.tradeRate);
   if (config.sockets > 0) scenarios.socket = sockets(config.sockets);
-  if (Object.keys(scenarios).length === 0) throw new Error('GUEST_RATE, MEMBER_RATE and SOCKETS are all 0');
+  if (Object.keys(scenarios).length === 0) throw new Error('GUEST_RATE, MEMBER_RATE, TRADE_RATE and SOCKETS are all 0');
   return scenarios;
 }
 
