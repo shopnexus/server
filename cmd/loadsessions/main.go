@@ -14,6 +14,11 @@
 // with -listings listings that are put on sale here, straight into the
 // database: posting through the API would embed their text, a paid call.
 // Deals and chats stay among these accounts, so no real person hears of them.
+//
+// After a run, -park hides the sellers' listings from everyone, and the
+// next run puts them on sale again:
+//
+//	go run ./cmd/loadsessions -park
 package main
 
 import (
@@ -74,8 +79,15 @@ func main() {
 	trades := flag.Int("trades", 0, "trades for the trade journey's VUs")
 	sellers := flag.Int("sellers", 20, "seller accounts the trades share")
 	listings := flag.Int("listings", 10, "listings each seller has on sale")
+	park := flag.Bool("park", false, "hide the trade sellers' listings, and sign no one in")
 	flag.Parse()
-	if err := run(context.Background(), *accounts, *sessions, *trades, *sellers, *listings); err != nil {
+	var err error
+	if *park {
+		err = parkAll(context.Background())
+	} else {
+		err = run(context.Background(), *accounts, *sessions, *trades, *sellers, *listings)
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "loadsessions:", err)
 		os.Exit(1)
 	}
@@ -173,11 +185,37 @@ func run(ctx context.Context, accounts, sessions, trades, sellers, listings int)
 	return nil
 }
 
+// sellerPhones matches the trade sellers' numbers.
+const sellerPhones = "+8490996%"
+
+// parkAll hides every listing on sale of the trade sellers.
+func parkAll(ctx context.Context) error {
+	cfg, err := config.FromDotEnv(".env")
+	if err != nil {
+		return err
+	}
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("connect to postgres: %w", err)
+	}
+	defer pool.Close()
+	tag, err := pool.Exec(ctx, `UPDATE listings SET status = 'hidden', updated_at = now()
+WHERE status = 'active' AND seller_id IN (SELECT account_id FROM identities WHERE kind = 'phone' AND identifier LIKE @phones)`,
+		pgx.StrictNamedArgs{"phones": sellerPhones})
+	if err != nil {
+		return fmt.Errorf("hide the sellers' listings: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "hid %d listings\n", tag.RowsAffected())
+	return nil
+}
+
 // onSale returns n listings of seller's that take offers, putting the
-// missing ones on sale first, so later runs reuse those of the first.
+// missing ones on sale first, so later runs reuse those of the first. Those
+// -park hid go back on sale.
 func onSale(ctx context.Context, pool *pgxpool.Pool, seller uuid.UUID, n int) ([]uuid.UUID, error) {
-	rows, err := pool.Query(ctx, `SELECT id FROM listings WHERE seller_id = @seller AND status = 'active' AND allow_offers
-ORDER BY id LIMIT @n`, pgx.StrictNamedArgs{"seller": seller, "n": n})
+	rows, err := pool.Query(ctx, `UPDATE listings SET status = 'active', updated_at = now()
+WHERE id IN (SELECT id FROM listings WHERE seller_id = @seller AND status IN ('active', 'hidden') AND allow_offers ORDER BY id LIMIT @n)
+RETURNING id`, pgx.StrictNamedArgs{"seller": seller, "n": n})
 	if err != nil {
 		return nil, fmt.Errorf("read the listings of %s: %w", seller, err)
 	}

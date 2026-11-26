@@ -86,12 +86,14 @@ the run and prints the `-sessions` number it needs.
 (`+8490997xxxx`) and a session of one of `SELLERS` sellers (`+8490996xxxx`),
 on one of the seller's `LISTINGS` listings. The first run puts those listings
 on sale and later runs reuse them. Deals and messages stay among these
-accounts, so no real person hears of them; the listings show in search like
-any other, so keep `trade` to a stack nobody else uses.
+accounts, so no real person hears of them. The listings show in search
+while on sale, so hide them after the run; the next run puts them on sale
+again:
 
 ```sh
 make loadtest-sessions SESSIONS=500 TRADES=500
 make loadtest PROFILE=load GUEST_RATE=10 MEMBER_RATE=2 TRADE_RATE=1
+go run ./cmd/loadsessions -park
 ```
 
 As with sessions, a VU takes the trade whose number matches its own, so the
@@ -104,6 +106,15 @@ at the server container:
 docker exec -w /src shopnexus-server-dev-1 go run ./cmd/loadsessions -sessions 2000 > loadtest/sessions.json
 make loadtest LOADTEST_NETWORK=shopnexus_dev BASE_URL=http://server-dev:8080 MEMBER_RATE=2 SOCKETS=200
 ```
+
+On the dev cluster, run k6 in a pod of `shopnexus-dev` with this folder
+copied in, against `BASE_URL=http://server-api:8080` with
+`SPREAD_ADDRESSES=true` (Traefik's pod network is a trusted proxy), and
+`K6_OTLP=lgtm:4318`. The server image holds `/loadsessions`: run it with
+`kubectl exec` in a server pod, which has the database and keys. Turn scam
+checks off with `server.scamChecks: "off"` in `values-dev.yaml` for a
+`trade` run, and back on after. Reset and read `pg_stat_statements` as the
+`postgres` user in the `postgres-1` pod, database `app`.
 
 ## Settings
 
