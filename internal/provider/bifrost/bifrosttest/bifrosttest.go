@@ -625,7 +625,7 @@ func (f *Fake) logStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // providerKeys answers one key per provider, id <provider>-key.
-func (f *Fake) providerKeys(w http.ResponseWriter, r *http.Request) {
+func (*Fake) providerKeys(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, map[string]any{"keys": []map[string]string{{"id": r.PathValue("name") + "-key"}}})
 }
 
