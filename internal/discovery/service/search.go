@@ -306,11 +306,11 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		d.d.Log.InfoContext(ctx, "search terms", "search_id", view.SearchID, "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
 	}
 
-	// The counts run beside the search: a hybrid count reads its lists at
-	// full depth and is the slower of the two.
+	// Only a browse of a root counts, beside the search: the category page
+	// reads them, and no caller reads them for words, a photo or a like.
 	var countErr error
 	var wg sync.WaitGroup
-	if filters.CategoryRoot != "" {
+	if filters.CategoryRoot != "" && q == "" && !search.Hybrid() {
 		wg.Go(func() { view.Counts, countErr = d.d.Catalog.Counts(ctx, search) })
 	}
 	cards, err := d.d.Catalog.Search(ctx, search)

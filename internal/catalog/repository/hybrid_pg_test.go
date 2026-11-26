@@ -154,7 +154,7 @@ func TestHybridPagesWithoutGapsOrRepeats(t *testing.T) {
 	}
 }
 
-func TestHybridBoostListAndCounts(t *testing.T) {
+func TestHybridBoostList(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	ctx := context.Background()
@@ -171,14 +171,13 @@ func TestHybridBoostListAndCounts(t *testing.T) {
 	if got := ids(hits); err != nil || !slices.Equal(got, []uuid.UUID{b, a}) {
 		t.Fatalf("the boost list lifts b: %v %v", got, err)
 	}
-	counts, err := repository.NewSearches(db).Counts(ctx, search)
-	if err != nil || len(counts) != 1 || counts[0].Count != 2 {
-		t.Fatalf("%+v %v", counts, err)
+	if _, err = repository.NewSearches(db).Counts(ctx, search); err == nil {
+		t.Fatal("counted a hybrid search")
 	}
 }
 
 // A relevance page reads a few times its end from each list; other sorts
-// and the counts read every listing the lists find.
+// read every listing the lists find.
 func TestHybridListDepth(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -213,9 +212,5 @@ func TestHybridListDepth(t *testing.T) {
 	hits, err = searches.Search(ctx, search(domain.SortPriceAsc, 0))
 	if got := ids(hits); err != nil || len(got) == 0 || got[0] != all[n-1] {
 		t.Fatalf("price sort orders every candidate: %v %v", got, err)
-	}
-	counts, err := searches.Counts(ctx, search(domain.SortRelevance, 0))
-	if err != nil || len(counts) != 1 || counts[0].Count != n {
-		t.Fatalf("counts: %+v %v", counts, err)
 	}
 }

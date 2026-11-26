@@ -189,7 +189,10 @@ SearchView:
       description: The caller's watch of this query; absent signed out or when there is none.
     counts:
       type: array
-      description: With a root category filter, the matches per subcategory, under every other filter, province included.
+      description: >-
+        On a browse of a root category, without q, photo or like: the matches
+        per subcategory, under every other filter, province included. Absent
+        on any other search.
       items:
         $ref: "#/CategoryCount"
 SearchHistory:

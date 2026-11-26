@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -519,24 +520,7 @@ func iterativeScan(b *pgx.Batch) {
 
 func (s pgSearches) Counts(ctx context.Context, in domain.Search) ([]domain.CategoryCount, error) {
 	if in.Hybrid() {
-		q := query{args: pgx.StrictNamedArgs{}}
-		var counts []domain.CategoryCount
-		b := &pgx.Batch{}
-		iterativeScan(b)
-		// Counts are over every listing the lists find, at full depth.
-		b.Queue(q.hybrid(in, domain.MaxResults)+`
-SELECT l.category_code, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.id GROUP BY 1 ORDER BY 2 DESC, 1`, q.args).
-			Query(func(rows pgx.Rows) error {
-				var err error
-				if counts, err = pgx.CollectRows(rows, pgx.RowToStructByPos[domain.CategoryCount]); err != nil {
-					return fmt.Errorf("read counts: %w", err)
-				}
-				return nil
-			})
-		if err := s.db.SendBatch(ctx, b).Close(); err != nil {
-			return nil, fmt.Errorf("count: %w", err)
-		}
-		return counts, nil
+		return nil, errors.New("counts take a search without lists to fuse")
 	}
 	q := query{args: pgx.StrictNamedArgs{}}
 	rows, err := s.db.Query(ctx, `SELECT category_code, count(*) FROM listings WHERE `+q.where(in, false)+

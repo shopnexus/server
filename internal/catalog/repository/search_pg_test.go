@@ -375,7 +375,4 @@ func TestSearchProvince(t *testing.T) {
 	if got := run(hybrid); !slices.Equal(got, []uuid.UUID{bikeHCM}) {
 		t.Fatalf("hybrid: %v", got)
 	}
-	if counts, err = s.Counts(ctx, hybrid); err != nil || !slices.Equal(counts, []domain.CategoryCount{{Code: "vehicles.bicycle", Count: 1}}) {
-		t.Fatalf("hybrid counts: %v %v", counts, err)
-	}
 }

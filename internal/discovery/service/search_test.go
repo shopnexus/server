@@ -284,6 +284,10 @@ func TestSearchPagesCountsAndSaves(t *testing.T) {
 		len(v.Items) != 1 || v.NextCursor != "" {
 		t.Fatalf("second page: %+v %v", v, err)
 	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe đạp", Category: "vehicles"}); err != nil ||
+		len(v.Items) != 3 || len(v.Counts) != 0 {
+		t.Fatalf("words count nothing: %+v %v", v, err)
+	}
 	me := accounttest.New(t, e.db)
 	if err = e.discovery.Save(ctx, me, bikes[0]); err != nil {
 		t.Fatal(err)

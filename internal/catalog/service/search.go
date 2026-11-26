@@ -103,10 +103,6 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 }
 
 func (c *Catalog) Counts(ctx context.Context, s domain.Search) ([]domain.CategoryCount, error) {
-	s, err := c.withVectors(ctx, s)
-	if err != nil {
-		return nil, err
-	}
 	counts, err := c.d.Searches.Counts(ctx, s)
 	if err != nil {
 		return nil, fmt.Errorf("count listings: %w", err)
