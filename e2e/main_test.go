@@ -165,7 +165,7 @@ func setup(closers *[]func()) error {
 		AI: config.AIConfig{
 			EmbedModel: "siglip2-so400m-patch16-384", EmbedMaxInputs: 16, EmbedMaxImageMB: 10, FramesMaxConcurrent: 2,
 		},
-		Trust: config.TrustConfig{CallTimeout: 5 * time.Second},
+		Trust: config.TrustConfig{CallTimeout: 5 * time.Second, ScamChecks: true},
 		Agent: config.AgentConfig{
 			BaseURL: agentStub.url(), ServiceToken: agentServiceToken, MCPAddr: "127.0.0.1:0", MCPToken: agentMCPToken,
 		},

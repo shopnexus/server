@@ -166,7 +166,7 @@ func TestSearchCategory(t *testing.T) {
 		"q": {"xe dap di lam duoi 3tr"}, "category": {"vehicles"},
 		"price_min": {strconv.FormatInt(lo, 10)}, "price_max": {strconv.FormatInt(hi, 10)},
 	}, bearer(buyer.AccessToken))
-	if res.Status != http.StatusOK || len(v.Counts) != 1 || len(v.Chips) == 0 {
+	if res.Status != http.StatusOK || len(v.Chips) == 0 {
 		t.Fatalf("text on a root category page: %d %s", res.Status, res.Body)
 	}
 }

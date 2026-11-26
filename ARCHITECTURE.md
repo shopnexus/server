@@ -28,15 +28,18 @@ ParadeDB supports it (decided 2026-10-27). Restate replaced the relay, JetStream
 a table, `events`, that a bus drains into Restate (see Events). `/readyz`
 checks Postgres and the Restate admin health endpoint.
 
-Every model call goes through the stack's `ai-gateway`, the LiteLLM of the
-`ai` repo, under an alias and a key per purpose (decided 2026-11-17, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-17-ai-hub-design.md`). The text
-embedding model of search is the alias `embed-text`, `BAAI/bge-m3` through
-OpenRouter, at `EMBED_TEXT_BASE_URL`; locally the server calls OpenRouter
-itself. TEI served bge-m3 until 2026-11-17; OpenRouter's DeepInfra gives the
-same vectors, so `EMBED_TEXT_VERSION` did not change. Photo vectors, speech
-to text and video frames are module ai's, in this binary (see Module ai);
-they went through LiteLLM and the `ai` repo's `ai-models` until 2026-11-18.
+Every model call goes through Bifrost, the stack's AI gateway, at
+`GATEWAY_URL` (decided 2026-11-26, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-26-bifrost-gateway-design.md`;
+LiteLLM until then, and before it the `ai` repo's `ai-gateway`). Each
+caller of the server's code has a virtual key, which the server makes and
+reads itself, and calls `provider/model` with the agent's fallbacks (see AI
+settings). The text embedding model of search is the `embed-text` agent's,
+`openrouter/baai/bge-m3`, pinned to OpenRouter's DeepInfra, which gives
+TEI's vectors, so `EMBED_TEXT_VERSION` did not change when TEI went on
+2026-11-17. Photo vectors, speech to text and video frames are module ai's,
+in this binary (see Module ai); they went through LiteLLM and the `ai`
+repo's `ai-models` until 2026-11-18.
 `/readyz` checks neither.
 
 Each kind of vector can be off: an empty `EMBED_TEXT_MODEL` or
@@ -47,14 +50,13 @@ model fails. The kind's version may then be empty, which matches no stored
 vector, so `like` and the market price read none of it either.
 
 A video read (see Assist) calls three more models. Frames and speech to
-text are module ai's `Frames` and `Transcribe`. The vision model is at
-`ASSIST_LLM_BASE_URL`: LiteLLM's alias `listing-read` in the cluster, the
-LLM in `.env` locally. A 402 from the gateway (a spent
+text are module ai's `Frames` and `Transcribe`. The vision model is the
+`listing-read` agent's, called with the key `server-assist`. A 402 from
+the gateway (a spent
 budget or OpenRouter credit) is a passing failure in `provider/llm`, like a
 429, not a refused request.
 
-A link read (see Assist) calls the same model at `ASSIST_LLM_BASE_URL`
-with text only, and, through the cluster's open egress, Chợ Tốt's public
+A link read (see Assist) calls the same model with text only, and, through the cluster's open egress, Chợ Tốt's public
 gateway at `CHOTOT_GATEWAY_URL` and its CDN at `CHOTOT_CDN_URL`.
 
 ### Use cases
@@ -1208,9 +1210,9 @@ buyer's address, so its beacons count per buyer.
 
 ### Ops dashboards
 
-Grafana, Restate's UI, LiteLLM's UI, RustFS's console, Argo CD and pgweb
-(app `db`, on the stack's database, added 2026-11-17) open from the
-console on hosts of their own (decided 2026-11-05, spec:
+Grafana, Restate's UI, Bifrost's UI (app `bifrost`, LiteLLM's until
+2026-11-26), RustFS's console, Argo CD and pgweb (app `db`, on the stack's
+database, added 2026-11-17) open from the console on hosts of their own (decided 2026-11-05, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-05-ops-dashboards-design.md`).
 Grafana takes a moderator; the others take an admin.
 
@@ -2830,8 +2832,8 @@ Scam warnings are trust's too (decided 2026-11-11, spec:
   (single spaces, dots or dashes between them) as a whole: an amount keeps
   its unit (đ, vnd, vnđ up to 10 digits; k, tr up to 7) when the unit does
   not start a word, a run from + or of 10 or 11 digits from 0 is a phone,
-  and any other run of 8 to 19 digits is a bank number. `LLMClassifier` asks LiteLLM's alias
-  `scam-check` with the key `server-trust` under a strict schema of the
+  and any other run of 8 to 19 digits is a bank number. `LLMClassifier` asks the
+  `scam-check` agent's model with the key `server-trust` under a strict schema of the
   seven codes. A trained model is another `Classifier`, built in the root
   package `trust` and passed by app as `trust.Settings.Classifier`.
 - The worker hears `message.sent` and sends `ScamCheck.Run`, a Virtual
@@ -2883,8 +2885,9 @@ Search and the nearby feed (decided 2026-10-27, spec:
   (see Chat).
 - Discovery owns the understanding. With `q` it asks the model, through
   `internal/provider/llm` (an OpenAI-compatible chat completions call with
-  a strict JSON schema, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and
-  `LLM_REASONING_EFFORT` sent as `reasoning_effort` when set), for
+  a strict JSON schema, the `search` agent's model through Bifrost with
+  the key `server-search`, and `LLM_REASONING_EFFORT` sent as
+  `reasoning_effort` when set), for
   boosts and demotes: phrase, category, price, condition, place, near_me,
   fresh, offers, each with up to three values in priority order. The model
   never writes a weight. Every value is resolved against real rows (the
@@ -3300,12 +3303,11 @@ The video read:
   characters and `transcript_from` (`phone`, `server` or `none`), whether there was an
   item, the category, the count of photos kept, the description's length
   and the time taken.
-- Configuration: `ASSIST_LLM_BASE_URL`, `ASSIST_LLM_API_KEY`,
-  `ASSIST_LLM_MODEL`, `ASSIST_LLM_REASONING_EFFORT` (sent as
-  `reasoning_effort` when set), and `ASSIST_CALL_TIMEOUT` for one call, ai's calls
-  included. In the cluster the key is LiteLLM's `server-assist`. The
-  price guide embeds text with the search key, `EMBED_SEARCH_API_KEY`, and
-  photos with module ai.
+- Configuration: `ASSIST_LLM_REASONING_EFFORT` (sent as
+  `reasoning_effort` when set) and `ASSIST_CALL_TIMEOUT` for one call, ai's
+  calls included; the model is the `listing-read` agent's, with the key
+  `server-assist`. The price guide embeds text with the key
+  `server-embed-search`, and photos with module ai.
 
 The photo read (decided 2026-11-11, same spec as listing reads) reads one
 photo, the app's cover, and costs one image and no speech to text:
@@ -3700,7 +3702,7 @@ streams each run segment back (spec:
 - Module `agent` has `handler` (the console's agent endpoints and the AI
   settings), `mcp` (the MCP server, its tools and a run's control),
   `service` (the conversations and runs, the run client to the agent
-  service, the read record and the AI settings over LiteLLM) and
+  service, the read record and the AI settings over Bifrost) and
   `repository` (`console_agent_reads`, the `ai_*` tables and the
   `agent_*` run tables). `mcp` is
   a layer of its own in the layer test: it imports a module's service and
@@ -3712,11 +3714,12 @@ streams each run segment back (spec:
   `Require(..., moderator)`) and `Admin` (the same with the admin floor),
   so a module outside console can serve a console route.
 - Configuration, all required: `AGENT_BASE_URL`, `AGENT_SERVICE_TOKEN`,
-  `AGENT_MCP_ADDR`, `AGENT_MCP_TOKEN`, `LITELLM_URL` (LiteLLM's base URL
-  without `/v1`) and `LITELLM_MASTER_KEY`. Each agent token has at least
+  `AGENT_MCP_ADDR`, `AGENT_MCP_TOKEN`, `GATEWAY_URL` (Bifrost's base URL
+  without `/v1`), `GATEWAY_ADMIN_USERNAME` and `GATEWAY_ADMIN_PASSWORD`.
+  Each agent token has at least
   32 characters; `cmd/envgen` writes both, 32 random bytes in URL-safe
   base64, and the agent's environment takes the same two. No log line
-  carries a token or the master key.
+  carries a token, a virtual key or the admin password.
 
 #### The console's agent endpoints
 
@@ -3991,134 +3994,120 @@ reads for admins comes with the console's audit pages.
 
 ### AI settings
 
-Admins set the AI providers, the models, the agents, the router's rotation
-and the budgets under `/v1/console/settings/*` (decided 2026-11-18, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-18-console-ai-synthesis-design.md`).
-Module agent serves them behind console's `Admin` guard and drives
-LiteLLM's admin API with `LITELLM_URL` and `LITELLM_MASTER_KEY`
-(`provider/litellm.Admin`). LiteLLM's database holds providers,
-deployments, router settings and budgets (`store_model_in_db`); the
-server's database holds the tags and the agents. Every change is a row in
-`console_actions`: a change to `ai_*` rows writes it in the same
-transaction, and a change made in LiteLLM writes it after LiteLLM took it.
-An agent or the budget settings are saved first, with their `write_id`
-(409 `try_again` when the row changed), and LiteLLM is written from the
-saved row after (decided 2026-11-25): a refused save (a taken name, an
-unknown member) leaves LiteLLM as it was. The row is the truth: when
-LiteLLM fails after the save the answer is 503, and the same request
-again writes LiteLLM from the row, a create finding its own agent (every
-field the same) rather than `ai_agent_taken`. After writing LiteLLM the
-server reads the row again and applies the newer one when another save
-landed meanwhile, at most three times, so LiteLLM ends on the newest.
-A provider and a model have no UUID of their own, so their `target_id` is
-`audit.NamedID`, the first 16 bytes of SHA-256 over kind and name as a
-version 8 UUID, and `details` carries the name. LiteLLM down is 503
-`ai_gateway_unavailable`; a request LiteLLM refuses is 422
-`ai_gateway_refused`, its detail logged.
+Admins set the models, their prices and tags, and the agents under
+`/v1/console/settings/*`; providers are read-only (decided 2026-11-26,
+spec: `~/shopnexus/docs/superpowers/specs/2026-11-26-bifrost-gateway-design.md`,
+which replaced LiteLLM). Module agent serves them behind console's `Admin`
+guard. Bifrost runs the providers of its `config.json` (`upstream`, a
+custom `openai` provider, and `openrouter`); a new provider or key is an
+infra change. The server's database owns the policy: each agent's model,
+fallbacks, monthly budget and callers, and every model's price and tags.
+The reconciler (`service.Reconcile`) writes it into Bifrost through its
+admin API (`provider/bifrost.Admin`, Basic auth with
+`GATEWAY_ADMIN_USERNAME` and `GATEWAY_ADMIN_PASSWORD`):
 
-- A provider is a LiteLLM credential: its id is the credential name, its
-  key and base URL are the credential's values, and `credential_info`
-  holds `custom_llm_provider` (the kind, LiteLLM's route such as `openai`),
-  `base_url`, `weight`, `order`, `mode` and `synced_at`. The key never
-  comes back; the list shows LiteLLM's masked copy.
-- The deployments the server writes carry `model_info.shopnexus` (their
-  role), `provider` and `model`. A `catalog` deployment, model name
-  `<provider>/<model>`, puts a model in a provider's list. An `alias`
-  deployment serves an agent's alias: one per provider whose list has the
-  agent's model, with that provider's weight and order and the catalog's
-  price. A `lister`, model name `<provider>/*` with the route `<kind>/*`,
-  belongs to a provider in sync mode; LiteLLM's `/model/info` expands it
-  into one row per model the provider lists (the live list with
-  `litellm_settings.check_provider_endpoint`, else LiteLLM's known list).
-- A model is named as the stack calls it without LiteLLM's route
-  (`claude-haiku-5-5`, `baai/bge-m3`). The model list joins the catalog
-  deployments, the aliases LiteLLM's config wrote before the server
-  managed them, `ai_model_tags` and the agents. A model id may hold a
-  slash, and kin-openapi's router matches no encoded slash in a path, so
-  the model goes in the body (`PUT …/models/tags`) or the query
-  (`DELETE …/providers/{id}/models?model=`).
-- Picking a model for an agent rewrites the alias's deployments: it adds
-  one per provider of the model, then deletes the old ones, so the alias
-  always has a deployment and the code that calls it needs no deploy. A
-  change that names the model again rewrites the alias only when it has
-  none or one the server wrote serves another model; an alias LiteLLM's
-  config wrote is left until the model changes. A
-  model no provider serves is 404 `ai_model_not_found`, and one without a
-  tag the agent requires is 422 `ai_model_lacks_tags`. A provider's new
-  weight or order, and a model added to its list, rewrite the aliases on
-  it. Removing the last provider of an agent's model is 409
-  `ai_provider_in_use`.
-- Sync mode: `Mounted.Run` calls `SyncProviders` at start and every 6
-  hours, beside the read sweep. It adds a catalog deployment for each
-  model a provider's lister lists and its list lacks, with no tags, and
-  drops a model's second catalog deployment, which two replicas syncing
-  at once can leave. Switching a provider to sync syncs it at once.
-  Every provider has a lister, made with the provider, so `GET
-  …/providers/{id}/models` lists what the provider offers in either mode,
-  each model marked `added` when its catalog deployment exists; price and
-  `context_tokens` (`max_input_tokens`) come from LiteLLM's model info.
-- A provider turned off (`enabled: false` in `credential_info`) keeps its
-  catalog and serves no alias: the aliases on it are rewritten without
-  it, and turning it on writes it back. Turning off an agent's model's
-  only provider is 409 `ai_provider_in_use`.
-- `GET …/providers/health` counts each provider's requests of the last 24
-  hours in `/spend/logs/v2`, by the deployment that served them: share of
-  all, share that succeeded, median `request_duration_ms` and the last
-  failure's message. LiteLLM keeps cooldowns in its router and shows none,
-  so `cooling_until` is never set.
-- Rotation is LiteLLM's router settings, read from `/router/settings` and
-  written through `/config/update`: `routing_strategy` (`simple-shuffle`
-  picks by weight; a lower order is tried first and a higher one is the
-  fallback), `num_retries`, `allowed_fails`, `cooldown_time` and
-  `timeout`.
-- Budgets: an app agent's monthly budget is `max_budget` with
-  `budget_duration: 30d` on each of its keys (`ai_agents.key_aliases`); a
-  console agent's is `model_max_budget[alias]` on the agent service's key
-  `agent`, which also gains a new console agent's alias in its `models`.
-  Spent figures are the keys' `spend` and `model_spend`;
-  `GET …/spend?range=7d|30d|90d` reads `/user/daily/activity/aggregated`
-  and maps each model group to the agent with that alias, and each
-  member's spend from `/customer/daily/activity/aggregated` (the agent
-  passes `user=<member id>`) with their questions from the agent's
-  `GET /stats/turns`.
-- Members' daily budgets: `ai_budget_settings` holds one per role and
-  `ai_member_budgets` a member's own. Each is a LiteLLM budget of one day,
-  `console-member-moderator`, `console-member-admin` and
-  `console-member-<member id>`; a change saves them, makes the moderators'
-  budget the `end_user_budget_id` of key `agent`, and puts every member's
-  end user on the budget that applies (`/customer/update`, else
-  `/customer/new`). A member made later is put on theirs before their
-  first turn, once per process. A role's budget of 0 or null is none.
-- The month's cap (`ai_budget_settings.monthly_cap_usd`, with `alert_pct`
-  and `on_cap`) is on the spend of every agent since the first of the UTC
-  month. `GET …/budgets` sets `alerting` at `alert_pct` of the cap and
-  `capped` at the cap. With `on_cap: stop_agents` a question to a console
-  agent past the cap is 429 `agent_budget`; the month's spend is read at
-  most once a minute, and a LiteLLM that cannot be read stops nothing. App
-  agents keep their own key budgets. No console notice is sent; the
-  console shows `alerting`.
+- each agent is a team named after its slug, with its monthly budget
+  (`reset_duration: 1M`, `calendar_aligned`, so it resets on the 1st, UTC);
+  teams are never deleted, as agents are not;
+- each caller (`ai_agent_callers`) is a virtual key named after it, in the
+  agent's team, allowed the agent's model and fallbacks, with its rate
+  limits per minute; its metadata carries `owner: server`, the agent's
+  slug, model, fallbacks and `extra_body`. A key the server made and no
+  caller names is deleted; a key without `owner: server` is left alone;
+- each price is a pricing override named `server:<provider>/<model>`;
+  Bifrost logs each call's cost with it.
+
+`Reconcile` runs under the session advisory lock `ai_gateway`
+(`postgres.WithLock`), so two replicas never write at once; at start and
+every 5 minutes (`Mounted.Run`), and after each change. A change saves the
+row first, with its `write_id` (409 `try_again` when it changed), then
+reconciles: when Bifrost cannot be reached the answer is 503
+`ai_gateway_unavailable`, the row stays, and the next periodic reconcile
+writes it. A create sent again finds its own agent (every field the same)
+and reconciles rather than answering `ai_agent_taken`. A request Bifrost
+refuses is 422 `ai_gateway_refused`. Every change is a row in
+`console_actions` in the same transaction; a model has no UUID of its own,
+so its `target_id` is `audit.NamedID` and `details` carries the name.
+
+- Callers: the server's code calls Bifrost's `/v1/chat/completions` and
+  `/v1/embeddings` with its caller's key, `model: provider/model` and the
+  agent's `fallbacks`, plus `extra_body` with the header
+  `x-bf-passthrough-extra-params: true` (`provider/bifrost.Chat` and
+  `Embedder`). The callers are `server-search`, `server-embed-index`,
+  `server-embed-search`, `server-assist`, `server-trust` and one per
+  console agent (its slug; the assistant's is `console-agent`). The key
+  ring (`bifrost.Ring`) reads the server's keys from the admin API, keeps
+  them 5 minutes, reads again at most every 10 s on a miss, and serves the
+  last read while Bifrost cannot be read. A 401 or 403 reads the ring again
+  and retries once when the key changed, as after a key was made again.
+- Models are named `provider/model_id` (`openrouter/baai/bge-m3`). An
+  agent's model and each fallback must have a price (422
+  `ai_model_unpriced`) and carry the agent's required tags (422
+  `ai_model_lacks_tags`); an agent that requires Embedding takes no
+  fallback, since another model's vectors are in another space (422
+  `ai_agent_invalid`). A new model drops the old one's `extra_body` (such
+  as OpenRouter's provider pin for bge-m3). The model id may hold a slash,
+  and kin-openapi's router matches no encoded slash in a path, so tags and
+  price go in the body (`PUT …/models/tags`, `PUT …/models/price`).
+- `GET …/models` lists every model an agent uses, as its model or a
+  fallback, or that has a price or tags, each with its price and the list
+  price of its provider's catalog (`catalog_price`, null where the catalog
+  has none, as for `upstream`). `GET …/providers/{name}/models` is a
+  provider's catalog from `/api/models/details`, which the model picker
+  reads. A price is USD per token; a null cache price is the input price.
+- `GET …/providers` reads `/api/providers` and the last hour of
+  `/api/logs/stats`: `unknown` with no request; `down` when Bifrost marks
+  the provider's status `error`, or at least half of at least 5 requests
+  failed; `degraded` from 5% of at least 20; else `ok`.
+- Budgets: one monthly budget per agent, on its team. `GET …/agents`
+  gives each agent `budget_spent_usd` (the team's usage when its window
+  started this month, else 0) and `budget_resets_at` (the 1st of next
+  month); both are null with no budget or when Bifrost cannot be read. A
+  spent budget is Bifrost's 402, which ends a console run with the status
+  `budget` (the agent's copy says the month's budget is spent) and is a
+  passing failure for the server's code. There is no global cap, warning
+  threshold or role and member budget any more, on purpose.
+- Callers' limits: `PATCH …/agents/{id}` with `callers` names every caller
+  of the agent once and changes only `requests_per_min` and
+  `tokens_per_min` (422 `ai_agent_invalid` otherwise); the names are the
+  code's. A new console agent gets one caller, its slug.
+- `GET …/spend?from=&to=` (at most 366 days, else 422
+  `ai_spend_range_invalid`) reads `/api/logs/histogram/cost/by-dimension`
+  by team, in windows of 31 days so each bucket is a day or less, and
+  answers each UTC day's total and spend by agent slug, with `lag_s: 60`,
+  how far Bifrost's totals may trail.
+- A console run: the server sends the agent `gateway {key, model,
+  fallbacks, prices}`, the console agent's caller key and route from the
+  ring, with the price of the model and of each fallback; an agent whose
+  model or fallback has no price is refused. The agent counts the cost
+  live from those prices; `usage.provider` is Bifrost's provider name and
+  `model.switched` carries `from_model`, `to_model` and `reason`
+  (`fallback` or `changed`).
 - `GET …/agents/usage`, `…/tools` and `…/guardrails` take
   `range=7d|30d|90d` (7d by default). Usage counts a console agent's turns
-  from the agent's `GET /stats/turns` and an app agent's requests to its
-  alias in LiteLLM; tools and guardrails are the agent's `GET
-  /stats/tools` and `/stats/guardrails`, each tool with its title from
-  `domain.ToolTitles`, which the MCP server's tools also read.
+  and an app agent's requests by its team in `/api/logs/histogram`; tools
+  and guardrails are the agent's `GET /stats/tools` and
+  `/stats/guardrails`, each tool with its title from `domain.ToolTitles`,
+  which the MCP server's tools also read.
 
 | Table | Holds |
 |---|---|
 | `ai_tags` | the eight tags: types Chat and Embedding; capabilities Vision, Tool use, Long context, Reasoning, Structured output and Multilingual |
-| `ai_model_tags` | `(model_id, tag_name)`, seeded for `claude-sonnet-5-5`, `claude-haiku-5-5` and `baai/bge-m3` |
-| `ai_agents` | each agent: kind (`app`, `console`), `display_name`, `model_alias`, icon, purpose, required tags, model, the version of its instructions, tools, limits, monthly budget, LiteLLM key aliases, enabled, who changed it and `write_id` |
+| `ai_model_tags` | `(provider, model_id, tag_name)` |
+| `ai_model_prices` | `(provider, model_id)`: input, output, cache read and cache write in USD per token (cache prices null for the input price), who set it and when |
+| `ai_agents` | each agent: kind (`app`, `console`), `display_name`, `slug`, icon, purpose, required tags, `model_provider` and `model_id`, `fallbacks` (`provider/model`), `extra_body`, the version of its instructions, tools, limits, monthly budget (above 0, or null), enabled, who changed it and `write_id` |
+| `ai_agent_callers` | each caller, named once across agents: its agent and its rate limits per minute |
 | `ai_agent_versions` | each version of an agent's instructions, who wrote it and when; the agent's latest is its instructions |
-| `ai_budget_settings` | one row: the month's cap, `alert_pct`, `on_cap`, the daily budget of a moderator and of an admin, and `write_id` |
-| `ai_member_budgets` | a member's own daily budget |
 
 Migration 0056 seeds the agents: Console assistant (`console-agent`,
 console, every MCP tool), Scam check (`scam-check`), Listing photo reader
 (`listing-read`), Search (`search`) and Search embeddings (`embed-text`),
-the four app agents with their keys of `infra/stack/litellm/keys.txt`. An
-app agent takes a model, limits and a budget; any other change is 422
-`ai_agent_app_fixed`. Only a console agent has tools, which a CHECK holds,
+the four app agents. Migration 0102 moves them to Bifrost: slugs, models
+and fallbacks, the callers with the cluster's rate limits, the prices of
+Bifrost's catalog on 2026-11-26 (Anthropic's for the Claude models) and
+budgets of 100 (the assistant) and 30 USD a month. An app agent takes a
+model, fallbacks, limits, a budget and its callers' limits; any other
+change is 422 `ai_agent_app_fixed`. Only a console agent has tools, which a CHECK holds,
 and instructions, which the service holds. The text lives only in
 `ai_agent_versions` (migration 0098 moved it there): a read joins the
 version `instructions_version` names, which a deferred foreign key from

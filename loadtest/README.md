@@ -168,8 +168,9 @@ dashboard once there is traffic.
 - k6 running on the same node as the stack takes CPU from it. On the
   single-node dev cluster, the numbers are lower than they would be on
   separate machines.
-- Signed-in search calls the model through LiteLLM, and LiteLLM's key limits
-  (`infra/stack/values-prod.yaml`) cap it. Each signed-in search in a member run is a paid model call.
+- Signed-in search calls the model through Bifrost, and the rate limits of
+  the caller `server-search` (the Search agent's callers in the console's AI
+  settings) cap it. Each signed-in search in a member run is a paid model call.
 - No scenario signs in: phone tokens come from Firebase and email codes are
   sent by mail. Only `trade` writes messages and moves on deals, among the
   load test's own accounts.
