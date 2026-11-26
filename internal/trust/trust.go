@@ -26,7 +26,10 @@ import (
 // Settings is what trust's Mount takes beyond module.Deps: the scam
 // classifier, and search's cosine floors for the price signal.
 type Settings struct {
-	Classifier        service.Classifier
+	Classifier service.Classifier
+	// ScamChecks off leaves message.sent unsubscribed: no message reaches
+	// the classifier.
+	ScamChecks        bool
 	TextMin, PhotoMin float64
 }
 
@@ -38,7 +41,7 @@ func LLMClassifier(model llm.Client, alias string, timeout time.Duration, log *s
 }
 
 // Mount registers the trust endpoints, subscribes the scam worker to
-// message.sent and account.deleted, and returns trust's Restate services and
+// message.sent (unless s turns scam checks off) and account.deleted, and returns trust's Restate services and
 // the Service screen reads ratings, reviews and warnings through.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service,
 	chats chatsvc.Service, media mediasvc.Service,
@@ -55,7 +58,9 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 	registerGauges(d)
 	w := worker.ScamWorker{Prefix: d.ServicePrefix, Chats: chats, Trust: svc}
-	d.Events.Subscribe(events.MessageSent, w.ServiceName(), "MessageSent")
+	if s.ScamChecks {
+		d.Events.Subscribe(events.MessageSent, w.ServiceName(), "MessageSent")
+	}
 	d.Events.Subscribe(events.AccountDeleted, w.ServiceName(), "AccountDeleted")
 	return module.Mounted[service.Service]{Services: append(svc.Durable(), restate.Reflect(w)), Service: svc}
 }

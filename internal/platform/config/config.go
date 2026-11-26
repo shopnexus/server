@@ -249,6 +249,9 @@ type TrustConfig struct {
 	LLMAPIKey   string        // TRUST_LLM_API_KEY: server-trust's key
 	LLMModel    string        // TRUST_LLM_MODEL: the alias scam-check
 	CallTimeout time.Duration // TRUST_CALL_TIMEOUT: one call to the model
+	// ScamChecks is TRUST_SCAM_CHECKS, on or off. Off sends no message to
+	// the classifier, for a load test or when the model must stop.
+	ScamChecks bool
 }
 
 // AgentConfig says where the console agent is and how it and the server
@@ -662,7 +665,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		},
 		Trust: TrustConfig{
 			LLMBaseURL: need("TRUST_LLM_BASE_URL"), LLMAPIKey: need("TRUST_LLM_API_KEY"), LLMModel: need("TRUST_LLM_MODEL"),
-			CallTimeout: duration("TRUST_CALL_TIMEOUT"),
+			CallTimeout: duration("TRUST_CALL_TIMEOUT"), ScamChecks: oneOf("TRUST_SCAM_CHECKS", "on", "off") == "on",
 		},
 		Agent: AgentConfig{
 			BaseURL: need("AGENT_BASE_URL"), ServiceToken: token("AGENT_SERVICE_TOKEN"),

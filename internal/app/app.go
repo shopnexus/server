@@ -454,7 +454,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Classifier: trust.LLMClassifier(
 			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: httpx.NewClient(0)},
 			cfg.Trust.LLMModel, cfg.Trust.CallTimeout, log),
-		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
+		ScamChecks: cfg.Trust.ScamChecks,
+		TextMin:    cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, accounts, catalogm.Service, dealm.Service, chatm.Service, mediam.Service)
 	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service, feedbackm.Service, trustm.Service,
 		catalogm.Service)

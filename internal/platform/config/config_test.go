@@ -115,6 +115,7 @@ func required() map[string]string {
 		"TRUST_LLM_API_KEY":            "trust-key",
 		"TRUST_LLM_MODEL":              "scam-check",
 		"TRUST_CALL_TIMEOUT":           "20s",
+		"TRUST_SCAM_CHECKS":            "on",
 		"AGENT_BASE_URL":               "http://agent.example.test:3000",
 		"AGENT_SERVICE_TOKEN":          "agent-service-token-of-32-characters",
 		"AGENT_MCP_ADDR":               "0.0.0.0:9090",
@@ -227,7 +228,7 @@ func TestLoadAllSet(t *testing.T) {
 		},
 		Trust: TrustConfig{
 			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "trust-key", LLMModel: "scam-check",
-			CallTimeout: 20 * time.Second,
+			CallTimeout: 20 * time.Second, ScamChecks: true,
 		},
 		Agent: AgentConfig{
 			BaseURL: "http://agent.example.test:3000", ServiceToken: "agent-service-token-of-32-characters",
