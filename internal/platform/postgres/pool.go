@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
@@ -21,6 +23,15 @@ type Option func(*pgxpool.Config)
 // most max(4, CPUs), or pool_max_conns from the url.
 func MaxConns(n int) Option {
 	return func(c *pgxpool.Config) { c.MaxConns = int32(min(n, math.MaxInt32)) } //nolint:gosec // clamped to int32 first
+}
+
+// StatementTimeout makes Postgres cancel a statement on the pool's
+// connections that runs longer than d, so a slow query cannot hold a
+// connection for good.
+func StatementTimeout(d time.Duration) Option {
+	return func(c *pgxpool.Config) {
+		c.ConnConfig.RuntimeParams["statement_timeout"] = strconv.FormatInt(d.Milliseconds(), 10)
+	}
 }
 
 // NewPool opens a pool on url with the query tracer and pool metrics

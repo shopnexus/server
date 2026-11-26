@@ -46,6 +46,7 @@ func required() map[string]string {
 		"LOG_FORMAT":                   "json",
 		"DATABASE_URL":                 "postgres://db",
 		"DATABASE_MAX_CONNS":           "20",
+		"DATABASE_STATEMENT_TIMEOUT":   "10s",
 		"OTEL_EXPORTER_OTLP_ENDPOINT":  "",
 		"SERVICE_NAME":                 "server",
 		"TRUSTED_PROXIES":              "",
@@ -166,13 +167,14 @@ func TestLoadAllSet(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	want := Config{
-		Env:              "dev",
-		Role:             RoleAll,
-		HTTPAddr:         ":9090",
-		LogLevel:         slog.LevelDebug,
-		LogFormat:        "text",
-		DatabaseURL:      "postgres://db",
-		DatabaseMaxConns: 20,
+		Env:                      "dev",
+		Role:                     RoleAll,
+		HTTPAddr:                 ":9090",
+		LogLevel:                 slog.LevelDebug,
+		LogFormat:                "text",
+		DatabaseURL:              "postgres://db",
+		DatabaseMaxConns:         20,
+		DatabaseStatementTimeout: 10 * time.Second,
 		Restate: RestateConfig{
 			IngressURL: "http://restate:8080", AdminURL: "http://restate:9070",
 			ListenAddr: "127.0.0.1:9999", EndpointURL: "http://host:9999", IdentityKey: "publickeyv1_test",
@@ -446,6 +448,7 @@ func TestEmbedValuesAreChecked(t *testing.T) {
 		"timeout":   {"EMBED_TIMEOUT", "soon", "EMBED_TIMEOUT"},
 		"slots":     {"EMBED_SLOTS", "0", "EMBED_SLOTS"},
 		"pool":      {"DATABASE_MAX_CONNS", "0", "DATABASE_MAX_CONNS"},
+		"statement": {"DATABASE_STATEMENT_TIMEOUT", "0s", "DATABASE_STATEMENT_TIMEOUT"},
 		"floor":     {"EMBED_TEXT_MIN_SIMILARITY", "1.5", "EMBED_TEXT_MIN_SIMILARITY"},
 		"no floor":  {"EMBED_PHOTO_MIN_SIMILARITY", "", "EMBED_PHOTO_MIN_SIMILARITY"},
 		"no search": {"EMBED_SEARCH_API_KEY", "\x00unset", "EMBED_SEARCH_API_KEY is not set"},

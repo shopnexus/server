@@ -203,7 +203,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 			return nil, fmt.Errorf("%s=%q: want live, fake or off", sw.key, sw.mode)
 		}
 	}
-	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, postgres.MaxConns(cfg.DatabaseMaxConns))
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, postgres.MaxConns(cfg.DatabaseMaxConns),
+		postgres.StatementTimeout(cfg.DatabaseStatementTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}

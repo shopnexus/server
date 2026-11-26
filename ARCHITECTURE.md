@@ -369,6 +369,17 @@ raw `pg_advisory_xact_lock` anywhere else. Migrations stay one
 transaction each with plain `Exec`, since a migration file holds several
 statements, which the extended protocol of a batch refuses.
 
+### Statement timeout and foreign key indexes
+
+Decided 2026-11-26. The server's pool sets `statement_timeout` to
+`DATABASE_STATEMENT_TIMEOUT` (10s), so a slow statement cannot hold one of
+its 20 connections for good; the slowest query the server runs takes a few
+seconds. Pools under `cmd/` (migrate, seedpack, search-reindex) set none,
+since their statements may run for minutes. Every foreign key into a table
+rows are deleted from has an index that leads with its columns
+(`migrations/fk_indexes_test.go`), so deleting a parent does not scan the
+child.
+
 ### Aggregates in account
 
 Module account holds who a person is and how they sign in. Module auth was
