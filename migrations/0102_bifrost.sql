@@ -24,7 +24,9 @@ ALTER TABLE ai_agents ADD COLUMN extra_body jsonb NOT NULL DEFAULT '{}';
 UPDATE ai_agents SET extra_body = '{"provider": {"order": ["DeepInfra"], "allow_fallbacks": false}}'
 WHERE id = '0193e000-0000-7000-8000-00000000a105';
 
--- A budget is in dollars now, monthly; Bifrost takes none of 0.
+-- A budget is in dollars now, monthly, to the cent or below; Bifrost takes
+-- none of 0.
+ALTER TABLE ai_agents ALTER COLUMN monthly_budget_usd TYPE numeric;
 UPDATE ai_agents SET monthly_budget_usd = 100 WHERE id = '0193e000-0000-7000-8000-00000000a101';
 UPDATE ai_agents SET monthly_budget_usd = 30 WHERE id IN (
     '0193e000-0000-7000-8000-00000000a102', '0193e000-0000-7000-8000-00000000a103',
