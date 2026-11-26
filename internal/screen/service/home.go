@@ -10,20 +10,17 @@ import (
 	"github.com/shopnexus/server/internal/platform/locale"
 )
 
-// HomeCategory is a root of the category tree with its active listings
-// counted and its subcategories.
+// HomeCategory is a root of the category tree with its subcategories.
 type HomeCategory struct {
 	Code        string            `json:"code"`
 	DisplayName string            `json:"display_name"`
-	Count       int               `json:"count"`
 	Children    []HomeSubcategory `json:"children"`
 }
 
-// HomeSubcategory is a subcategory with its active listings counted.
+// HomeSubcategory is a subcategory under a root.
 type HomeSubcategory struct {
 	Code        string `json:"code"`
 	DisplayName string `json:"display_name"`
-	Count       int    `json:"count"`
 }
 
 // HomeScreen is the HomeScreen schema in api/schemas/screen_home.yaml.
@@ -76,15 +73,6 @@ func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain
 			}
 		}
 	}
-	// A listing takes a subcategory, so a root's count is its children's.
-	counts, err := s.d.Catalog.Counts(ctx, catalogdomain.Search{})
-	if err != nil {
-		return HomeScreen{}, fmt.Errorf("count listings: %w", err)
-	}
-	byCode := make(map[string]int, len(counts))
-	for _, c := range counts {
-		byCode[c.Code] = c.Count
-	}
 	if viewer != nil {
 		if out.NotificationsUnread, err = s.d.Notifications.Unread(ctx, *viewer); err != nil {
 			return HomeScreen{}, fmt.Errorf("count unread notices: %w", err)
@@ -98,9 +86,7 @@ func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain
 			continue
 		}
 		if i, ok := index[c.ParentCode]; ok {
-			n := byCode[c.Code]
-			out.Categories[i].Count += n
-			out.Categories[i].Children = append(out.Categories[i].Children, HomeSubcategory{Code: c.Code, DisplayName: c.DisplayName, Count: n})
+			out.Categories[i].Children = append(out.Categories[i].Children, HomeSubcategory{Code: c.Code, DisplayName: c.DisplayName})
 		}
 	}
 	return out, nil

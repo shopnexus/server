@@ -184,9 +184,6 @@ type Regions interface {
 type Searches interface {
 	// Search returns a page of the listings s finds, in its order.
 	Search(ctx context.Context, s domain.Search) ([]domain.Hit, error)
-	// Counts counts the listings s matches, boosts aside, by category or
-	// root, largest first. A hybrid s is refused.
-	Counts(ctx context.Context, s domain.Search) ([]domain.CategoryCount, error)
 	// Words splits text as the listings index splits its text fields
 	// (ParadeDB's unicode_words, lowercased).
 	Words(ctx context.Context, text string) ([]string, error)

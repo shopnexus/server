@@ -41,6 +41,26 @@ func TestForYouBoosts(t *testing.T) {
 	}
 }
 
+// Past MaxForYouBoosts subcategories the lightest go, a tie by code.
+func TestForYouBoostsKeepsTheHeaviest(t *testing.T) {
+	t.Parallel()
+	got := domain.ForYouBoosts(
+		[]string{"sports.gym"},
+		nil,
+		[]string{"a.f", "a.e", "a.d", "a.c", "a.b", "a.a", "a.f", "a.e"},
+	)
+	want := []catalogdomain.Boost{
+		{Kind: catalogdomain.BoostCategory, Code: "a.a", Weight: 1},
+		{Kind: catalogdomain.BoostCategory, Code: "a.b", Weight: 1},
+		{Kind: catalogdomain.BoostCategory, Code: "a.e", Weight: 2},
+		{Kind: catalogdomain.BoostCategory, Code: "a.f", Weight: 2},
+		{Kind: catalogdomain.BoostCategory, Code: "sports.gym", Weight: 3},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("%+v", got)
+	}
+}
+
 // The rail takes the subcategory most opened on the latest day; a tie goes
 // to the subcategory of the listing created last.
 func TestViewedCategory(t *testing.T) {

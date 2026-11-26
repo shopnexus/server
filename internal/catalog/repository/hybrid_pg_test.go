@@ -171,9 +171,6 @@ func TestHybridBoostList(t *testing.T) {
 	if got := ids(hits); err != nil || !slices.Equal(got, []uuid.UUID{b, a}) {
 		t.Fatalf("the boost list lifts b: %v %v", got, err)
 	}
-	if _, err = repository.NewSearches(db).Counts(ctx, search); err == nil {
-		t.Fatal("counted a hybrid search")
-	}
 }
 
 // A relevance page reads a few times its end from each list; other sorts

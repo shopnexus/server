@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"cmp"
 	"maps"
 	"slices"
 	"strings"
@@ -39,10 +40,16 @@ func ForYouSince(now time.Time) time.Time {
 	return ViewDay(now).AddDate(0, 0, -(ForYouDays - 1))
 }
 
+// MaxForYouBoosts is how many subcategories Dành cho bạn boosts. Each one
+// is a branch of the feed's query, so a person who looked at everything
+// would make it slow.
+const MaxForYouBoosts = 5
+
 // ForYouBoosts are the boosts of Dành cho bạn, one per subcategory, sorted
 // by code: each subcategory weighs SaveWeight for every code in saved,
 // SearchWeight for every one in searched and ViewWeight for every one in
-// opened. A code without a dot, a root or none, adds nothing.
+// opened. A code without a dot, a root or none, adds nothing. Only the
+// MaxForYouBoosts heaviest are kept, a tie going to the lower code.
 func ForYouBoosts(saved, searched, opened []string) []catalogdomain.Boost {
 	points := map[string]int{}
 	for _, signal := range []struct {
@@ -55,8 +62,13 @@ func ForYouBoosts(saved, searched, opened []string) []catalogdomain.Boost {
 			}
 		}
 	}
-	out := make([]catalogdomain.Boost, 0, len(points))
-	for _, code := range slices.Sorted(maps.Keys(points)) {
+	codes := slices.SortedFunc(maps.Keys(points), func(a, b string) int {
+		return cmp.Or(cmp.Compare(points[b], points[a]), cmp.Compare(a, b))
+	})
+	codes = codes[:min(len(codes), MaxForYouBoosts)]
+	slices.Sort(codes)
+	out := make([]catalogdomain.Boost, 0, len(codes))
+	for _, code := range codes {
 		out = append(out, catalogdomain.Boost{Kind: catalogdomain.BoostCategory, Code: code, Weight: float64(points[code])})
 	}
 	return out

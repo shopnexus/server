@@ -35,10 +35,6 @@ type searchView struct {
 	PreviewChips []struct {
 		Label string `json:"label"`
 	} `json:"preview_chips"`
-	Counts []struct {
-		Category string `json:"category"`
-		Count    int    `json:"count"`
-	} `json:"counts"`
 }
 
 // band is a price range of the test's own, so its search sees only its
@@ -158,7 +154,7 @@ func TestSearchCategory(t *testing.T) {
 	lo, hi := band()
 	activeListing(t, seller.AccessToken, map[string]any{"price": lo})
 	_, v := search(t, url.Values{"category": {"vehicles"}, "price_min": {strconv.FormatInt(lo, 10)}, "price_max": {strconv.FormatInt(hi, 10)}})
-	if len(v.Items) != 1 || len(v.Counts) != 1 || v.Counts[0].Category != "vehicles.bicycle" || v.Counts[0].Count != 1 {
+	if len(v.Items) != 1 {
 		t.Fatalf("%+v", v)
 	}
 	buyer, _ := newAccount(t)

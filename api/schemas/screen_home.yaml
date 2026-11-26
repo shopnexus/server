@@ -1,16 +1,13 @@
 HomeCategory:
   type: object
   additionalProperties: false
-  required: [code, display_name, count, children]
+  required: [code, display_name, children]
   description: A root of the category tree.
   properties:
     code:
       type: string
     display_name:
       type: string
-    count:
-      type: integer
-      description: Active listings under the root.
     children:
       type: array
       items:
@@ -18,16 +15,13 @@ HomeCategory:
 HomeSubcategory:
   type: object
   additionalProperties: false
-  required: [code, display_name, count]
+  required: [code, display_name]
   description: A subcategory under a root of the category tree.
   properties:
     code:
       type: string
     display_name:
       type: string
-    count:
-      type: integer
-      description: Active listings in the subcategory.
 HomeScreen:
   type: object
   additionalProperties: false
@@ -51,8 +45,9 @@ HomeScreen:
         listings come first from the subcategories of their signals of the
         last 30 days: the newest 100 listings they saved, the newest 100
         they opened, and those of their last 10 searches that fall in the
-        window and named a subcategory. The listings are ordered by the
-        weight of their subcategory, then newest first. The newest listings
+        window and named a subcategory, the 5 subcategories weighing most.
+        The listings are ordered by the weight of their subcategory, then
+        newest first. The newest listings
         of any other subcategory follow. A signed-out reader, or one with no
         signal, gets the newest listings. Each listing appears at most once,
         and the reader's own listings, those they hid and those of the

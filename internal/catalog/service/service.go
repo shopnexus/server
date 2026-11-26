@@ -174,9 +174,6 @@ type Service interface {
 	// Words splits text into the words the listings index would find in
 	// it, for matching a listing that is not posted yet.
 	Words(ctx context.Context, text string) ([]string, error)
-	// Counts counts the listings s matches by category or root; s is a
-	// search without lists to fuse.
-	Counts(ctx context.Context, s domain.Search) ([]domain.CategoryCount, error)
 	// EmbeddingText is the text a listing posted from d would be embedded
 	// from, with its category's display name; d's specs are keyed as
 	// KeySpecs keys them.

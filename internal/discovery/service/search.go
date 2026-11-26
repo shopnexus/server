@@ -70,8 +70,7 @@ type SearchView struct {
 	Chips      []domain.Chip `json:"chips,omitempty"`
 	// PreviewChips are a guest's first page's chips the model read for the
 	// query when someone signed in searched it; the search did not apply them.
-	PreviewChips []domain.Chip                 `json:"preview_chips,omitempty"`
-	Counts       []catalogdomain.CategoryCount `json:"counts,omitempty"`
+	PreviewChips []domain.Chip `json:"preview_chips,omitempty"`
 	// WatchID is the viewer's watch of the query, nil for none.
 	WatchID *uuid.UUID `json:"watch_id,omitempty"`
 }
@@ -306,20 +305,9 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		d.d.Log.InfoContext(ctx, "search terms", "search_id", view.SearchID, "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
 	}
 
-	// Only a browse of a root counts, beside the search: the category page
-	// reads them, and no caller reads them for words, a photo or a like.
-	var countErr error
-	var wg sync.WaitGroup
-	if filters.CategoryRoot != "" && q == "" && !search.Hybrid() {
-		wg.Go(func() { view.Counts, countErr = d.d.Catalog.Counts(ctx, search) })
-	}
 	cards, err := d.d.Catalog.Search(ctx, search)
-	wg.Wait()
 	if err != nil {
 		return SearchView{}, fmt.Errorf("search listings: %w", err)
-	}
-	if countErr != nil {
-		return SearchView{}, fmt.Errorf("count categories: %w", countErr)
 	}
 	cards, view.NextCursor = cut(cards, offset, limit, raw)
 	if view.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
