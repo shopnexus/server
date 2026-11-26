@@ -218,7 +218,7 @@ const maxSpendDays = 366
 // spendLagS is how far Bifrost's cost totals may trail real time.
 const spendLagS = 60
 
-// Spend reads Bifrost's logged cost of each UTC day from from to to, both
+// Spend reads Bifrost's logged cost of each UTC day between from and to, both
 // dates included, in all and by agent slug. A team that is no agent's
 // counts in the total only.
 func (s *Agent) Spend(ctx context.Context, _ authn.ConsoleMember, from, to string) (Spend, error) {
@@ -282,7 +282,7 @@ func (s *Agent) Spend(ctx context.Context, _ authn.ConsoleMember, from, to strin
 // less, which start at UTC midnight.
 const windowDays = 31
 
-// windows cuts from to to into windows of windowDays at most.
+// windows cuts the time between from and to into windows of windowDays at most.
 func windows(from, to time.Time) [][2]time.Time {
 	var out [][2]time.Time
 	for start := from; start.Before(to); start = start.AddDate(0, 0, windowDays) {

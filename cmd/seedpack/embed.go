@@ -141,8 +141,8 @@ func embedText(ctx context.Context, s *stack, p *seedpack.Pack, batch int, missi
 		BaseURL: gw.URL, Username: gw.AdminUsername, Password: gw.AdminPassword, HTTP: &http.Client{Timeout: cfg.Timeout},
 	}, time.Now)
 	model := bifrost.Embedder{
-		Caller: bifrost.Caller{BaseURL: gw.URL, Name: "server-embed-index", Ring: ring, HTTP: &http.Client{Timeout: cfg.Timeout}},
-		Dims:   catalogdomain.TextDims,
+		BaseURL: gw.URL, Name: "server-embed-index", Ring: ring, HTTP: &http.Client{Timeout: cfg.Timeout},
+		Dims: catalogdomain.TextDims,
 	}
 	tree, err := catalogrepo.NewCategories(s.pool).Tree(ctx, locale.Vietnamese)
 	if err != nil {

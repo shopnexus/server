@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -44,9 +45,7 @@ func serverKey(t *testing.T, f *bifrosttest.Fake, caller string, meta map[string
 		}
 	}
 	full := map[string]string{bifrost.MetaOwner: bifrost.OwnerServer}
-	for k, v := range meta {
-		full[k] = v
-	}
+	maps.Copy(full, meta)
 	k, err := a.CreateVirtualKey(ctx, bifrost.KeyInput{Name: caller, TeamID: team.ID, Models: models, Active: true, Metadata: full})
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +66,7 @@ func TestRingAndChat(t *testing.T) {
 	// A key that is not the server's stays out of the ring.
 	f.PutKey(bifrost.VirtualKey{Name: "someone", Value: "sk-bf-someone", Metadata: map[string]string{}})
 	ring := bifrost.NewRing(f.Admin(), time.Now)
-	chat := bifrost.Chat{Caller: bifrost.Caller{BaseURL: f.URL(), Name: "server-search", Ring: ring, HTTP: http.DefaultClient}, Effort: "low"}
+	chat := bifrost.Chat{BaseURL: f.URL(), Name: "server-search", Ring: ring, HTTP: http.DefaultClient, Effort: "low"}
 	var out struct {
 		OK bool `json:"ok"`
 	}
@@ -81,7 +80,7 @@ func TestRingAndChat(t *testing.T) {
 	c := calls[0]
 	fallbacks, _ := json.Marshal(c.Body["fallbacks"])
 	if c.Body["model"] != "openrouter/google/gemini-2.5-flash" || string(fallbacks) != `["upstream/claude-haiku-5-5"]` ||
-		c.Body["provider"] == nil || c.Body["reasoning_effort"] != "low" || c.Header.Get("x-bf-passthrough-extra-params") != "true" {
+		c.Body["provider"] == nil || c.Body["reasoning_effort"] != "low" || c.Header.Get("X-Bf-Passthrough-Extra-Params") != "true" {
 		t.Fatalf("call = %+v", c)
 	}
 	if _, err := ring.Route(ctx, "someone"); !errors.Is(err, bifrost.ErrNoKey) {
@@ -108,13 +107,13 @@ func TestCallerRetriesANewKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := serverKey(t, f, "server-embed-index", meta, models)
-	e := bifrost.Embedder{Caller: bifrost.Caller{BaseURL: f.URL(), Name: "server-embed-index", Ring: ring, HTTP: http.DefaultClient}, Dims: 2}
+	e := bifrost.Embedder{BaseURL: f.URL(), Name: "server-embed-index", Ring: ring, HTTP: http.DefaultClient, Dims: 2}
 	vs, err := e.Embed(ctx, []string{"x"})
 	if err != nil || len(vs) != 1 {
 		t.Fatalf("Embed = %v, %v", vs, err)
 	}
 	calls := f.Calls("server-embed-index")
-	if len(calls) != 1 || calls[0].Header.Get("Authorization") != "Bearer "+now.Value || calls[0].Header.Get("x-bf-passthrough-extra-params") != "" {
+	if len(calls) != 1 || calls[0].Header.Get("Authorization") != "Bearer "+now.Value || calls[0].Header.Get("X-Bf-Passthrough-Extra-Params") != "" {
 		t.Fatalf("calls = %+v", calls)
 	}
 }

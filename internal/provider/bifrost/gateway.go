@@ -3,6 +3,7 @@ package bifrost
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -13,7 +14,7 @@ import (
 
 // passthroughHeader lets fields Bifrost does not know, such as OpenRouter's
 // provider pin, reach the provider.
-const passthroughHeader = "x-bf-passthrough-extra-params"
+const passthroughHeader = "X-Bf-Passthrough-Extra-Params"
 
 // Caller calls models through the gateway as one caller, with its key and
 // route from the ring.
@@ -47,7 +48,8 @@ func (c Caller) call(ctx context.Context, f func(Route) error) error {
 	return f(again)
 }
 
-func (c Caller) header(r Route) http.Header {
+// header asks Bifrost to pass the route's extra body on.
+func header(r Route) http.Header {
 	if len(r.ExtraBody) == 0 {
 		return nil
 	}
@@ -59,6 +61,7 @@ func (c Caller) base() string { return strings.TrimRight(c.BaseURL, "/") + "/v1"
 // Chat is an llm.Client and llm.Streamer over the gateway.
 type Chat struct {
 	Caller
+
 	// Effort is sent as reasoning_effort; empty leaves the model's default.
 	Effort string
 }
@@ -72,20 +75,27 @@ var (
 func (c Chat) client(r Route) llm.OpenAI {
 	return llm.OpenAI{
 		BaseURL: c.base(), APIKey: r.Key, Model: r.Model, Effort: c.Effort, Fallbacks: r.Fallbacks,
-		Extra: r.ExtraBody, Header: c.header(r), HTTP: c.HTTP,
+		Extra: r.ExtraBody, Header: header(r), HTTP: c.HTTP,
 	}
 }
 
 func (c Chat) Complete(ctx context.Context, r llm.Request, out any) error {
-	return c.call(ctx, func(rt Route) error { return c.client(rt).Complete(ctx, r, out) })
+	return c.call(ctx, func(rt Route) error {
+		if err := c.client(rt).Complete(ctx, r, out); err != nil {
+			return fmt.Errorf("%s: %w", c.Name, err)
+		}
+		return nil
+	})
 }
 
 func (c Chat) Stream(ctx context.Context, r llm.Request, onText func(string)) (string, error) {
 	var text string
 	err := c.call(ctx, func(rt Route) error {
 		var err error
-		text, err = c.client(rt).Stream(ctx, r, onText)
-		return err
+		if text, err = c.client(rt).Stream(ctx, r, onText); err != nil {
+			return fmt.Errorf("%s: %w", c.Name, err)
+		}
+		return nil
 	})
 	return text, err
 }
@@ -93,6 +103,7 @@ func (c Chat) Stream(ctx context.Context, r llm.Request, onText func(string)) (s
 // Embedder is an embed.Model over the gateway.
 type Embedder struct {
 	Caller
+
 	Dims int // the length every vector must have
 }
 
@@ -102,9 +113,12 @@ func (e Embedder) Embed(ctx context.Context, inputs []string) ([][]float32, erro
 		var err error
 		out, err = embed.OpenAI{
 			BaseURL: e.base(), APIKey: rt.Key, Model: rt.Model, Dims: e.Dims, Fallbacks: rt.Fallbacks,
-			Extra: rt.ExtraBody, Header: e.header(rt), HTTP: e.HTTP,
+			Extra: rt.ExtraBody, Header: header(rt), HTTP: e.HTTP,
 		}.Embed(ctx, inputs)
-		return err
+		if err != nil {
+			return fmt.Errorf("%s: %w", e.Name, err)
+		}
+		return nil
 	})
 	return out, err
 }

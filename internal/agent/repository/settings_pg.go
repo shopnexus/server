@@ -283,8 +283,7 @@ WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, args).F
 		}
 		b.Queue(`UPDATE ai_agent_callers AS a SET requests_per_min = c.requests_per_min, tokens_per_min = c.tokens_per_min
 FROM jsonb_to_recordset(@callers::jsonb) AS c(name text, requests_per_min int, tokens_per_min int)
-WHERE a.caller_name = c.name AND a.agent_id = @id`, pgx.StrictNamedArgs{"id": a.ID, "callers": callersOf(a)}).Fn =
-			postgres.ExecAs("update agent callers", nil)
+WHERE a.caller_name = c.name AND a.agent_id = @id`, pgx.StrictNamedArgs{"id": a.ID, "callers": callersOf(a)}).Fn = postgres.ExecAs("update agent callers", nil)
 		if newVersion {
 			queueVersion(b, a)
 		}
@@ -317,5 +316,8 @@ WHERE agent_id = @id ORDER BY version_no DESC`, pgx.StrictNamedArgs{"id": id})
 }
 
 func (s pgSettings) Exclusive(ctx context.Context, fn func(context.Context) error) error {
-	return postgres.WithLock(ctx, s.db, "ai_gateway", fn)
+	if err := postgres.WithLock(ctx, s.db, "ai_gateway", fn); err != nil {
+		return fmt.Errorf("hold the ai_gateway lock: %w", err)
+	}
+	return nil
 }

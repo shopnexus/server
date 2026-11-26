@@ -211,7 +211,7 @@ func (f *Fake) Calls(caller string) []Call {
 	return slices.Clone(f.calls[caller])
 }
 
-// Teams, Keys and Overrides are the objects in the fake, by name.
+// Teams are the fake's teams, by name.
 func (f *Fake) Teams() map[string]bifrost.Team {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -222,6 +222,7 @@ func (f *Fake) Teams() map[string]bifrost.Team {
 	return out
 }
 
+// Keys are the fake's virtual keys, by name.
 func (f *Fake) Keys() map[string]bifrost.VirtualKey {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -232,12 +233,15 @@ func (f *Fake) Keys() map[string]bifrost.VirtualKey {
 	return out
 }
 
+// Overrides are the fake's pricing overrides as they were sent, by name.
 func (f *Fake) Overrides() map[string]map[string]any {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := map[string]map[string]any{}
 	for _, o := range f.overrides {
-		out[o["name"].(string)] = maps.Clone(o)
+		if name, ok := o["name"].(string); ok {
+			out[name] = maps.Clone(o)
+		}
 	}
 	return out
 }
@@ -442,9 +446,9 @@ func overrideOf(r *http.Request) (map[string]any, bool) {
 	if json.NewDecoder(r.Body).Decode(&o) != nil {
 		return nil, false
 	}
-	types, _ := o["request_types"].([]any)
+	types, ok := o["request_types"].([]any)
 	for _, t := range types {
-		if s, _ := t.(string); strings.HasSuffix(s, "_stream") {
+		if s, isString := t.(string); ok && isString && strings.HasSuffix(s, "_stream") {
 			return nil, false
 		}
 	}
@@ -621,7 +625,11 @@ func (f *Fake) infer(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusUnauthorized, "virtual key not found")
 		return
 	}
-	model, _ := body["model"].(string)
+	model, ok := body["model"].(string)
+	if !ok {
+		refuse(w, http.StatusBadRequest, "no model")
+		return
+	}
 	provider, name, _ := strings.Cut(model, "/")
 	allowed := slices.ContainsFunc(key.ProviderConfigs, func(p bifrost.ProviderConfig) bool {
 		return p.Provider == provider && p.AllowAllKeys && slices.Contains(p.AllowedModels, name)
@@ -634,14 +642,14 @@ func (f *Fake) infer(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusNotFound, "no upstream for "+key.Name)
 		return
 	}
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, //nolint:gosec // the upstream its test set
 		upstream+strings.TrimPrefix(r.URL.Path, "/v1"), bytes.NewReader(raw))
 	if err != nil {
 		refuse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := http.DefaultClient.Do(req) //nolint:gosec // the upstream its test set
 	if err != nil {
 		refuse(w, http.StatusBadGateway, err.Error())
 		return

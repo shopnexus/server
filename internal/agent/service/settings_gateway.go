@@ -101,6 +101,7 @@ func (s *Agent) Reconcile(ctx context.Context) error {
 					_, err = s.d.Gateway.CreateVirtualKey(ctx, want)
 				case !keyHas(keys[k], want):
 					err = s.d.Gateway.UpdateVirtualKey(ctx, keys[k].ID, want)
+				default: // as Bifrost has it
 				}
 				if err != nil {
 					return gatewayError(err)
@@ -126,6 +127,7 @@ func (s *Agent) Reconcile(ctx context.Context) error {
 			case overrides[o].Provider != p.Model.Provider || overrides[o].Pattern != p.Model.Model ||
 				!maps.Equal(overrides[o].Patch, bifrost.PricePatch(price)):
 				err = s.d.Gateway.UpdatePricingOverride(ctx, overrides[o].ID, name, p.Model.Provider, p.Model.Model, price)
+			default: // as Bifrost has it
 			}
 			if err != nil {
 				return gatewayError(err)

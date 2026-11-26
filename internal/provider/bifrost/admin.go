@@ -381,7 +381,7 @@ type CostBucket struct {
 	ByTeam map[string]float64 `json:"by_dimension"`
 }
 
-// CostByTeam is the logged cost from from to to, by team, in buckets
+// CostByTeam is the logged cost between from and to, by team, in buckets
 // whose size Bifrost picks from the window: a day for 7 to 31 days, less
 // for a shorter one.
 func (a Admin) CostByTeam(ctx context.Context, from, to time.Time) ([]CostBucket, error) {
@@ -402,7 +402,7 @@ type CountBucket struct {
 	Count int       `json:"count"`
 }
 
-// Requests is the requests of a team logged from from to to, in buckets
+// Requests is the requests of a team logged between from and to, in buckets
 // as CostByTeam's.
 func (a Admin) Requests(ctx context.Context, teamID string, from, to time.Time) ([]CountBucket, error) {
 	var out struct {
@@ -422,7 +422,7 @@ type Stats struct {
 	SuccessRate float64 `json:"success_rate"`
 }
 
-// ProviderStats is provider's requests from from to to.
+// ProviderStats is provider's requests between from and to.
 func (a Admin) ProviderStats(ctx context.Context, provider string, from, to time.Time) (Stats, error) {
 	var out Stats
 	q := window(from, to)

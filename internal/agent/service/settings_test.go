@@ -299,7 +299,7 @@ func TestAgentRules(t *testing.T) {
 	if _, err = s.SetModelTags(ctx, admin, service.ModelTags{Provider: qwen.Provider, Model: qwen.Model, Tags: []string{"Embedding", "Multilingual"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.SetModelPrice(ctx, admin, service.ModelPrice{Provider: qwen.Provider, Model: qwen.Model, Price: service.Price{Input: 1e-8}}); err != nil {
+	if _, err = s.SetModelPrice(ctx, admin, service.ModelPrice{Provider: qwen.Provider, Model: qwen.Model, Input: 1e-8}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.UpdateAgent(ctx, admin, embedText, service.AgentPatch{Model: &qwen}); err != nil {
@@ -398,19 +398,19 @@ func TestModelsAndPrices(t *testing.T) {
 	if len(list.Tags) == 0 {
 		t.Error("no tags")
 	}
-	if _, err = s.SetModelPrice(ctx, admin, service.ModelPrice{Provider: "gone", Model: "x", Price: service.Price{Input: 1}}); !errors.Is(err, domain.ErrProviderNotFound) {
+	if _, err = s.SetModelPrice(ctx, admin, service.ModelPrice{Provider: "gone", Model: "x", Input: 1}); !errors.Is(err, domain.ErrProviderNotFound) {
 		t.Errorf("an unknown provider: %v", err)
 	}
-	if _, err = s.SetModelPrice(ctx, admin, service.ModelPrice{Provider: qwen.Provider, Model: qwen.Model, Price: service.Price{Input: -1}}); !errors.Is(err, domain.ErrPriceInvalid) {
+	if _, err = s.SetModelPrice(ctx, admin, service.ModelPrice{Provider: qwen.Provider, Model: qwen.Model, Input: -1}); !errors.Is(err, domain.ErrPriceInvalid) {
 		t.Errorf("a price under 0: %v", err)
 	}
-	in := service.ModelPrice{Provider: qwen.Provider, Model: qwen.Model, Price: service.Price{Input: 2e-8, Output: 0, CacheRead: new(1e-9)}}
+	in := service.ModelPrice{Provider: qwen.Provider, Model: qwen.Model, Input: 2e-8, Output: 0, CacheRead: new(1e-9)}
 	got, err := s.SetModelPrice(ctx, admin, in)
 	if err != nil || got.Input != 2e-8 {
 		t.Fatalf("a price %+v %v", got, err)
 	}
-	patch, _ := f.Overrides()["server:openrouter/qwen/qwen3-embedding-8b"]["patch"].(map[string]any)
-	if patch["input_cost_per_token"] != 2e-8 || patch["cache_read_input_token_cost"] != 1e-9 || patch["cache_creation_input_token_cost"] != 2e-8 {
+	patch, ok := f.Overrides()["server:openrouter/qwen/qwen3-embedding-8b"]["patch"].(map[string]any)
+	if !ok || patch["input_cost_per_token"] != 2e-8 || patch["cache_read_input_token_cost"] != 1e-9 || patch["cache_creation_input_token_cost"] != 2e-8 {
 		t.Errorf("qwen's override %v", patch)
 	}
 	// Bifrost down: the price is saved and the next reconcile writes it.
@@ -423,16 +423,16 @@ func TestModelsAndPrices(t *testing.T) {
 	if err = s.Reconcile(ctx); err != nil {
 		t.Fatal(err)
 	}
-	patch, _ = f.Overrides()["server:openrouter/qwen/qwen3-embedding-8b"]["patch"].(map[string]any)
-	if patch["input_cost_per_token"] != 3e-8 {
+	patch, ok = f.Overrides()["server:openrouter/qwen/qwen3-embedding-8b"]["patch"].(map[string]any)
+	if !ok || patch["input_cost_per_token"] != 3e-8 {
 		t.Errorf("qwen's override after the reconcile %v", patch)
 	}
 }
 
 func overrideID(t *testing.T, f *bifrosttest.Fake, name string) string {
 	t.Helper()
-	id, _ := f.Overrides()[name]["id"].(string)
-	if id == "" {
+	id, ok := f.Overrides()[name]["id"].(string)
+	if !ok || id == "" {
 		t.Fatalf("no override %s", name)
 	}
 	return id

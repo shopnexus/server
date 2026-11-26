@@ -91,9 +91,10 @@ type ModelTags struct {
 // ModelPrice is the AIModelPrice schema: a model's price, as a request and
 // as its answer.
 type ModelPrice struct {
+	Price
+
 	Provider string `json:"provider"`
 	Model    string `json:"model_id"`
-	Price
 }
 
 // Caller is the AIAgentCaller schema: one virtual key of an agent, with
