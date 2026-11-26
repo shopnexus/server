@@ -118,12 +118,6 @@ type Hit struct {
 	Point Point
 }
 
-// CategoryCount is how many listings a search matches in one category.
-type CategoryCount struct {
-	Code  string `json:"category"`
-	Count int    `json:"count"`
-}
-
 // RRFK is the k of reciprocal rank fusion: a list's share for the listing at
 // rank r is its weight / (RRFK + r).
 const RRFK = 60

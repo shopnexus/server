@@ -53,10 +53,6 @@ func TestSearchCards(t *testing.T) {
 	if places, placeErr := e.catalog.FindPlaces(ctx, []string{"Hà Nội", "Atlantis"}); placeErr != nil || len(places) != 1 || places["Hà Nội"].Lat == 0 {
 		t.Fatalf("Hà Nội: %v %v", places, placeErr)
 	}
-	counts, err := e.catalog.Counts(ctx, domain.Search{})
-	if err != nil || len(counts) != 1 || counts[0].Count != 2 {
-		t.Fatalf("counts: %v %v", counts, err)
-	}
 }
 
 // A card carries the thumbnails of the listing's first photos in order, the

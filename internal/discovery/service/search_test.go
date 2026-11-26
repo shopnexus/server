@@ -268,7 +268,7 @@ func TestSearchRefusals(t *testing.T) {
 	}
 }
 
-func TestSearchPagesCountsAndSaves(t *testing.T) {
+func TestSearchPagesAndSaves(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
@@ -277,16 +277,15 @@ func TestSearchPagesCountsAndSaves(t *testing.T) {
 		bikes = append(bikes, e.put(t, "Xe đạp", "vehicles.bicycle", baDinh))
 	}
 	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Category: "vehicles", Limit: 2})
-	if err != nil || len(v.Items) != 2 || v.NextCursor != "2" || len(v.Counts) != 1 || v.Counts[0].Count != 3 {
+	if err != nil || len(v.Items) != 2 || v.NextCursor != "2" {
 		t.Fatalf("first page: %+v %v", v, err)
 	}
 	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Category: "vehicles", Limit: 2, Cursor: "2"}); err != nil ||
 		len(v.Items) != 1 || v.NextCursor != "" {
 		t.Fatalf("second page: %+v %v", v, err)
 	}
-	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe đạp", Category: "vehicles"}); err != nil ||
-		len(v.Items) != 3 || len(v.Counts) != 0 {
-		t.Fatalf("words count nothing: %+v %v", v, err)
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe đạp", Category: "vehicles"}); err != nil || len(v.Items) != 3 {
+		t.Fatalf("words: %+v %v", v, err)
 	}
 	me := accounttest.New(t, e.db)
 	if err = e.discovery.Save(ctx, me, bikes[0]); err != nil {
@@ -307,8 +306,7 @@ func TestSearchPagesCountsAndSaves(t *testing.T) {
 	}
 }
 
-// A province keeps its listings, with the other filters, and the counts
-// under a root hold to it.
+// A province keeps its listings, with the other filters.
 func TestSearchProvince(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -323,10 +321,10 @@ func TestSearchProvince(t *testing.T) {
 		t.Fatalf("browse: %+v %v", v, err)
 	}
 	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Province: "01", Category: "vehicles", Sort: catalogdomain.SortPriceAsc})
-	if err != nil || len(v.Items) != 1 || v.Items[0].ID != hanoi || len(v.Counts) != 1 || v.Counts[0].Count != 1 {
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != hanoi {
 		t.Fatalf("a root in Hà Nội: %+v %v", v, err)
 	}
-	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Province: "79", Category: "phones"}); err != nil || len(v.Items) != 0 || len(v.Counts) != 0 {
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Province: "79", Category: "phones"}); err != nil || len(v.Items) != 0 {
 		t.Fatalf("no phones in TP Hồ Chí Minh: %+v %v", v, err)
 	}
 }

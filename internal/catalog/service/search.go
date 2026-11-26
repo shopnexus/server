@@ -102,14 +102,6 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 	return out, nil
 }
 
-func (c *Catalog) Counts(ctx context.Context, s domain.Search) ([]domain.CategoryCount, error) {
-	counts, err := c.d.Searches.Counts(ctx, s)
-	if err != nil {
-		return nil, fmt.Errorf("count listings: %w", err)
-	}
-	return counts, nil
-}
-
 func (c *Catalog) FindPlaces(ctx context.Context, names []string) (map[string]domain.Point, error) {
 	found, err := c.d.Regions.FindPlaces(ctx, names)
 	if err != nil {

@@ -2445,22 +2445,19 @@ app reads a view in one call, and after a socket update it reloads the view
 it shows in one call. Mobile and desktop read the same views; a desktop
 page that shows two views calls both at once.
 
-- `GET /v1/screens/home` (signed in or not): the category tree with the
-  active listings counted under each root and in each subcategory, and the
+- `GET /v1/screens/home` (signed in or not): the category tree and the
   first page of `GET /v1/search?sort=nearby` with the same position and
   `radius_km`.
 - Home without a position (decided 2026-11-15, app plan
   `2026-11-15-app-wire-discovery.md`): the view answers with an empty
   `nearby` and no `next_cursor`, where it used to be 400
   `position_required`. `radius_km` takes the search's rules: 1 to 200, 50
-  km when absent, and `position_required` without a position. Catalog
-  counts the active listings by subcategory in one query, with no
-  exclusions, and a root's count is the sum of its subcategories, since a
-  listing always takes a subcategory: `listings.category_code` references
-  `categories`, and every post and edit checks the code is a leaf. A
-  migration that moves a subcategory to another root moves its count with
-  it, where the old count by `category_root` (the code's prefix) did not.
-  `Counts` lost its `CountField`, as nothing counted by root any more.
+  km when absent, and `position_required` without a position.
+- No listing counts per category (decided 2026-11-26): Home's tree and a
+  root's search carried them, and a load test on dev found Home's count of
+  every active listing the database's busiest query, read on every open
+  for numbers people do not look at. Both are gone with catalog's
+  `Counts`.
 - Dành cho bạn and Vì bạn đã xem gần đây (decided 2026-11-17, app plan
   `2026-11-17-app-finish.md`): Home's `for_you` is one page of
   `SearchItem` cards, 20 like the nearby feed's first page, and `viewed`
@@ -2940,12 +2937,11 @@ Search and the nearby feed (decided 2026-10-27, spec:
   `lng` and `published_at`. The nearby feed is the same query with no
   phrase: within 50 km, scored by the rings and freshness alone.
 - `GET /v1/search?province=` keeps the listings whose commune is in that
-  province (decided 2026-11-22), with every other filter and in `counts`;
+  province (decided 2026-11-22), with every other filter;
   an unknown code is 400 `invalid_province`, and `watch` with it is
   `search_conflict`. The index holds no province: `Filters.Province` is
   `commune_code IN (SELECT code FROM communes WHERE province_code = …)`
-  beside the index query, in BM25, the vector lists, the points sort and
-  the counts. Browsing every Hà Nội listing newest first took 44 ms on the
+  beside the index query, in BM25, the vector lists and the points sort. Browsing every Hà Nội listing newest first took 44 ms on the
   dev database against 6 ms without the filter, since ParadeDB's top-K scan
   stops working with a condition outside the index. A province column in
   the index would bring it back at the cost of a stored column every

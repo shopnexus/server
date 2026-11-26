@@ -145,15 +145,6 @@ Chip:
       description: |
         In the request's language, as "Dưới 3 triệu" or "Under 3M ₫". A
         phrase or a place reads as the model wrote it, in Vietnamese.
-CategoryCount:
-  type: object
-  additionalProperties: false
-  required: [category, count]
-  properties:
-    category:
-      type: string
-    count:
-      type: integer
 SearchView:
   type: object
   additionalProperties: false
@@ -187,14 +178,6 @@ SearchView:
       type: string
       format: uuid
       description: The caller's watch of this query; absent signed out or when there is none.
-    counts:
-      type: array
-      description: >-
-        On a browse of a root category, without q, photo or like: the matches
-        per subcategory, under every other filter, province included. Absent
-        on any other search.
-      items:
-        $ref: "#/CategoryCount"
 SearchHistory:
   type: object
   additionalProperties: false

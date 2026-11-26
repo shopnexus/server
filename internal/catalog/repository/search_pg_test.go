@@ -122,23 +122,8 @@ func TestSearch(t *testing.T) {
 	}); len(got) != 2 || got[0] != touring {
 		t.Fatalf("a fresh ring orders a browse: %v", got)
 	}
-	counts, err := s.Counts(ctx, domain.Search{Phrases: text, Filters: domain.Filters{CategoryRoot: "vehicles"}})
-	if err != nil || len(counts) != 1 || counts[0].Code != "vehicles.bicycle" || counts[0].Count != 2 {
-		t.Fatalf("counts under a root: %v %v", counts, err)
-	}
-	boosted, err := s.Counts(ctx, domain.Search{
-		Phrases: text, Filters: domain.Filters{CategoryRoot: "vehicles"},
-		Boosts: []domain.Boost{{Kind: domain.BoostCategory, Code: "vehicles.bicycle", Weight: 1.5}},
-	})
-	if err != nil || len(boosted) != 1 || boosted[0].Count != 2 {
-		t.Fatalf("counts leave the boosts out: %v %v", boosted, err)
-	}
 	if got = ids(domain.Search{Phrases: []domain.Phrase{{Text: "xe đạp", Weight: 1}, {Text: "đèn", Weight: -2}}, Sort: domain.SortRelevance}); len(got) != 3 || got[2] != lamp {
 		t.Fatalf("a demoted phrase puts the lamp last: %v", got)
-	}
-	all, err := s.Counts(ctx, domain.Search{})
-	if err != nil || !slices.Contains(all, domain.CategoryCount{Code: "vehicles.bicycle", Count: 2}) {
-		t.Fatalf("counts of every listing: %v %v", all, err)
 	}
 	if got = ids(domain.Search{Phrases: []domain.Phrase{{Text: "?!", Weight: 1}}, Sort: domain.SortRelevance}); len(got) != 0 {
 		t.Fatalf("punctuation matches nothing: %v", got)
@@ -315,8 +300,7 @@ func TestSearchPointsNewest(t *testing.T) {
 	}
 }
 
-// A province keeps the listings of its communes in every kind of search
-// and in counts.
+// A province keeps the listings of its communes in every kind of search.
 func TestSearchProvince(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -357,14 +341,10 @@ func TestSearchProvince(t *testing.T) {
 	if got := run(domain.Search{Filters: domain.Filters{Province: "31"}, Sort: domain.SortNewest}); len(got) != 0 {
 		t.Fatalf("a province with none: %v", got)
 	}
-	counts, err := s.Counts(ctx, domain.Search{Filters: domain.Filters{Province: "79"}})
-	if err != nil || !slices.Equal(counts, []domain.CategoryCount{{Code: "vehicles.bicycle", Count: 1}}) {
-		t.Fatalf("counts: %v %v", counts, err)
-	}
 	const td = domain.TextDims
 	vs := repository.NewVectors(db)
 	for _, id := range []uuid.UUID{bikeHN, bikeHCM} {
-		if err = vs.PutText(ctx, id, "t", []byte{1}, embedtest.Axis(td, 0), time.Now()); err != nil {
+		if err := vs.PutText(ctx, id, "t", []byte{1}, embedtest.Axis(td, 0), time.Now()); err != nil {
 			t.Fatal(err)
 		}
 	}

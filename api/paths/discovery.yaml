@@ -101,7 +101,7 @@ search:
       the listings they hid nor those of an account on either side of their
       blocks. With watch, a watch of the caller's runs its query and filters.
       photo and watch need a signed-in caller. province keeps the listings of
-      one province, in the results and in counts, and goes with every other
+      one province and goes with every other
       filter.
     tags: [discovery]
     security:

@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -197,16 +196,11 @@ func (q *query) should(s domain.Search) []string {
 	return out
 }
 
-// where is the search's condition, the index's and the plain ones; counts
-// leave the boosts out, since they change no membership.
-func (q *query) where(s domain.Search, boosts bool) string {
+// where is the search's condition, the index's and the plain ones.
+func (q *query) where(s domain.Search) string {
 	sql := `id @@@ paradedb.boolean(must => ` + array(q.must(s))
-	// Building the boosts adds their parameters, which strict named args
-	// refuse when the SQL does not use them, so counts never build them.
-	if boosts {
-		if should := q.should(s); len(should) > 0 {
-			sql += `, should => ` + array(should)
-		}
+	if should := q.should(s); len(should) > 0 {
+		sql += `, should => ` + array(should)
 	}
 	sql += `)`
 	if ex := q.plain(s, ""); len(ex) > 0 {
@@ -357,7 +351,7 @@ func (q *query) hybrid(s domain.Search, depth int) string {
 			strconv.Itoa(domain.RRFK)+` + rank) AS share FROM `+name+`)`)
 	}
 	if s.Weights.BM25 > 0 && len(s.Phrases) > 0 {
-		where := q.where(s, true)
+		where := q.where(s)
 		if s.Filters.Origin != nil && s.Filters.RadiusKm > 0 {
 			where += ` AND ` + distanceSQL + ` <= @radius`
 		}
@@ -418,7 +412,7 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 		return s.pointsNewest(ctx, in)
 	}
 	q := query{args: pgx.StrictNamedArgs{"limit": in.Limit, "offset": in.Offset}}
-	sql := `SELECT id, lat, lng FROM listings WHERE ` + q.where(in, true)
+	sql := `SELECT id, lat, lng FROM listings WHERE ` + q.where(in)
 	if o := in.Filters.Origin; o != nil && (in.Filters.RadiusKm > 0 || in.Sort == domain.SortNearest) {
 		q.args["olat"], q.args["olng"] = o.Lat, o.Lng
 		if in.Filters.RadiusKm > 0 {
@@ -516,23 +510,6 @@ func collectHits(rows pgx.Rows) ([]domain.Hit, error) {
 // local value lasts until the batch's implicit transaction ends.
 func iterativeScan(b *pgx.Batch) {
 	b.Queue(`SELECT set_config('hnsw.iterative_scan', 'relaxed_order', true)`)
-}
-
-func (s pgSearches) Counts(ctx context.Context, in domain.Search) ([]domain.CategoryCount, error) {
-	if in.Hybrid() {
-		return nil, errors.New("counts take a search without lists to fuse")
-	}
-	q := query{args: pgx.StrictNamedArgs{}}
-	rows, err := s.db.Query(ctx, `SELECT category_code, count(*) FROM listings WHERE `+q.where(in, false)+
-		` GROUP BY 1 ORDER BY 2 DESC, 1`, q.args)
-	if err != nil {
-		return nil, fmt.Errorf("count: %w", err)
-	}
-	counts, err := pgx.CollectRows(rows, pgx.RowToStructByPos[domain.CategoryCount])
-	if err != nil {
-		return nil, fmt.Errorf("read counts: %w", err)
-	}
-	return counts, nil
 }
 
 func (s pgSearches) hybridSearch(ctx context.Context, in domain.Search) ([]domain.Hit, error) {

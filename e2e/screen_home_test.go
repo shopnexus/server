@@ -13,10 +13,8 @@ func TestHomeScreen(t *testing.T) {
 	v := decode[struct {
 		Categories []struct {
 			Code     string `json:"code"`
-			Count    int    `json:"count"`
 			Children []struct {
-				Code  string `json:"code"`
-				Count int    `json:"count"`
+				Code string `json:"code"`
 			} `json:"children"`
 		} `json:"categories"`
 		Nearby searchView `json:"nearby"`
@@ -24,21 +22,8 @@ func TestHomeScreen(t *testing.T) {
 	if res.Status != http.StatusOK || len(v.Categories) != 14 || len(v.Nearby.Items) == 0 {
 		t.Fatalf("%d %s", res.Status, res.Body)
 	}
-	counted := false
-	for _, c := range v.Categories {
-		sum := 0
-		for _, sub := range c.Children {
-			sum += sub.Count
-			if sub.Code == "vehicles.bicycle" && sub.Count >= 1 {
-				counted = true
-			}
-		}
-		if c.Count != sum {
-			t.Errorf("%s counts %d, its subcategories %d", c.Code, c.Count, sum)
-		}
-	}
-	if !counted {
-		t.Fatalf("vehicles.bicycle is not counted: %s", res.Body)
+	if c := v.Categories[0]; c.Code != "phones" || len(c.Children) == 0 || c.Children[0].Code != "phones.iphone" {
+		t.Fatalf("the tree: %s", res.Body)
 	}
 
 	// Without a position the view still answers, with an empty feed. The
