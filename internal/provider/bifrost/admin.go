@@ -428,11 +428,29 @@ type Stats struct {
 	SuccessRate float64 `json:"success_rate"`
 }
 
-// ProviderStats is provider's requests between from and to.
+// ProviderStats is provider's requests between from and to that reached one
+// of its keys; a call Bifrost refused first (a spent budget) is not the
+// provider's failure.
 func (a Admin) ProviderStats(ctx context.Context, provider string, from, to time.Time) (Stats, error) {
+	var keys struct {
+		Keys []struct {
+			ID string `json:"id"`
+		} `json:"keys"`
+	}
+	if err := a.do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(provider)+"/keys", nil, &keys); err != nil {
+		return Stats{}, fmt.Errorf("read %s's keys: %w", provider, err)
+	}
+	ids := make([]string, 0, len(keys.Keys))
+	for _, k := range keys.Keys {
+		ids = append(ids, k.ID)
+	}
+	if len(ids) == 0 {
+		return Stats{}, nil
+	}
 	var out Stats
 	q := window(from, to)
 	q.Set("providers", provider)
+	q.Set("selected_key_ids", strings.Join(ids, ","))
 	if err := a.do(ctx, http.MethodGet, "/api/logs/stats?"+q.Encode(), nil, &out); err != nil {
 		return Stats{}, fmt.Errorf("read %s's stats: %w", provider, err)
 	}

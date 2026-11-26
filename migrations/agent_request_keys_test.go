@@ -42,8 +42,8 @@ VALUES (@conv, @member, 'active', @at, @at, @at)`, pgx.StrictNamedArgs{"conv": c
 			t.Fatalf("%s: %v", q.sql, err)
 		}
 	}
-	// 0102 drops the budget settings.
-	if _, err := postgres.Migrate(ctx, db, before(t, "0102_bifrost.sql")); err != nil {
+	// 0103 drops the budget settings.
+	if _, err := postgres.Migrate(ctx, db, before(t, "0103_bifrost.sql")); err != nil {
 		t.Fatal(err)
 	}
 	var skillWrite, budgetWrite uuid.UUID

@@ -49,7 +49,7 @@ JOIN ai_agent_versions AS v ON v.agent_id = a.id AND v.version_no = a.instructio
 			t.Errorf("agent %s's instructions %q %v, want %q", id, got, err, want)
 		}
 	}
-	// 0102 gives a console agent one caller named after its slug.
+	// 0103 gives a console agent one caller named after its slug.
 	var caller, provider string
 	err := db.QueryRow(ctx, `SELECT c.caller_name, a.model_provider FROM ai_agent_callers AS c
 JOIN ai_agents AS a ON a.id = c.agent_id WHERE a.id = @id`, pgx.StrictNamedArgs{"id": stray}).Scan(&caller, &provider)

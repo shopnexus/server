@@ -4122,7 +4122,7 @@ so its `target_id` is `audit.NamedID` and `details` carries the name.
 Migration 0056 seeds the agents: Console assistant (`console-agent`,
 console, every MCP tool), Scam check (`scam-check`), Listing photo reader
 (`listing-read`), Search (`search`) and Search embeddings (`embed-text`),
-the four app agents. Migration 0102 moves them to Bifrost: slugs, models
+the four app agents. Migration 0103 moves them to Bifrost: slugs, models
 and fallbacks, the callers with the cluster's rate limits, the prices of
 Bifrost's catalog on 2026-11-26 (OpenRouter's for the Claude models) and
 budgets of 100 (the assistant) and 30 USD a month. An app agent takes a

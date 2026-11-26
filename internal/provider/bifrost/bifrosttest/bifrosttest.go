@@ -93,6 +93,7 @@ func New() *Fake {
 	admin.HandleFunc("GET /api/logs/histogram/cost/by-dimension", f.costs)
 	admin.HandleFunc("GET /api/logs/histogram", f.counts)
 	admin.HandleFunc("GET /api/logs/stats", f.logStats)
+	admin.HandleFunc("GET /api/providers/{name}/keys", f.providerKeys)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		down := f.down
@@ -615,7 +616,17 @@ func (f *Fake) counts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (f *Fake) logStats(w http.ResponseWriter, r *http.Request) {
-	reply(w, http.StatusOK, f.stats[r.URL.Query().Get("providers")])
+	q := r.URL.Query()
+	if q.Get("selected_key_ids") != q.Get("providers")+"-key" {
+		reply(w, http.StatusOK, bifrost.Stats{})
+		return
+	}
+	reply(w, http.StatusOK, f.stats[q.Get("providers")])
+}
+
+// providerKeys answers one key per provider, id <provider>-key.
+func (f *Fake) providerKeys(w http.ResponseWriter, r *http.Request) {
+	reply(w, http.StatusOK, map[string]any{"keys": []map[string]string{{"id": r.PathValue("name") + "-key"}}})
 }
 
 // infer serves an inference call as Bifrost's governance does: a key it
