@@ -38,8 +38,10 @@ func commandsText(ops []domain.Operation) string {
 	var b strings.Builder
 	b.WriteString("<commands>\n")
 	b.WriteString("These are all the shopnexus commands you have, so there is no need to run shopnexus to list them. " +
-		"Each shows its parameters, ? marking an optional one, and --body when it takes a JSON body; " +
-		"shopnexus help <command> shows their values and fields. [approval] marks a change that waits for a staff member's approval.\n")
+		"Each shows its parameters, ? marking an optional one, and --body when it takes a JSON body. " +
+		"A parameter is written name=value, never as a --flag: shopnexus listFeedback kind=bug limit=10. " +
+		"shopnexus help <command> shows the values and fields. " +
+		"[approval] marks a change that waits for a staff member's approval.\n")
 	for i := range ops {
 		op := &ops[i]
 		b.WriteString(op.Name)
