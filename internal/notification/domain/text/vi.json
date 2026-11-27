@@ -49,7 +49,6 @@
   "notice.boost_ended": "Gói đẩy tin cho %[1]s đã kết thúc",
   "notice.boost_expired": "Gói đẩy tin cho %[1]s đã hủy vì chưa thanh toán trong 15 phút",
   "notice.boost_failed": "Thanh toán gói đẩy tin cho %[1]s chưa thành công",
-  "notice.boost_refunded": "Đã hoàn %[1]s cho gói đẩy tin %[2]s",
   "notice.boost_started": "Gói đẩy tin %[2]d ngày cho %[1]s đã bắt đầu",
   "notice.cancelled.by": "%[1]s hủy đơn %[2]s",
   "notice.cancelled.listing_closed": "%[1]s không còn bán, đơn của bạn đã hủy",

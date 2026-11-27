@@ -11,7 +11,8 @@ import (
 )
 
 // pending reads a payment the fake still waits on; domain.ErrNotFound for
-// another, or when the gateway is not the fake.
+// another, one past its expiry as VNPay's page refuses it, or when the
+// gateway is not the fake.
 func (s *Payments) pending(ctx context.Context, id uuid.UUID) (payment.Fake, domain.Payment, error) {
 	fake, ok := s.d.Gateway.(payment.Fake)
 	if !ok {
@@ -21,7 +22,7 @@ func (s *Payments) pending(ctx context.Context, id uuid.UUID) (payment.Fake, dom
 	if err != nil {
 		return payment.Fake{}, domain.Payment{}, fmt.Errorf("read payment %s: %w", id, err)
 	}
-	if p.Status() != domain.StatusPending {
+	if p.Status() != domain.StatusPending || !s.d.Now().Before(p.State().ExpiresAt) {
 		return payment.Fake{}, domain.Payment{}, domain.ErrNotFound
 	}
 	return fake, p, nil

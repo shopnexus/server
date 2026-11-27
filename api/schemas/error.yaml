@@ -70,7 +70,7 @@ Error:
             boost_id:
               type: string
               format: uuid
-              description: The boost that runs on the listing, sent with boost_active.
+              description: The boost that runs on the listing (boost_active) or awaits payment on it (boost_pending).
         trace_id:
           type: string
           description: Equals the Trace-Id response header.

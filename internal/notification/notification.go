@@ -67,7 +67,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 		events.FeedbackMoved:     "FeedbackMoved", events.FeedbackReplied: "FeedbackReplied",
 		events.ChototLinkImported: "ChototImported", events.ChototImportSold: "ChototSold",
 		events.BoostStarted: boostMoved, events.BoostFailed: boostMoved, events.BoostExpired: boostMoved,
-		events.BoostRefunded: boostMoved, events.BoostEnded: boostMoved,
+		events.BoostEnded: boostMoved,
 	} {
 		d.Events.Subscribe(kind, w.ServiceName(), h)
 	}

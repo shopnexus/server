@@ -22,7 +22,7 @@ import (
 const version = "2.1.0"
 
 // VNPayClient is VNPay's payment page (vnp_Command pay), its signed
-// callbacks and its merchant API (querydr, refund), for one terminal.
+// callbacks and its merchant API's querydr, for one terminal.
 // PayURL is the page's address (…/paymentv2/vpcpay.html), APIURL the
 // merchant API's (…/merchant_webapi/api/transaction), ReturnURL where VNPay
 // sends the payer back, and ServerIP the address the merchant API calls
@@ -141,7 +141,7 @@ func (v VNPayClient) Verify(q url.Values) (Result, error) {
 	return r, nil
 }
 
-// apiReply is the merchant API's answer, querydr's and refund's fields.
+// apiReply is the merchant API's answer, querydr's fields.
 //
 //nolint:tagliatelle // VNPay's own names.
 type apiReply struct {
@@ -246,32 +246,4 @@ func (v VNPayClient) Query(ctx context.Context, p Lookup, now time.Time) (Result
 		ResponseCode: r.TransactionStatus, Paid: r.TransactionStatus == resultPaid,
 	}
 	return out, nil
-}
-
-// Refund is refund of the whole amount (vnp_TransactionType 02). VNPay's
-// 94, a refund it already took, is no error.
-func (v VNPayClient) Refund(ctx context.Context, p Lookup, now time.Time) error {
-	body := v.request("refund", p, now)
-	body[keyTransactionType], body[keyAmount] = "02", strconv.FormatInt(p.Amount*100, 10)
-	body[keyTransactionNo], body["vnp_CreateBy"] = p.TransactionNo, "shopnexus"
-	r, err := v.call(ctx, body,
-		[]string{
-			keyRequestID, keyVersion, keyCommand, keyTmnCode, keyTransactionType, keyTxnRef, keyAmount,
-			keyTransactionNo, keyTransactionDate, "vnp_CreateBy", keyCreateDate, keyIPAddr, keyOrderInfo,
-		},
-		func(r apiReply) []string {
-			return []string{
-				r.ResponseID, r.Command, r.ResponseCode, r.Message, r.TmnCode, r.TxnRef, r.Amount, r.BankCode, r.PayDate,
-				r.TransactionNo, r.TransactionType, r.TransactionStatus, r.OrderInfo,
-			}
-		})
-	if err != nil {
-		return err
-	}
-	switch r.ResponseCode {
-	case resultPaid, "94":
-		return nil
-	default:
-		return RefusedError{Code: r.ResponseCode, Message: r.Message}
-	}
 }

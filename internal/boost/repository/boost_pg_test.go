@@ -55,16 +55,22 @@ func TestBoostInsertOneLivePerListing(t *testing.T) {
 	if got, existed, err = store.Insert(ctx, purchase(t, db, listing, seller, short, at)); err != nil || !existed || got.ID() != first.ID() {
 		t.Fatalf("same package %v %v %v", got.ID(), existed, err)
 	}
-	// Another package cancels it.
+	// Another package waits for it, which keeps awaiting payment.
+	_, _, err = store.Insert(ctx, purchase(t, db, listing, seller, long, at.Add(time.Minute)))
+	if e := apperr.From(err); !errors.Is(err, domain.ErrPending) || e.Details.BoostID == nil || *e.Details.BoostID != first.ID() {
+		t.Fatalf("other package: %v", err)
+	}
+	first.Close(domain.StatusExpired, at.Add(15*time.Minute))
+	if err = store.Save(ctx, &first, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
 	second := purchase(t, db, listing, seller, long, at.Add(time.Minute))
 	if got, existed, err = store.Insert(ctx, second); err != nil || existed || got.ID() != second.ID() {
-		t.Fatalf("other package %v %v %v", got.ID(), existed, err)
-	}
-	if old, _ := store.Get(ctx, first.ID()); old.Status() != domain.StatusCancelled || old.State().EndedAt == nil {
-		t.Fatalf("replaced %+v", old.State())
+		t.Fatalf("after it lapsed %v %v %v", got.ID(), existed, err)
 	}
 	// A running one refuses another purchase, naming itself.
-	second.Start(at.Add(2 * time.Minute))
+	started := at.Add(2 * time.Minute)
+	second.Start(started, &started)
 	if err = store.Save(ctx, &second, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}

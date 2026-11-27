@@ -79,8 +79,8 @@ func TestVerifyCallback(t *testing.T) {
 	}
 }
 
-// querydr and refund post signed JSON; an answer's signature is checked,
-// 91 is not found and 94 a refund already taken.
+// querydr posts signed JSON; an answer's signature is checked, 91 is not
+// found and another code a refusal.
 func TestVNPayMerchantAPI(t *testing.T) {
 	t.Parallel()
 	var code string
@@ -99,9 +99,7 @@ func TestVNPayMerchantAPI(t *testing.T) {
 		fields := []string{
 			"vnp_ResponseId", "vnp_Command", "vnp_ResponseCode", "vnp_Message", "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount",
 			"vnp_BankCode", "vnp_PayDate", "vnp_TransactionNo", "vnp_TransactionType", "vnp_TransactionStatus", "vnp_OrderInfo",
-		}
-		if body["vnp_Command"] == "querydr" {
-			fields = append(fields, "vnp_PromotionCode", "vnp_PromotionAmount")
+			"vnp_PromotionCode", "vnp_PromotionAmount",
 		}
 		data := make([]string, len(fields))
 		for i, f := range fields {
@@ -118,19 +116,12 @@ func TestVNPayMerchantAPI(t *testing.T) {
 	if err != nil || !r.Paid || r.Amount != 15_000 || r.TransactionNo != "77" {
 		t.Fatalf("querydr %+v %v", r, err)
 	}
-	if err = v.Refund(t.Context(), p, time.Now()); err != nil {
-		t.Fatalf("refund: %v", err)
-	}
 	code = "91"
 	if _, err = v.Query(t.Context(), p, time.Now()); !errors.Is(err, payment.ErrNotFound) {
 		t.Fatalf("not found: %v", err)
 	}
-	code = "94"
-	if err = v.Refund(t.Context(), p, time.Now()); err != nil {
-		t.Fatalf("a refund again: %v", err)
-	}
 	code = "95"
-	if err = v.Refund(t.Context(), p, time.Now()); !errors.Is(err, payment.ErrRefused) {
+	if _, err = v.Query(t.Context(), p, time.Now()); !errors.Is(err, payment.ErrRefused) {
 		t.Fatalf("refused: %v", err)
 	}
 }

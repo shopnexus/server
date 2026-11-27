@@ -19,13 +19,13 @@ type pgStore struct{ db *pgxpool.Pool }
 func NewStore(db *pgxpool.Pool) Store { return pgStore{db} }
 
 const columns = `id, account_id, product, product_id, amount, gateway, status, pay_url, gateway_ref, bank_code,
-       result_code, created_at, expires_at, paid_at, closed_at, refunded_at, write_id`
+       result_code, created_at, expires_at, paid_at, closed_at, write_id`
 
 func scan(row pgx.CollectableRow) (domain.Payment, error) {
 	var st domain.State
 	if err := row.Scan(&st.ID, &st.AccountID, &st.Product, &st.ProductID, &st.Amount, &st.Gateway, &st.Status, &st.PayURL,
 		&st.GatewayRef, &st.BankCode, &st.ResultCode, &st.CreatedAt, &st.ExpiresAt, &st.PaidAt, &st.ClosedAt,
-		&st.RefundedAt, &st.WriteID); err != nil {
+		&st.WriteID); err != nil {
 		return domain.Payment{}, fmt.Errorf("scan payment: %w", err)
 	}
 	return domain.Restore(st), nil
@@ -94,10 +94,10 @@ func (s pgStore) Save(ctx context.Context, p *domain.Payment, writeID uuid.UUID,
 	st := p.State()
 	b := &pgx.Batch{}
 	b.Queue(`UPDATE payments SET status = @status, gateway_ref = @gateway_ref, bank_code = @bank_code, result_code = @result_code,
-    paid_at = @paid_at, closed_at = @closed_at, refunded_at = @refunded_at, write_id = @write_id
+    paid_at = @paid_at, closed_at = @closed_at, write_id = @write_id
 WHERE id = @id AND write_id = @read_write_id`, pgx.StrictNamedArgs{
 		"id": st.ID, "status": st.Status, "gateway_ref": st.GatewayRef, "bank_code": st.BankCode, "result_code": st.ResultCode,
-		"paid_at": st.PaidAt, "closed_at": st.ClosedAt, "refunded_at": st.RefundedAt, "write_id": writeID, "read_write_id": st.WriteID,
+		"paid_at": st.PaidAt, "closed_at": st.ClosedAt, "write_id": writeID, "read_write_id": st.WriteID,
 	}).Exec(func(tag pgconn.CommandTag) error {
 		if tag.RowsAffected() == 0 {
 			return ErrConflict

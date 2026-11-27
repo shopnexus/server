@@ -56,20 +56,17 @@ const (
 	// ChototImportSold is a copy of a Chợ Tốt listing sold here while the
 	// listing is still on Chợ Tốt, for a reminder to hide it there.
 	ChototImportSold Kind = "chotot_import.sold"
-	// PaymentSucceeded, PaymentFailed, PaymentExpired and PaymentRefunded
-	// are a payment the gateway confirmed, refused, never got, or refunded.
+	// PaymentSucceeded, PaymentFailed and PaymentExpired are a payment the
+	// gateway confirmed, refused, or never got.
 	PaymentSucceeded Kind = "payment.succeeded"
 	PaymentFailed    Kind = "payment.failed"
 	PaymentExpired   Kind = "payment.expired"
-	PaymentRefunded  Kind = "payment.refunded"
-	// BoostStarted is a paid package that moved its listing up the first
-	// time; the others close a boost: failed or expired payment, refund
-	// done, package over.
-	BoostStarted  Kind = "boost.started"
-	BoostFailed   Kind = "boost.failed"
-	BoostExpired  Kind = "boost.expired"
-	BoostRefunded Kind = "boost.refunded"
-	BoostEnded    Kind = "boost.ended"
+	// BoostStarted is a paid package now running; the others close a
+	// boost: failed or expired payment, package over.
+	BoostStarted Kind = "boost.started"
+	BoostFailed  Kind = "boost.failed"
+	BoostExpired Kind = "boost.expired"
+	BoostEnded   Kind = "boost.ended"
 )
 
 // Event is what happened to which aggregate. It is thin: a subscriber reads

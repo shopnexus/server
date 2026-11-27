@@ -15,13 +15,13 @@ import (
 var ErrConflict = errors.New("boost: changed meanwhile")
 
 // Store stores boosts. Inserts for one listing take its lock, so the
-// listing's live boost is read and replaced one purchase at a time.
+// listing's live boost is read one purchase at a time.
 type Store interface {
 	// Insert stores b, awaiting payment, and returns it with false. It
 	// returns instead, with true: the boost the seller's key made already,
 	// or the listing's boost of the same package awaiting payment. A
-	// running one is domain.ErrActive with its ID; one of another package
-	// awaiting payment is cancelled and b stored. A deleted seller is
+	// running one is domain.ErrActive with its ID, one of another package
+	// awaiting payment domain.ErrPending with its ID. A deleted seller is
 	// accountdomain.ErrSessionRevoked.
 	Insert(ctx context.Context, b domain.Boost) (domain.Boost, bool, error)
 	// ByKey reads the boost seller's key made; domain.ErrNotFound for none.

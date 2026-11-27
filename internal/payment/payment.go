@@ -1,5 +1,5 @@
 // Package payment is the platform's own takings: one payment per purchase
-// through a gateway, VNPay or its fake, refunded in full or not at all.
+// through a gateway, VNPay or its fake, and never given back.
 // The modules that sell open payments through its Service and hear what
 // became of them through payment.* events; payment never imports them.
 package payment

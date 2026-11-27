@@ -64,7 +64,7 @@ func TestBoostTicks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.Start(start)
+	b.Start(start, &start)
 	if err = store.Save(ctx, &b, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
@@ -193,5 +193,91 @@ func TestBoostStandings(t *testing.T) {
 		if err != nil || got[free].Boostable {
 			t.Fatalf("%s: %+v %v", c.name, got[free], err)
 		}
+	}
+}
+
+// Paid money always starts its package, days from the payment: on a
+// listing not on sale, unmoved; on a boost whose payment expired first,
+// too, unless another package is live on the listing by then.
+//
+// UC-LST-03 A4, A5.
+func TestBoostPaymentLands(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	in, prefix := restatetest.Ingress(t), restatetest.Prefix()
+	accounts := accounttest.Service(db)
+	media := mediatest.Service(db, objectstoretest.New(t), in, prefix)
+	catalog := catalogtest.Service(db, accounts, media, in, prefix)
+	start := time.Date(2026, 11, 27, 9, 0, 0, 0, time.UTC)
+	payments := paymentrepo.NewStore(db)
+	store := repository.NewStore(db)
+	boosts := service.New(service.Deps{
+		Store: store, Payments: paymentsvc.New(paymentsvc.Deps{Store: payments}), Catalog: catalog,
+		Accounts: accounts, Ingress: in, Prefix: prefix, Now: time.Now, Log: slog.New(slog.DiscardHandler),
+	})
+	restatetest.Start(t, restate.Reflect(service.Timers{Boosts: boosts}))
+	seller := accounttest.New(t, db)
+
+	// buy stores a boost of the listing and its payment, the boost closed
+	// with closed unless that is empty.
+	buy := func(listing uuid.UUID, closed domain.Status) (uuid.UUID, paymentdomain.Payment) {
+		t.Helper()
+		id := uuid.NewV7()
+		p, err := payments.Insert(ctx, paymentdomain.NewPayment(uuid.NewV7(), seller, paymentdomain.ProductBoost, id, 15_000, "fake", "https://pay.test", start))
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _, err := store.Insert(ctx, domain.NewBoost(id, listing, seller, uuid.NewV7(), domain.PackageOf(3, 15_000), p.ID(), start))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if closed != "" && b.Close(closed, start) {
+			if err = store.Save(ctx, &b, uuid.NewV7()); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return id, p
+	}
+	// land records p paid at paid, tells boost, and reads the boost id.
+	land := func(id uuid.UUID, p paymentdomain.Payment, paid time.Time) domain.State {
+		t.Helper()
+		if _, err := p.Report(paymentdomain.Result{Amount: 15_000, Paid: true, ResultCode: "00"}, paid); err != nil {
+			t.Fatal(err)
+		}
+		if err := payments.Save(ctx, &p, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		if err := boosts.PaymentPaid(ctx, p.ID(), paid.Add(time.Minute), uuid.NewV7(), uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		got, err := store.Get(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.State()
+	}
+	paid := start.Add(5 * time.Minute)
+
+	// A5: hidden when the money lands.
+	hidden := catalogtest.Listing(t, db, seller)
+	if _, err := catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
+		t.Fatal(err)
+	}
+	hiddenID, hiddenPay := buy(hidden, "")
+	if st := land(hiddenID, hiddenPay, paid); st.Status != domain.StatusActive || st.Bumps != 0 || !st.StartedAt.Equal(paid) ||
+		!st.EndsAt.Equal(paid.Add(3*domain.Every)) {
+		t.Fatalf("not on sale %+v", st)
+	}
+	// A4: both payments of a listing expired or failed first; the first to
+	// land starts, the second finds it running and stays closed.
+	listing := catalogtest.Listing(t, db, seller)
+	expiredID, expired := buy(listing, domain.StatusExpired)
+	failedID, failed := buy(listing, domain.StatusFailed)
+	if st := land(expiredID, expired, paid); st.Status != domain.StatusActive || st.Bumps != 1 || st.EndedAt != nil {
+		t.Fatalf("paid late %+v", st)
+	}
+	if st := land(failedID, failed, paid); st.Status != domain.StatusFailed || st.StartedAt != nil {
+		t.Fatalf("paid late beside a running one %+v", st)
 	}
 }

@@ -14,50 +14,62 @@ import (
 	"github.com/shopnexus/server/internal/platform/events"
 )
 
-// PaymentPaid is UC-LST-03, step 10: the payment landed. A boost awaiting
-// it moves its listing up and starts, its first tick sent before the save
-// so a crash between them loses no tick. A5: a listing no longer on sale
-// leaves the package unstarted and refunds it. A4: a boost that closed or
-// was replaced first, or none, is refunded.
+// PaymentPaid is UC-LST-03, step 10: the payment landed, and paid money
+// always starts its package, its days counted from the payment (BR-LST-07).
+// The listing moves up when on sale; A5: one not on sale starts unmoved,
+// and its ticks skip until it is. The first tick is sent before the save,
+// so a crash between them loses none. A4: a boost whose payment expired or
+// failed first starts too, logged, unless another package is live there.
 func (s *Boosts) PaymentPaid(ctx context.Context, payment uuid.UUID, at time.Time, writeID, eventID uuid.UUID) error {
-	refund := false
-	b, err := s.change(ctx, payment, writeID, eventID, at, func(b *domain.Boost) (events.Kind, error) {
-		refund = false
+	p, err := s.d.Payments.Get(ctx, payment)
+	if err != nil {
+		return fmt.Errorf("read the paid payment: %w", err)
+	}
+	from := at
+	if p.PaidAt != nil {
+		from = *p.PaidAt
+	}
+	err = s.change(ctx, payment, writeID, eventID, at, func(b *domain.Boost) (events.Kind, error) {
 		switch b.Status() {
 		case domain.StatusAwaiting:
-			bumped, err := s.d.Catalog.Bump(ctx, b.SellerID(), b.ListingID(), at)
-			if err != nil {
-				return "", fmt.Errorf("move the listing up: %w", err)
+		case domain.StatusFailed, domain.StatusExpired:
+			// A4
+			s.d.Log.ErrorContext(ctx, "a payment landed after its boost closed", "boost", b.ID(), "payment", payment)
+			live, liveErr := s.d.Store.Live(ctx, []uuid.UUID{b.ListingID()})
+			if liveErr != nil {
+				return "", fmt.Errorf("read the listing's boost: %w", liveErr)
 			}
-			if bumped && b.Start(at) {
-				if err = s.sendTick(ctx, b.ID(), *b.NextTick(), at); err != nil {
-					return "", err
-				}
-				return events.BoostStarted, nil
+			if _, taken := live[b.ListingID()]; taken {
+				s.d.Log.ErrorContext(ctx, "another package is live on the listing, so the paid boost stays closed",
+					"boost", b.ID(), "payment", payment)
+				return "", nil
 			}
-		case domain.StatusRefunding:
-			refund = true
+		case domain.StatusActive, domain.StatusEnded:
 			return "", nil
-		case domain.StatusActive, domain.StatusEnded, domain.StatusRefunded:
-			return "", nil
-		case domain.StatusFailed, domain.StatusExpired, domain.StatusCancelled:
 		default:
+			return "", nil
 		}
-		refund = b.Refuse(at)
-		return kindNone, nil
+		var bumpedAt *time.Time
+		bumped, bumpErr := s.d.Catalog.Bump(ctx, b.SellerID(), b.ListingID(), at)
+		if bumpErr != nil {
+			return "", fmt.Errorf("move the listing up: %w", bumpErr)
+		}
+		if bumped {
+			bumpedAt = &at
+		}
+		if !b.Start(from, bumpedAt) {
+			return "", nil
+		}
+		if tickErr := s.sendTick(ctx, b.ID(), *b.NextTick(), at); tickErr != nil {
+			return "", tickErr
+		}
+		return events.BoostStarted, nil
 	})
 	if errors.Is(err, domain.ErrNotFound) {
-		refund = true // a payment whose boost was never stored
-	} else if err != nil {
-		return err
-	}
-	if !refund || (b.ID() != uuid.Nil() && b.Status() != domain.StatusRefunding) {
+		s.d.Log.ErrorContext(ctx, "a payment landed for no boost", "payment", payment)
 		return nil
 	}
-	if err = s.d.Payments.Refund(ctx, payment); err != nil {
-		return fmt.Errorf("refund the boost's payment: %w", err)
-	}
-	return nil
+	return err
 }
 
 // PaymentClosed is UC-LST-03 A3 and E8: the payment expired or failed, so
@@ -67,24 +79,9 @@ func (s *Boosts) PaymentClosed(ctx context.Context, payment uuid.UUID, status do
 	if status == domain.StatusExpired {
 		kind = events.BoostExpired
 	}
-	_, err := s.change(ctx, payment, writeID, eventID, at, func(b *domain.Boost) (events.Kind, error) {
+	err := s.change(ctx, payment, writeID, eventID, at, func(b *domain.Boost) (events.Kind, error) {
 		if b.Close(status, at) {
 			return kind, nil
-		}
-		return "", nil
-	})
-	if errors.Is(err, domain.ErrNotFound) {
-		return nil
-	}
-	return err
-}
-
-// PaymentRefunded is UC-LST-03 A4 and A5, at their end: the gateway gave
-// the money back, and boost.refunded tells the seller.
-func (s *Boosts) PaymentRefunded(ctx context.Context, payment uuid.UUID, at time.Time, writeID, eventID uuid.UUID) error {
-	_, err := s.change(ctx, payment, writeID, eventID, at, func(b *domain.Boost) (events.Kind, error) {
-		if b.Refunded(at) {
-			return events.BoostRefunded, nil
 		}
 		return "", nil
 	})

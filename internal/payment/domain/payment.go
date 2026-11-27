@@ -1,5 +1,6 @@
 // Package domain holds module payment's entity: one payment of one of the
-// platform's sales, from the gateway's page to paid, refunded or closed.
+// platform's sales, from the gateway's page to paid or closed. A paid
+// payment is never given back.
 package domain
 
 import (
@@ -20,20 +21,16 @@ var (
 	// ErrAmountMismatch is a gateway result of another amount than the
 	// payment's.
 	ErrAmountMismatch = apperr.New(apperr.KindConflict, "payment_amount_mismatch", "the amount differs from the payment's")
-	// ErrNotRefundable is a refund of a payment never paid.
-	ErrNotRefundable = apperr.New(apperr.KindConflict, "payment_not_refundable", "only a paid payment is refunded")
 )
 
 // Status is where a payment is.
 type Status string
 
 const (
-	StatusPending   Status = "pending"
-	StatusPaid      Status = "paid"
-	StatusFailed    Status = "failed"
-	StatusExpired   Status = "expired"
-	StatusRefunding Status = "refunding"
-	StatusRefunded  Status = "refunded"
+	StatusPending Status = "pending"
+	StatusPaid    Status = "paid"
+	StatusFailed  Status = "failed"
+	StatusExpired Status = "expired"
 )
 
 // Product is what a payment pays for: the module and its row.
@@ -102,32 +99,6 @@ func (p *Payment) Expire(now time.Time) bool {
 	return true
 }
 
-// StartRefund moves a paid payment to refunding and reports whether it did;
-// one refunding or refunded already stays. Another is ErrNotRefundable.
-func (p *Payment) StartRefund() (bool, error) {
-	switch p.s.Status {
-	case StatusPaid:
-		p.s.Status = StatusRefunding
-		return true, nil
-	case StatusRefunding, StatusRefunded:
-		return false, nil
-	case StatusPending, StatusFailed, StatusExpired:
-		return false, ErrNotRefundable
-	default:
-		return false, ErrNotRefundable
-	}
-}
-
-// Refunded records the gateway's refund of a refunding payment and reports
-// whether it did.
-func (p *Payment) Refunded(now time.Time) bool {
-	if p.s.Status != StatusRefunding {
-		return false
-	}
-	p.s.Status, p.s.RefundedAt = StatusRefunded, &now
-	return true
-}
-
 func (p *Payment) ID() uuid.UUID        { return p.s.ID }
 func (p *Payment) Status() Status       { return p.s.Status }
 func (p *Payment) Amount() int64        { return p.s.Amount }
@@ -151,7 +122,6 @@ type State struct {
 	ExpiresAt  time.Time  `json:"expires_at"`
 	PaidAt     *time.Time `json:"paid_at,omitempty"`
 	ClosedAt   *time.Time `json:"closed_at,omitempty"`
-	RefundedAt *time.Time `json:"refunded_at,omitempty"`
 	WriteID    uuid.UUID  `json:"write_id"`
 }
 

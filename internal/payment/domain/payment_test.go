@@ -38,21 +38,12 @@ func TestPaymentMoves(t *testing.T) {
 	if o, _ := p.Report(failed, at); o != domain.Unchanged || p.Expire(at) {
 		t.Fatalf("a paid payment moved: %v", o)
 	}
-	if ok, err := p.StartRefund(); !ok || err != nil || p.Status() != domain.StatusRefunding {
-		t.Fatalf("refund %v %v", ok, err)
-	}
-	if ok, err := p.StartRefund(); ok || err != nil {
-		t.Fatalf("refund again %v %v", ok, err)
-	}
-	if !p.Refunded(at) || p.Refunded(at) || p.Status() != domain.StatusRefunded {
-		t.Fatalf("refunded %s", p.Status())
-	}
 
 	q := fresh()
 	if !q.Expire(at) || q.Expire(at) || q.Status() != domain.StatusExpired {
 		t.Fatalf("expire %s", q.Status())
 	}
-	if _, err := q.StartRefund(); !errors.Is(err, domain.ErrNotRefundable) {
-		t.Fatalf("refund unpaid: %v", err)
+	if o, _ := q.Report(paid, at); o != domain.Paid || q.Status() != domain.StatusPaid {
+		t.Fatalf("paid after expiry %v %s", o, q.Status())
 	}
 }

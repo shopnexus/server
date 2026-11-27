@@ -44,7 +44,6 @@ type View struct {
 	LastBumpAt       *time.Time    `json:"last_bump_at,omitempty"`
 	Bumps            int           `json:"bumps"`
 	EndedAt          *time.Time    `json:"ended_at,omitempty"`
-	RefundedAt       *time.Time    `json:"refunded_at,omitempty"`
 	CreatedAt        time.Time     `json:"created_at"`
 }
 
@@ -94,12 +93,10 @@ type Service interface {
 	// ListingBoosts lists a listing's boosts with their payments, newest
 	// first, for the console.
 	ListingBoosts(ctx context.Context, listing uuid.UUID, p page.Request) (page.Page[ConsoleBoost], error)
-	// PaymentPaid starts the boost the payment paid for, or refunds it.
+	// PaymentPaid starts the boost the payment paid for.
 	PaymentPaid(ctx context.Context, payment uuid.UUID, at time.Time, writeID, eventID uuid.UUID) error
 	// PaymentClosed closes the boost of a payment that failed or expired.
 	PaymentClosed(ctx context.Context, payment uuid.UUID, status domain.Status, at time.Time, writeID, eventID uuid.UUID) error
-	// PaymentRefunded records the refund of a boost's payment.
-	PaymentRefunded(ctx context.Context, payment uuid.UUID, at time.Time, writeID, eventID uuid.UUID) error
 }
 
 // Catalog is what boost needs of module catalog.
@@ -147,7 +144,7 @@ func view(b domain.Boost, p *paymentsvc.View) View {
 	v := View{
 		ID: st.ID, ListingID: st.ListingID, SellerID: st.SellerID, Package: st.Package, Days: st.Days, Price: st.Price,
 		Status: st.Status, StartedAt: st.StartedAt, EndsAt: st.EndsAt, LastBumpAt: st.LastBumpAt, Bumps: st.Bumps,
-		EndedAt: st.EndedAt, RefundedAt: st.RefundedAt, CreatedAt: st.CreatedAt,
+		EndedAt: st.EndedAt, CreatedAt: st.CreatedAt,
 	}
 	if st.NextTickAt != nil && st.EndsAt != nil && st.NextTickAt.Before(*st.EndsAt) {
 		v.NextBumpAt = st.NextTickAt
@@ -297,31 +294,24 @@ const saveTries = 5
 // nothing. A save that lost a race reads again.
 func (s *Boosts) change(ctx context.Context, payment, writeID, eventID uuid.UUID, at time.Time,
 	f func(b *domain.Boost) (events.Kind, error),
-) (domain.Boost, error) {
+) error {
 	for range saveTries {
 		b, err := s.d.Store.ByPayment(ctx, payment)
 		if err != nil {
-			return domain.Boost{}, fmt.Errorf("read the boost of payment %s: %w", payment, err)
+			return fmt.Errorf("read the boost of payment %s: %w", payment, err)
 		}
 		kind, err := f(&b)
 		if err != nil || kind == "" {
-			return b, err
+			return err
 		}
-		var evs []events.Event
-		if kind != kindNone {
-			evs = append(evs, events.Event{ID: eventID, Kind: kind, SubjectID: b.ID(), OccurredAt: at})
-		}
-		err = s.d.Store.Save(ctx, &b, writeID, evs...)
+		err = s.d.Store.Save(ctx, &b, writeID, events.Event{ID: eventID, Kind: kind, SubjectID: b.ID(), OccurredAt: at})
 		if errors.Is(err, repository.ErrConflict) {
 			continue
 		}
 		if err != nil {
-			return domain.Boost{}, fmt.Errorf("save boost %s: %w", b.ID(), err)
+			return fmt.Errorf("save boost %s: %w", b.ID(), err)
 		}
-		return b, nil
+		return nil
 	}
-	return domain.Boost{}, fmt.Errorf("save the boost of payment %s: %w", payment, repository.ErrConflict)
+	return fmt.Errorf("save the boost of payment %s: %w", payment, repository.ErrConflict)
 }
-
-// kindNone is a change f saves without an event.
-const kindNone events.Kind = "-"

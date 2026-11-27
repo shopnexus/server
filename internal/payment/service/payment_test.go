@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/url"
 	"testing"
@@ -68,9 +69,10 @@ func (e env) open(t *testing.T) service.View {
 	return p
 }
 
-func (e env) run(t *testing.T, handler string, id uuid.UUID) {
+// expire runs the expiry of payment id now.
+func (e env) expire(t *testing.T, id uuid.UUID) {
 	t.Helper()
-	if _, err := ingress.Service[uuid.UUID, restate.Void](e.client, e.flows.ServiceName(), handler).Request(context.Background(), id); err != nil {
+	if _, err := ingress.Service[uuid.UUID, restate.Void](e.client, e.flows.ServiceName(), "Expire").Request(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -97,8 +99,8 @@ func TestPaymentExpiry(t *testing.T) {
 		t.Fatalf("opened %+v", lost)
 	}
 	e.gateway.paid[lost.ID] = true
-	e.run(t, "Expire", lost.ID)
-	e.run(t, "Expire", never.ID)
+	e.expire(t, lost.ID)
+	e.expire(t, never.ID)
 	if p, _ := e.payments.Get(ctx, lost.ID); p.Status != domain.StatusPaid || p.GatewayRef != "77" || e.events(t, lost.ID, "payment.succeeded") != 1 {
 		t.Fatalf("lost IPN %+v", p)
 	}
@@ -106,8 +108,8 @@ func TestPaymentExpiry(t *testing.T) {
 		t.Fatalf("never paid %+v", p)
 	}
 	// An expiry again, or of a payment never stored, changes nothing.
-	e.run(t, "Expire", never.ID)
-	e.run(t, "Expire", uuid.NewV7())
+	e.expire(t, never.ID)
+	e.expire(t, uuid.NewV7())
 	if e.events(t, never.ID, "payment.expired") != 1 {
 		t.Fatal("expired twice")
 	}
@@ -134,7 +136,7 @@ func TestPaymentReports(t *testing.T) {
 	answer("an unknown payment", e.gateway.Callback(uuid.NewV7(), 15_000, true, now), "01")
 	answer("another amount", e.gateway.Callback(p.ID, 14_000, true, now), "04")
 	// A4
-	e.run(t, "Expire", p.ID)
+	e.expire(t, p.ID)
 	answer("paid after it expired", e.gateway.Callback(p.ID, 15_000, true, now), "00")
 	answer("paid again", e.gateway.Callback(p.ID, 15_000, true, now), "02")
 	answer("cancelled after", e.gateway.Callback(p.ID, 15_000, false, now), "02")
@@ -157,26 +159,32 @@ func TestPaymentReports(t *testing.T) {
 	}
 }
 
-// A refund marks the payment refunding, has the gateway refund it and
-// writes payment.refunded once; a payment never paid is not refunded.
+// The fake's page, as VNPay's at vnp_ExpireDate, takes no payment from
+// its expiry on, so a late Pay records nothing.
 //
-// UC-LST-03 A5.
-func TestPaymentRefund(t *testing.T) {
+// UC-LST-03 A4.
+func TestDevPaymentExpires(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	p := e.open(t)
-	e.payments.Notify(ctx, e.gateway.Callback(p.ID, 15_000, true, time.Now()))
-	e.run(t, "Refund", p.ID)
-	e.run(t, "Refund", p.ID)
-	if got, _ := e.payments.Get(ctx, p.ID); got.Status != domain.StatusRefunded || got.RefundedAt == nil || e.events(t, p.ID, "payment.refunded") != 1 {
-		t.Fatalf("refunded %+v", got)
+	// The dev page is served for the fake itself.
+	at := func(now time.Time) *service.Payments {
+		return service.New(service.Deps{
+			Store: repository.NewStore(e.db), Gateway: e.gateway.Fake, Now: func() time.Time { return now }, Log: slog.New(slog.DiscardHandler),
+		})
 	}
-	unpaid := e.open(t)
-	if _, err := ingress.Service[uuid.UUID, restate.Void](e.client, e.flows.ServiceName(), "Refund").Request(ctx, unpaid.ID); err == nil {
-		t.Fatal("refunded an unpaid payment")
+	if _, err := at(p.ExpiresAt.Add(-time.Second)).DevPayment(ctx, p.ID); err != nil {
+		t.Fatalf("the page in time: %v", err)
 	}
-	if got, _ := e.payments.Get(ctx, unpaid.ID); got.Status != domain.StatusPending {
-		t.Fatalf("unpaid %+v", got)
+	late := at(p.ExpiresAt)
+	if _, err := late.DevPayment(ctx, p.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("the page at expiry: %v", err)
+	}
+	if _, err := late.DevPay(ctx, p.ID, true); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("paying at expiry: %v", err)
+	}
+	if got, _ := e.payments.Get(ctx, p.ID); got.Status != domain.StatusPending {
+		t.Fatalf("after a late press %+v", got)
 	}
 }

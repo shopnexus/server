@@ -22,6 +22,9 @@ var (
 	ErrNotBoostable = apperr.New(apperr.KindConflict, "listing_not_boostable", "the listing is not on sale")
 	// ErrActive is a listing a package runs on; one at a time (BR-LST-05).
 	ErrActive = apperr.New(apperr.KindConflict, "boost_active", "a boost package runs on the listing")
+	// ErrPending is a purchase of another package while one awaits payment
+	// on the listing; that one is paid or lapses first (BR-LST-05).
+	ErrPending = apperr.New(apperr.KindConflict, "boost_pending", "another boost package awaits payment on the listing")
 )
 
 // Package is a package sellers buy: Days of moves up for Price đồng.
@@ -40,14 +43,11 @@ func PackageOf(days int, price int64) Package {
 type Status string
 
 const (
-	StatusAwaiting  Status = "awaiting_payment"
-	StatusActive    Status = "active"
-	StatusEnded     Status = "ended"
-	StatusFailed    Status = "failed"
-	StatusExpired   Status = "expired"
-	StatusCancelled Status = "cancelled"
-	StatusRefunding Status = "refunding"
-	StatusRefunded  Status = "refunded"
+	StatusAwaiting Status = "awaiting_payment"
+	StatusActive   Status = "active"
+	StatusEnded    Status = "ended"
+	StatusFailed   Status = "failed"
+	StatusExpired  Status = "expired"
 )
 
 // Boost is one purchase. Its fields are its stored state.
@@ -62,36 +62,25 @@ func NewBoost(id, listing, seller, key uuid.UUID, pkg Package, payment uuid.UUID
 	}}
 }
 
-// Start runs a paid boost from at, whose first move up just happened, and
-// reports whether it did; only one awaiting payment starts. The next
-// moves come every Every until Days have passed.
-func (b *Boost) Start(at time.Time) bool {
-	if b.s.Status != StatusAwaiting {
-		return false
-	}
-	ends := at.Add(time.Duration(b.s.Days) * Every)
-	next := earlier(at.Add(Every), ends)
-	b.s.Status, b.s.StartedAt, b.s.EndsAt, b.s.NextTickAt = StatusActive, &at, &ends, &next
-	b.s.LastBumpAt, b.s.Bumps = &at, 1
-	return true
-}
-
-// Refuse moves a paid boost that cannot start to refunding and reports
-// whether it did: one awaiting payment whose listing left sale, or one
-// that closed or was cancelled before its payment landed (BR-LST-07).
-func (b *Boost) Refuse(at time.Time) bool {
+// Start runs a paid boost from paid, when its payment landed, and reports
+// whether it did. bumped is the first move up, nil when the listing was
+// not on sale then. A boost whose payment failed or expired starts too:
+// paid money always buys the package (BR-LST-07). Days count from paid.
+func (b *Boost) Start(paid time.Time, bumped *time.Time) bool {
 	switch b.s.Status {
-	case StatusAwaiting, StatusFailed, StatusExpired, StatusCancelled:
-		b.s.Status = StatusRefunding
-		if b.s.EndedAt == nil {
-			b.s.EndedAt = &at
-		}
-		return true
-	case StatusActive, StatusEnded, StatusRefunding, StatusRefunded:
+	case StatusAwaiting, StatusFailed, StatusExpired:
+	case StatusActive, StatusEnded:
 		return false
 	default:
 		return false
 	}
+	ends := paid.Add(time.Duration(b.s.Days) * Every)
+	next := earlier(paid.Add(Every), ends)
+	b.s.Status, b.s.StartedAt, b.s.EndsAt, b.s.NextTickAt, b.s.EndedAt = StatusActive, &paid, &ends, &next, nil
+	if bumped != nil {
+		b.s.LastBumpAt, b.s.Bumps = bumped, 1
+	}
+	return true
 }
 
 // Close ends a boost awaiting payment whose payment failed or expired,
@@ -101,15 +90,6 @@ func (b *Boost) Close(status Status, at time.Time) bool {
 		return false
 	}
 	b.s.Status, b.s.EndedAt = status, &at
-	return true
-}
-
-// Cancel ends a boost awaiting payment that a newer purchase replaces.
-func (b *Boost) Cancel(at time.Time) bool {
-	if b.s.Status != StatusAwaiting {
-		return false
-	}
-	b.s.Status, b.s.EndedAt = StatusCancelled, &at
 	return true
 }
 
@@ -146,16 +126,6 @@ func earlier(a, b time.Time) time.Time {
 	return a
 }
 
-// Refunded records the refund of a refunding boost and reports whether it
-// did.
-func (b *Boost) Refunded(at time.Time) bool {
-	if b.s.Status != StatusRefunding {
-		return false
-	}
-	b.s.Status, b.s.RefundedAt = StatusRefunded, &at
-	return true
-}
-
 func (b *Boost) ID() uuid.UUID        { return b.s.ID }
 func (b *Boost) Status() Status       { return b.s.Status }
 func (b *Boost) ListingID() uuid.UUID { return b.s.ListingID }
@@ -184,7 +154,6 @@ type State struct {
 	NextTickAt *time.Time `json:"next_tick_at,omitempty"`
 	LastBumpAt *time.Time `json:"last_bump_at,omitempty"`
 	EndedAt    *time.Time `json:"ended_at,omitempty"`
-	RefundedAt *time.Time `json:"refunded_at,omitempty"`
 	WriteID    uuid.UUID  `json:"write_id"`
 }
 

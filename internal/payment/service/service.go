@@ -1,5 +1,5 @@
 // Package service is module payment's use cases: a payment opened for a
-// sale, the gateway's reports of it, its expiry and its refund.
+// sale, the gateway's reports of it and its expiry.
 package service
 
 import (
@@ -52,9 +52,6 @@ type Service interface {
 	Get(ctx context.Context, id uuid.UUID) (View, error)
 	// Many reads the payments among ids, keyed by ID.
 	Many(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]View, error)
-	// Refund gives a paid payment back in full, in a flow of its own that
-	// writes payment.refunded once the gateway took it.
-	Refund(ctx context.Context, id uuid.UUID) error
 	// Notify records the gateway's server-to-server report (IPN).
 	Notify(ctx context.Context, q url.Values) NotifyAnswer
 	// Returned reads the payment the gateway sent the payer back from.
@@ -115,40 +112,33 @@ const saveTries = 5
 // A save that lost a race reads again. The event's ID is eventID.
 func (s *Payments) change(ctx context.Context, id, writeID, eventID uuid.UUID, at time.Time,
 	f func(p *domain.Payment) (events.Kind, error),
-) (domain.Payment, error) {
+) error {
 	for range saveTries {
 		p, err := s.d.Store.Get(ctx, id)
 		if err != nil {
-			return domain.Payment{}, fmt.Errorf("read payment %s: %w", id, err)
+			return fmt.Errorf("read payment %s: %w", id, err)
 		}
 		kind, err := f(&p)
 		if err != nil || kind == "" {
-			return p, err
+			return err
 		}
-		var evs []events.Event
-		if kind != kindNone {
-			evs = append(evs, events.Event{ID: eventID, Kind: kind, SubjectID: id, OccurredAt: at})
-		}
-		err = s.d.Store.Save(ctx, &p, writeID, evs...)
+		err = s.d.Store.Save(ctx, &p, writeID, events.Event{ID: eventID, Kind: kind, SubjectID: id, OccurredAt: at})
 		if errors.Is(err, repository.ErrConflict) {
 			continue
 		}
 		if err != nil {
-			return domain.Payment{}, fmt.Errorf("save payment %s: %w", id, err)
+			return fmt.Errorf("save payment %s: %w", id, err)
 		}
-		return p, nil
+		return nil
 	}
-	return domain.Payment{}, fmt.Errorf("save payment %s: %w", id, repository.ErrConflict)
+	return fmt.Errorf("save payment %s: %w", id, repository.ErrConflict)
 }
-
-// kindNone is a change f saves without an event.
-const kindNone events.Kind = "-"
 
 // report records r on payment id: payment.succeeded or payment.failed when
 // it changed the payment.
 func (s *Payments) report(ctx context.Context, id uuid.UUID, r domain.Result, at time.Time, writeID, eventID uuid.UUID) (domain.Outcome, error) {
 	outcome := domain.Unchanged
-	_, err := s.change(ctx, id, writeID, eventID, at, func(p *domain.Payment) (events.Kind, error) {
+	err := s.change(ctx, id, writeID, eventID, at, func(p *domain.Payment) (events.Kind, error) {
 		var err error
 		outcome, err = p.Report(r, at)
 		switch {

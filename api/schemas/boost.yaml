@@ -44,15 +44,13 @@ BoostInput:
       description: The id of one of GET /v1/boost-packages's items.
 BoostStatus:
   type: string
-  enum: [awaiting_payment, active, ended, failed, expired, cancelled, refunding, refunded]
+  enum: [awaiting_payment, active, ended, failed, expired]
   description: |
     awaiting_payment: the seller has 15 minutes to pay at payment_url.
     active: paid and running. ended: the package ran its days. failed:
     the gateway refused or the seller cancelled the payment. expired: not
-    paid within 15 minutes. cancelled: a newer purchase for the listing
-    replaced it before it was paid. refunding: paid, but the package could
-    not start (the listing was no longer on sale, or the purchase was
-    already closed), so the full amount goes back; refunded: it went back.
+    paid within 15 minutes. Nothing is ever refunded: a payment that lands
+    starts its package, whether the listing is on sale then or not.
 Boost:
   type: object
   additionalProperties: false
@@ -93,7 +91,7 @@ Boost:
     started_at:
       type: string
       format: date-time
-      description: When the payment landed and the first move up happened.
+      description: When the payment landed; the package's days count from it. The first move up happens then if the listing is on sale.
     ends_at:
       type: string
       format: date-time
@@ -114,10 +112,6 @@ Boost:
       type: string
       format: date-time
       description: When the package ended, or the purchase closed without starting.
-    refunded_at:
-      type: string
-      format: date-time
-      description: When the gateway confirmed the refund.
     created_at:
       type: string
       format: date-time
@@ -148,7 +142,7 @@ ConsolePayment:
       format: int64
     status:
       type: string
-      enum: [pending, paid, failed, expired, refunding, refunded]
+      enum: [pending, paid, failed, expired]
     gateway_ref:
       type: string
       description: The gateway's transaction number, once it reported one.
@@ -171,9 +165,6 @@ ConsolePayment:
       type: string
       format: date-time
       description: When it failed or expired.
-    refunded_at:
-      type: string
-      format: date-time
 ConsoleBoostList:
   type: object
   additionalProperties: false

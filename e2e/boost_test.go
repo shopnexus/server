@@ -31,7 +31,6 @@ type boostView struct {
 	EndsAt           *time.Time `json:"ends_at"`
 	NextBumpAt       *time.Time `json:"next_bump_at"`
 	Bumps            int        `json:"bumps"`
-	RefundedAt       *time.Time `json:"refunded_at"`
 }
 
 // buy buys pkg for listing as token under key and expects status.
@@ -239,12 +238,12 @@ func TestPaymentNotify(t *testing.T) {
 }
 
 // A seller who cancels at the gateway leaves the boost failed and hears of
-// it; a purchase of another package replaces one awaiting payment, and
-// should that one's payment still land it is refunded; so is one paid
-// after its listing left sale.
+// it. While one package awaits payment another is refused, naming it; a
+// payment that lands after its listing left sale still starts the package,
+// which moves nothing until the listing is back on sale.
 //
-// UC-LST-03 A2, A4, A5, E8.
-func TestBoostPaymentClosesOrRefunds(t *testing.T) {
+// UC-LST-03 A5, E8, E10.
+func TestBoostPaymentClosesOrStarts(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
 	token := seller.AccessToken
@@ -256,25 +255,21 @@ func TestBoostPaymentClosesOrRefunds(t *testing.T) {
 	boostIn(t, token, cancelled.ID, "failed")
 	newestNotice(t, token, "boost_failed")
 
-	// A2 then A4
-	first := buy(t, token, l.ID, "3d", newKey(), http.StatusCreated)
-	second := buy(t, token, l.ID, "7d", newKey(), http.StatusCreated)
-	if second.ID == first.ID {
-		t.Fatal("the other package did not replace the first")
+	// E10
+	pending := buy(t, token, l.ID, "7d", newKey(), http.StatusCreated)
+	res := call(t, "POST", "/v1/boosts", map[string]any{"listing_id": l.ID, "package": "3d"}, bearer(token), newKey())
+	if e := errorOf(t, res); res.Status != http.StatusConflict || e.Code != "boost_pending" || e.Details["boost_id"] != pending.ID {
+		t.Fatalf("another package while one awaits payment: %d %s", res.Status, res.Body)
 	}
-	boostIn(t, token, first.ID, "cancelled")
-	pay(t, first, "pay")
-	if b := boostIn(t, token, first.ID, "refunded"); b.RefundedAt == nil {
-		t.Fatalf("refunded %+v", b)
-	}
-	newestNotice(t, token, "boost_refunded")
 
 	// A5
 	expectStatus(t, call(t, "POST", "/v1/listings/"+l.ID+"/hide", nil, bearer(token)), http.StatusOK)
-	pay(t, second, "pay")
-	if b := boostIn(t, token, second.ID, "refunded"); b.StartedAt != nil || b.Bumps != 0 {
-		t.Fatalf("refunded unstarted %+v", b)
+	pay(t, pending, "pay")
+	b := boostIn(t, token, pending.ID, "active")
+	if b.StartedAt == nil || b.Bumps != 0 || b.EndsAt == nil || !b.EndsAt.Equal(b.StartedAt.Add(7*24*time.Hour)) {
+		t.Fatalf("started off sale %+v", b)
 	}
+	newestNotice(t, token, "boost_started")
 }
 
 // The checks before a purchase, in the spec's order.

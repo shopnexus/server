@@ -61,11 +61,10 @@ const (
 	TypeParcelLost Type = "parcel_lost"
 	// TypeBoostStarted and the other boost types tell a seller what became
 	// of a package bought for a listing (UC-LST-03).
-	TypeBoostStarted  Type = "boost_started"
-	TypeBoostFailed   Type = "boost_failed"
-	TypeBoostExpired  Type = "boost_expired"
-	TypeBoostRefunded Type = "boost_refunded"
-	TypeBoostEnded    Type = "boost_ended"
+	TypeBoostStarted Type = "boost_started"
+	TypeBoostFailed  Type = "boost_failed"
+	TypeBoostExpired Type = "boost_expired"
+	TypeBoostEnded   Type = "boost_ended"
 )
 
 // Notice is one thing to tell one person. Params hold what its text is
@@ -537,7 +536,6 @@ var types = map[Type]struct {
 	TypeBoostStarted:    {listings, func(p Params, w writer) string { return w.say("notice.boost_started", p.Title, p.Count) }},
 	TypeBoostFailed:     {listings, func(p Params, w writer) string { return w.say("notice.boost_failed", p.Title) }},
 	TypeBoostExpired:    {listings, func(p Params, w writer) string { return w.say("notice.boost_expired", p.Title) }},
-	TypeBoostRefunded:   {listings, func(p Params, w writer) string { return w.say("notice.boost_refunded", w.money(p.Amount), p.Title) }},
 	TypeBoostEnded:      {listings, func(p Params, w writer) string { return w.say("notice.boost_ended", p.Title) }},
 }
 

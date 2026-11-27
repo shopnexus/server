@@ -29,12 +29,14 @@ boosts:
       account_suspended; phone_required; listing_not_found (no such
       listing, another seller's, or deleted); listing_not_boostable (not on
       sale: processing, hidden, held by a moderator, rejected, reserved or
-      sold); boost_active (a package runs on the listing).
+      sold); boost_active (a package runs on the listing); boost_pending
+      (another package awaits payment on the listing).
 
       A boost of the same package awaiting payment on the listing is
       answered as it is (200), so the seller picks the payment up again. A
-      boost of another package awaiting payment is cancelled and replaced;
-      should its payment still land, it is refunded in full.
+      boost of another package awaiting payment refuses the purchase until
+      it is paid or lapses. Nothing is refunded: once paid, the package
+      runs its days, and a day the listing is not on sale is not moved up.
     tags: [boost]
     security:
       - bearerAuth: []
@@ -76,7 +78,7 @@ boosts:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The listing is not on sale (listing_not_boostable), or a package runs on it (boost_active, with details.boost_id)."
+        description: "The listing is not on sale (listing_not_boostable), a package runs on it (boost_active, with details.boost_id), or another package awaits payment on it (boost_pending, with details.boost_id)."
         content:
           application/json:
             schema:
@@ -192,10 +194,11 @@ vnpayNotify:
       The server checks vnp_SecureHash, finds the payment by vnp_TxnRef,
       checks vnp_Amount, then records the result once: vnp_ResponseCode and
       vnp_TransactionStatus 00 mark it paid, anything else failed. A
-      success after the payment failed or expired still marks it paid, and
-      the purchase it was for is refunded. The answer is always 200 with
-      VNPay's RspCode; VNPay sends again on 99 and on any answer it cannot
-      read.
+      success after the payment failed or expired still marks it paid and
+      starts the package; VNPay's page refuses payment after vnp_ExpireDate,
+      the payment's expires_at, so it should not happen. The answer is
+      always 200 with VNPay's RspCode; VNPay sends again on 99 and on any
+      answer it cannot read.
     tags: [payment, internal]
     security: []
     responses:
@@ -231,7 +234,7 @@ devPayment:
             schema:
               type: string
       "404":
-        description: "No such payment, or one no longer pending (payment_not_found)."
+        description: "No such payment, one no longer pending, or one past its expires_at (payment_not_found)."
         content:
           application/json:
             schema:
@@ -262,7 +265,7 @@ devPayment:
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "404":
-        description: "No such payment, or one no longer pending (payment_not_found)."
+        description: "No such payment, one no longer pending, or one past its expires_at (payment_not_found)."
         content:
           application/json:
             schema:

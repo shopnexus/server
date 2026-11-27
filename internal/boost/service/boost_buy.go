@@ -67,7 +67,8 @@ func (s *Boosts) Buy(ctx context.Context, in BuyInput) (View, bool, error) {
 		case b.Package() == pkg.ID:
 			v, viewErr := s.one(ctx, b) // A2
 			return v, false, viewErr
-		default: // A2: another package awaiting payment, which Insert cancels
+		default:
+			return View{}, false, domain.ErrPending.WithBoost(b.ID()) //nolint:wrapcheck // E10, a refusal as it is
 		}
 	}
 	// 6.

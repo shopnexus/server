@@ -39,7 +39,7 @@ func (w Worker) run(ctx restate.Context, e events.Event, f func(rc restate.RunCo
 	return nil
 }
 
-// Succeeded starts the boost the payment paid for, or refunds it.
+// Succeeded starts the boost the payment paid for.
 func (w Worker) Succeeded(ctx restate.Context, e events.Event) error {
 	return w.run(ctx, e, func(rc restate.RunContext, at time.Time, writeID, eventID uuid.UUID) error {
 		return w.Boosts.PaymentPaid(rc, e.SubjectID, at, writeID, eventID)
@@ -57,12 +57,5 @@ func (w Worker) Failed(ctx restate.Context, e events.Event) error {
 func (w Worker) Expired(ctx restate.Context, e events.Event) error {
 	return w.run(ctx, e, func(rc restate.RunContext, at time.Time, writeID, eventID uuid.UUID) error {
 		return w.Boosts.PaymentClosed(rc, e.SubjectID, domain.StatusExpired, at, writeID, eventID)
-	})
-}
-
-// Refunded records the refund of a boost's payment.
-func (w Worker) Refunded(ctx restate.Context, e events.Event) error {
-	return w.run(ctx, e, func(rc restate.RunContext, at time.Time, writeID, eventID uuid.UUID) error {
-		return w.Boosts.PaymentRefunded(rc, e.SubjectID, at, writeID, eventID)
 	})
 }

@@ -20,7 +20,7 @@ func TestBoostMoves(t *testing.T) {
 	}
 
 	b := fresh()
-	if !b.Start(at) || b.Start(at) {
+	if !b.Start(at, &at) || b.Start(at, &at) {
 		t.Fatal("started twice")
 	}
 	st := b.State()
@@ -38,16 +38,18 @@ func TestBoostMoves(t *testing.T) {
 		t.Fatal("the end tick")
 	}
 	b.End(at.Add(2 * day))
-	if b.Status() != domain.StatusEnded || b.NextTick() != nil || b.Refuse(at) {
+	if b.Status() != domain.StatusEnded || b.NextTick() != nil || b.Start(at, &at) {
 		t.Fatalf("ended %+v", b.State())
 	}
 
-	c := fresh()
-	if !c.Cancel(at) || c.Close(domain.StatusFailed, at) || !c.Refuse(at) || !c.Refunded(at) || c.Status() != domain.StatusRefunded {
-		t.Fatalf("cancelled then paid %+v", c.State())
-	}
 	e := fresh()
 	if e.Close(domain.StatusActive, at) || !e.Close(domain.StatusExpired, at) || e.Status() != domain.StatusExpired {
 		t.Fatalf("expired %+v", e.State())
+	}
+	// Money that lands late, on a listing not on sale, still starts the
+	// package, with its days from the payment and no move up yet.
+	late := at.Add(time.Hour)
+	if !e.Start(late, nil) || e.State().Bumps != 0 || e.State().EndedAt != nil || !e.State().EndsAt.Equal(late.Add(2*day)) {
+		t.Fatalf("paid late %+v", e.State())
 	}
 }

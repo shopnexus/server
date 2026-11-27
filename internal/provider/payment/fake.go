@@ -15,7 +15,7 @@ const fakeSecret = "dev"
 // Fake is VNPay in development and tests. Its payment page is the server's
 // dev page at PagesURL/{id}, whose buttons make the callbacks VNPay would,
 // signed as VNPay signs them. It knows no payment when asked (querydr) and
-// takes every refund. With PAYMENT_VNPAY=fake the server serves the page.
+// With PAYMENT_VNPAY=fake the server serves the page.
 type Fake struct {
 	// PagesURL is the dev page's address without the payment's ID.
 	PagesURL string
@@ -35,8 +35,6 @@ func (f Fake) PayURL(o Order) (string, error) { return f.PagesURL + "/" + o.ID.S
 func (f Fake) Verify(q url.Values) (Result, error) { return f.signer().Verify(q) }
 
 func (Fake) Query(context.Context, Lookup, time.Time) (Result, error) { return Result{}, ErrNotFound }
-
-func (Fake) Refund(context.Context, Lookup, time.Time) error { return nil }
 
 // Callback is the query VNPay sends, to the IPN and the return page, once
 // the payer pays (paid) or cancels the payment id of amount at now.

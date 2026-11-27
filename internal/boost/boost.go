@@ -40,7 +40,6 @@ func Mount(d module.Deps, s Settings, payments paymentsvc.Service, catalog servi
 	d.Events.Subscribe(events.PaymentSucceeded, w.ServiceName(), "Succeeded")
 	d.Events.Subscribe(events.PaymentFailed, w.ServiceName(), "Failed")
 	d.Events.Subscribe(events.PaymentExpired, w.ServiceName(), "Expired")
-	d.Events.Subscribe(events.PaymentRefunded, w.ServiceName(), "Refunded")
 	return module.Mounted[service.Service]{
 		Services: []restate.ServiceDefinition{restate.Reflect(w), restate.Reflect(service.Timers{Boosts: svc})},
 		Service:  svc,

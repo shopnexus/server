@@ -343,8 +343,7 @@ func (w Worker) ChototSold(ctx restate.Context, e events.Event) error {
 // boostTypes is the notice each boost event writes.
 var boostTypes = map[events.Kind]domain.Type{
 	events.BoostStarted: domain.TypeBoostStarted, events.BoostFailed: domain.TypeBoostFailed,
-	events.BoostExpired: domain.TypeBoostExpired, events.BoostRefunded: domain.TypeBoostRefunded,
-	events.BoostEnded: domain.TypeBoostEnded,
+	events.BoostExpired: domain.TypeBoostExpired, events.BoostEnded: domain.TypeBoostEnded,
 }
 
 // boostFacts are a boost's notice facts: the boost, its seller, whom the
@@ -356,7 +355,7 @@ type boostFacts struct {
 }
 
 // BoostMoved tells a seller what became of a boost: started, payment
-// failed or expired, refunded, ended. A gone boost tells no one.
+// failed or expired, ended. A gone boost tells no one.
 func (w Worker) BoostMoved(ctx restate.Context, e events.Event) error {
 	typ, ok := boostTypes[e.Kind]
 	if !ok {

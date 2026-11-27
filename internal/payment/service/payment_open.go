@@ -38,13 +38,3 @@ func (s *Payments) Open(ctx context.Context, in OpenInput) (View, error) {
 	}
 	return stored.State(), nil
 }
-
-// Refund sends the refund flow; one already sent for the payment is not
-// sent again.
-func (s *Payments) Refund(ctx context.Context, id uuid.UUID) error {
-	if _, err := ingress.ServiceSend[uuid.UUID](s.d.Ingress, s.d.Prefix+flows, "Refund").
-		Send(ctx, id, restate.WithIdempotencyKey("refund-"+id.String())); err != nil {
-		return fmt.Errorf("send the refund of payment %s: %w", id, err)
-	}
-	return nil
-}

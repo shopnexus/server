@@ -115,7 +115,6 @@ type consolePayment struct {
 	ExpiresAt  time.Time            `json:"expires_at"`
 	PaidAt     *time.Time           `json:"paid_at,omitempty"`
 	ClosedAt   *time.Time           `json:"closed_at,omitempty"`
-	RefundedAt *time.Time           `json:"refunded_at,omitempty"`
 }
 
 type consoleBoost struct {
@@ -136,7 +135,6 @@ func (h *Handler) ConsoleList(w http.ResponseWriter, r *http.Request) {
 			out.Items[i] = consoleBoost{Boost: c.Boost, Payment: consolePayment{
 				ID: p.ID, Gateway: p.Gateway, Amount: p.Amount, Status: p.Status, GatewayRef: p.GatewayRef, BankCode: p.BankCode,
 				ResultCode: p.ResultCode, CreatedAt: p.CreatedAt, ExpiresAt: p.ExpiresAt, PaidAt: p.PaidAt, ClosedAt: p.ClosedAt,
-				RefundedAt: p.RefundedAt,
 			}}
 		}
 		return out, nil

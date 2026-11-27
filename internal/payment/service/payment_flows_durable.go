@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"time"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
@@ -17,9 +16,8 @@ import (
 // flows is the PaymentFlows service's name without the prefix.
 const flows = "PaymentFlows"
 
-// Flows is a payment's waits and calls that outlive a request: its expiry
-// and its refund. Each reads the payment when it runs and does nothing
-// when the payment moved on.
+// Flows is a payment's wait that outlives a request: its expiry. It reads
+// the payment when it runs and does nothing when the payment moved on.
 type Flows struct{ Payments *Payments }
 
 func (f Flows) ServiceName() string { return f.Payments.d.Prefix + flows }
@@ -85,7 +83,7 @@ func (f Flows) Expire(ctx restate.Context, id uuid.UUID) error {
 			}
 			s.d.Log.WarnContext(rc, "querydr of another amount", "payment", id, "amount", q.Result.Amount)
 		}
-		_, changeErr := s.change(rc, id, writeID, eventID, at, func(p *domain.Payment) (events.Kind, error) {
+		changeErr := s.change(rc, id, writeID, eventID, at, func(p *domain.Payment) (events.Kind, error) {
 			if p.Expire(at) {
 				return events.PaymentExpired, nil
 			}
@@ -96,74 +94,4 @@ func (f Flows) Expire(ctx restate.Context, id uuid.UUID) error {
 		return fmt.Errorf("expire payment %s: %w", id, err)
 	}
 	return nil
-}
-
-// Refund is UC-LST-03 A4 and A5: the full amount back to the payer. It
-// marks the payment refunding, has the gateway refund it, then writes
-// payment.refunded. A refund the gateway refuses stops the flow with the
-// payment left refunding for staff; any other fault is retried.
-func (f Flows) Refund(ctx restate.Context, id uuid.UUID) error {
-	s := f.Payments
-	at, err := restatex.Now(ctx, s.d.Now)
-	if err != nil {
-		return err
-	}
-	writeID := restatex.NewID(ctx, at)
-	p, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Payment, error) {
-		got, changeErr := s.change(rc, id, writeID, uuid.Nil(), at, func(p *domain.Payment) (events.Kind, error) {
-			started, startErr := p.StartRefund()
-			if startErr != nil || !started {
-				return "", startErr
-			}
-			return kindNone, nil
-		})
-		return got, refundFault(changeErr)
-	})
-	if err != nil {
-		return fmt.Errorf("start the refund of payment %s: %w", id, err)
-	}
-	return f.giveBack(ctx, p, at)
-}
-
-// giveBack is Refund once the payment is refunding.
-func (f Flows) giveBack(ctx restate.Context, p domain.Payment, at time.Time) error {
-	s := f.Payments
-	if p.Status() == domain.StatusRefunded || s.d.Gateway == nil {
-		return nil
-	}
-	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		refundErr := s.d.Gateway.Refund(rc, lookup(p.State()), at)
-		if errors.Is(refundErr, payment.ErrRefused) {
-			s.d.Log.ErrorContext(rc, "the gateway refused a refund", "payment", p.ID(), "err", refundErr)
-			return restate.ToTerminalError(refundErr)
-		}
-		if refundErr != nil {
-			return fmt.Errorf("refund at the gateway: %w", refundErr)
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("refund payment %s: %w", p.ID(), err)
-	}
-	writeID, eventID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
-	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		_, changeErr := s.change(rc, p.ID(), writeID, eventID, at, func(p *domain.Payment) (events.Kind, error) {
-			if p.Refunded(at) {
-				return events.PaymentRefunded, nil
-			}
-			return "", nil
-		})
-		return changeErr
-	}); err != nil {
-		return fmt.Errorf("record the refund of payment %s: %w", p.ID(), err)
-	}
-	return nil
-}
-
-// refundFault stops a refund of a payment that is not there or not paid,
-// which no retry changes.
-func refundFault(err error) error {
-	if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrNotRefundable) {
-		return restate.ToTerminalError(fmt.Errorf("refund: %w", err)) //nolint:wrapcheck // err is wrapped already
-	}
-	return err
 }

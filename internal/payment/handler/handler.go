@@ -100,7 +100,7 @@ func (h *Handler) Return(w http.ResponseWriter, r *http.Request) {
 	if ret.Found {
 		key := "pending"
 		switch ret.Payment.Status {
-		case domain.StatusPaid, domain.StatusRefunding, domain.StatusRefunded:
+		case domain.StatusPaid:
 			key = "paid"
 		case domain.StatusFailed, domain.StatusExpired:
 			key = "failed"

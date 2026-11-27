@@ -21,7 +21,7 @@ type pgStore struct{ db *pgxpool.Pool }
 func NewStore(db *pgxpool.Pool) Store { return pgStore{db} }
 
 const columns = `id, listing_id, seller_id, request_key, package_code, run_days, price, status, payment_id, bumps,
-       created_at, started_at, ends_at, next_tick_at, last_bump_at, ended_at, refunded_at, write_id`
+       created_at, started_at, ends_at, next_tick_at, last_bump_at, ended_at, write_id`
 
 // live is the statuses the partial unique index boosts_live holds one of.
 const live = `status IN ('awaiting_payment', 'active')`
@@ -30,7 +30,7 @@ func scan(row pgx.CollectableRow) (domain.Boost, error) {
 	var st domain.State
 	if err := row.Scan(&st.ID, &st.ListingID, &st.SellerID, &st.RequestKey, &st.Package, &st.Days, &st.Price, &st.Status,
 		&st.PaymentID, &st.Bumps, &st.CreatedAt, &st.StartedAt, &st.EndsAt, &st.NextTickAt, &st.LastBumpAt, &st.EndedAt,
-		&st.RefundedAt, &st.WriteID); err != nil {
+		&st.WriteID); err != nil {
 		return domain.Boost{}, fmt.Errorf("scan boost: %w", err)
 	}
 	return domain.Restore(st), nil
@@ -100,10 +100,8 @@ func (s pgStore) Insert(ctx context.Context, b domain.Boost) (domain.Boost, bool
 			case c.Package() == st.Package:
 				out, existed = c, true
 				return nil
-			}
-			c.Cancel(st.CreatedAt)
-			if err = save(ctx, tx, &c, uuid.NewV7()); err != nil {
-				return err
+			default:
+				return domain.ErrPending.WithBoost(c.ID())
 			}
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO boosts (id, listing_id, seller_id, request_key, package_code, run_days, price, status,
@@ -167,12 +165,10 @@ func save(ctx context.Context, tx pgx.Tx, b *domain.Boost, writeID uuid.UUID, ev
 	st := b.State()
 	batch := &pgx.Batch{}
 	batch.Queue(`UPDATE boosts SET status = @status, bumps = @bumps, started_at = @started_at, ends_at = @ends_at,
-    next_tick_at = @next_tick_at, last_bump_at = @last_bump_at, ended_at = @ended_at, refunded_at = @refunded_at,
-    write_id = @write_id
+    next_tick_at = @next_tick_at, last_bump_at = @last_bump_at, ended_at = @ended_at, write_id = @write_id
 WHERE id = @id AND write_id = @read_write_id`, pgx.StrictNamedArgs{
 		"id": st.ID, "status": st.Status, "bumps": st.Bumps, "started_at": st.StartedAt, "ends_at": st.EndsAt,
-		"next_tick_at": st.NextTickAt, "last_bump_at": st.LastBumpAt, "ended_at": st.EndedAt, "refunded_at": st.RefundedAt,
-		"write_id": writeID, "read_write_id": st.WriteID,
+		"next_tick_at": st.NextTickAt, "last_bump_at": st.LastBumpAt, "ended_at": st.EndedAt, "write_id": writeID, "read_write_id": st.WriteID,
 	}).Exec(func(tag pgconn.CommandTag) error {
 		if tag.RowsAffected() == 0 {
 			return ErrConflict

@@ -76,7 +76,7 @@ type Result struct {
 	BankCode          string
 }
 
-// Lookup names a payment to ask the gateway about, or to refund.
+// Lookup names a payment to ask the gateway about.
 type Lookup struct {
 	ID            uuid.UUID
 	Amount        int64
@@ -97,9 +97,6 @@ type Client interface {
 	// Query asks the gateway what became of a payment (querydr);
 	// ErrNotFound when it does not know it.
 	Query(ctx context.Context, p Lookup, now time.Time) (Result, error)
-	// Refund gives a paid payment back in full. A refund the gateway has
-	// already taken is no error.
-	Refund(ctx context.Context, p Lookup, now time.Time) error
 }
 
 // The vnp_ parameters more than one request or answer carries.
@@ -119,7 +116,6 @@ const (
 	keyResponseCode      = "vnp_ResponseCode"
 	keyTransactionStatus = "vnp_TransactionStatus"
 	keyBankCode          = "vnp_BankCode"
-	keyTransactionType   = "vnp_TransactionType"
 )
 
 // vietnam is the time zone of every date VNPay reads and writes.
