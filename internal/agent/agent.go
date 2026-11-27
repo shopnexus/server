@@ -11,6 +11,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	restate "github.com/restatedev/sdk-go"
+	"github.com/restatedev/sdk-go/ingress"
 
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/agent/domain"
@@ -35,14 +36,22 @@ const (
 	// sweepEvery is how often reads and calls past service.ReadsKeptFor
 	// are deleted and command outputs as old blanked.
 	sweepEvery = time.Hour
-	// turnSweepEvery is how often turns whose run was lost are closed.
+	// turnSweepEvery is how often turns whose run was lost are closed, and
+	// how often Run sends the jobs.
 	turnSweepEvery = time.Minute
-	// A failed reconcile is tried again after retryFirst, doubling up to
-	// retryMax; a key the ring misses asks for one at most every missGap.
-	retryFirst = 2 * time.Second
-	retryMax   = time.Minute
-	missGap    = time.Minute
+	// missGap is the least time between two reconciles a missed key asks for.
+	missGap = time.Minute
 )
+
+// periodic are the agent's jobs, each with its period.
+var periodic = []struct {
+	name  string
+	every time.Duration
+}{
+	{worker.JobTurns, turnSweepEvery},
+	{worker.JobReads, sweepEvery},
+	{worker.JobGateway, service.ReconcileEvery},
+}
 
 // Settings is what agent's Mount takes beyond module.Deps.
 type Settings struct {
@@ -60,8 +69,8 @@ type Settings struct {
 }
 
 // Mounted is the agent module as app runs it: its Service, its Restate
-// services, its gate, and Run, which follows turns and sweeps until app
-// stops.
+// services, its gate, and Run, which follows turns and sends the periodic
+// jobs until app stops.
 type Mounted struct {
 	Service  service.Service
 	Services []restate.ServiceDefinition
@@ -97,6 +106,7 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 	h.Register(d.Router, moderator, admin)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Agent: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
+	jobs := worker.Jobs{Prefix: d.ServicePrefix, Agent: svc, Log: d.Log}
 	missed := make(chan struct{}, 1)
 	if s.Ring != nil {
 		s.Ring.OnMiss(func(string) {
@@ -107,7 +117,7 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 		})
 	}
 	return &Mounted{
-		Service: svc, Services: []restate.ServiceDefinition{restate.Reflect(watch)}, handler: h, d: d, missed: missed,
+		Service: svc, Services: []restate.ServiceDefinition{restate.Reflect(watch), restate.Reflect(jobs)}, handler: h, d: d, missed: missed,
 	}, nil
 }
 
@@ -122,13 +132,11 @@ func (m *Mounted) Gate(route func(method, path string) string) func(http.Handler
 // change goes through as the approver's request.
 func (m *Mounted) SetRoot(root http.Handler) { m.handler.SetRoot(root) }
 
-// Run hands the turns' event streams their rings, sweeps old reads and
-// command outputs at start and every hour, closes lost turns at start and
-// every minute, and reconciles Bifrost with the AI settings: at start,
-// again after retryFirst doubling to retryMax until it succeeds, then every
-// 5 minutes, and when the ring lacks a caller's key (at most every
-// missGap); until ctx is done, then it stops the runs this replica follows
-// and returns nil.
+// Run hands the turns' event streams their rings and sends the periodic
+// jobs every turnSweepEvery, and a reconcile when the ring lacks a caller's
+// key (at most every missGap); until ctx is done, then it stops the runs
+// this replica follows and returns nil. The first send waits a tick, so
+// this version is registered by then and a deploy's first jobs run on it.
 func (m *Mounted) Run(ctx context.Context) error {
 	followed := make(chan struct{})
 	go func() {
@@ -136,54 +144,28 @@ func (m *Mounted) Run(ctx context.Context) error {
 		m.Service.FollowTurns(ctx)
 	}()
 	defer func() { <-followed }()
-	sweepTurns := func() {
-		if err := m.Service.SweepTurns(ctx); err != nil && ctx.Err() == nil {
-			m.d.Log.WarnContext(ctx, "agent: sweep stuck turns", "err", err)
-		}
-	}
-	sweep := func() {
-		if err := m.Service.SweepReads(ctx); err != nil && ctx.Err() == nil {
-			m.d.Log.WarnContext(ctx, "agent: sweep reads", "err", err)
-		}
-	}
-	reconcileTimer := time.NewTimer(0)
-	defer reconcileTimer.Stop()
-	retry := retryFirst
-	var reconciled time.Time
-	reconcile := func() {
-		reconciled = time.Now()
-		if err := m.Service.Reconcile(ctx); err != nil {
-			if ctx.Err() == nil {
-				m.d.Log.WarnContext(ctx, "agent: reconcile Bifrost", "err", err, "retry_in", retry)
-			}
-			reconcileTimer.Reset(retry)
-			retry = min(retry*2, retryMax)
-			return
-		}
-		retry = retryFirst
-		reconcileTimer.Reset(service.ReconcileEvery)
-	}
-	sweep()
-	sweepTurns()
-	tick := time.NewTicker(sweepEvery)
+	tick := time.NewTicker(turnSweepEvery)
 	defer tick.Stop()
-	turnTick := time.NewTicker(turnSweepEvery)
-	defer turnTick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			m.Service.StopRuns()
 			return nil
 		case <-tick.C:
-			sweep()
-		case <-turnTick.C:
-			sweepTurns()
-		case <-reconcileTimer.C:
-			reconcile()
-		case <-m.missed:
-			if time.Since(reconciled) >= missGap {
-				reconcile()
+			for _, j := range periodic {
+				m.send(ctx, j.name, "every", j.every)
 			}
+		case <-m.missed:
+			m.send(ctx, worker.JobGateway, "miss", missGap)
 		}
+	}
+}
+
+// send asks Restate to run job once in the period every that now falls in.
+func (m *Mounted) send(ctx context.Context, job, why string, every time.Duration) {
+	key := worker.JobKey(job, why, m.d.Now(), every)
+	if _, err := ingress.ServiceSend[string](m.d.Ingress, m.d.ServicePrefix+worker.JobsService, "Run").
+		Send(ctx, job, restate.WithIdempotencyKey(key)); err != nil && ctx.Err() == nil {
+		m.d.Log.WarnContext(ctx, "agent: send a job", "job", job, "err", err)
 	}
 }

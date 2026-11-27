@@ -252,7 +252,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if err != nil {
 		return nil, err
 	}
-	// Run follows the agent's turns and sweeps until Close.
+	// Run follows the agent's turns and sends its jobs until Close.
 	a.agent = agentm
 	a.bg.Go(func() {
 		if runErr := agentm.Run(runCtx); runErr != nil {

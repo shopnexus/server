@@ -121,6 +121,9 @@ that must survive a crash and delivers events between modules.
 - Modules share no transaction. A flow reserves, calls out, then saves;
   on a refusal or a lost race it undoes what it did, and any leftover must
   be harmless. A module maps another module's refusals to its own codes.
+- A periodic job that touches a store has no in-process timer: every
+  replica sends it to Restate keyed by its period, so it runs once, on the
+  newest version, never on a draining one.
 - A timer is a delayed send naming the entity. When it fires it reads the
   current state and does nothing if the entity moved on.
 - An event is thin: a kind (`aggregate.past_tense`), the subject ID, and a

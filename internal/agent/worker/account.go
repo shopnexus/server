@@ -1,5 +1,5 @@
 // Package worker holds module agent's Restate handlers for the events it
-// reacts to.
+// reacts to and for its periodic jobs.
 package worker
 
 import (
