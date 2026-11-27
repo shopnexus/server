@@ -119,11 +119,30 @@ func TestTwoBusesDeliverEachEventOnce(t *testing.T) {
 func TestEventWithoutSubscriberIsMarked(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	run(t, events.NewBus(db, restatetest.Ingress(t), restatetest.Prefix(), time.Now, discard))
+	run(t, newBus(t, db, restatetest.Prefix()))
 	e := publish(t, db, events.AccountUnsuspended)
 	testenv.Eventually(t, 10*time.Second, func() error {
 		if !dispatched(t, db, e.ID) {
 			return errors.New("not marked dispatched")
+		}
+		return nil
+	})
+}
+
+// A bus of an older version, which has no subscriber of a kind, still
+// sends its events: the newest version's Deliver hands them to its own.
+func TestOldBusSendsAKindItDoesNotKnow(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	p := restatetest.Prefix()
+	a := events.NewInbox(p, "A")
+	newest := newBus(t, db, p, a)
+	newest.Subscribe(events.AccountUnsuspended, a.ServiceName(), "Handle")
+	run(t, events.NewBus(db, restatetest.Ingress(t), p, time.Now, discard))
+	e := publish(t, db, events.AccountUnsuspended)
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if n := a.Count(e.ID); n != 1 {
+			return fmt.Errorf("delivered %d times", n)
 		}
 		return nil
 	})

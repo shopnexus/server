@@ -198,17 +198,15 @@ WHERE id = ANY(@ids)`
 
 // dispatch sends one batch to Events.Deliver, sendsAtOnce sends at a
 // time, and marks what Restate took, in one transaction, so two buses
-// never hold the same event; it returns how many it marked. An event whose
-// kind has no subscriber is marked without a send. When the ingress
-// refuses an event (4xx), the event backs off. Any other failed send
+// never hold the same event; it returns how many it marked. Every event is
+// sent, subscribed or not: Deliver runs on the newest version, which alone
+// knows the subscribers, so a draining version drops no new kind. When the
+// ingress refuses an event (4xx), the event backs off. Any other failed send
 // (Restate unreachable, silent past sendTimeout, 5xx) leaves its event
 // unmarked, stops the sends not started yet, and is returned. Events not
 // marked are sent again later under the same key; subscribers do not
 // depend on the order.
 func (b *Bus) dispatch(ctx context.Context) (int, error) {
-	b.mu.Lock()
-	subs := b.subs
-	b.mu.Unlock()
 	var (
 		marked  int
 		sendErr error
@@ -229,13 +227,6 @@ func (b *Bus) dispatch(ctx context.Context) (int, error) {
 		sends, sendsCtx := errgroup.WithContext(ctx)
 		sends.SetLimit(sendsAtOnce)
 		for _, e := range pending {
-			if len(subs[e.Kind]) == 0 {
-				// A send started above may append at the same time.
-				mu.Lock()
-				sent = append(sent, e.ID)
-				mu.Unlock()
-				continue
-			}
 			sends.Go(func() error {
 				sendCtx, cancel := context.WithTimeout(sendsCtx, sendTimeout)
 				_, callErr := ingress.ServiceSend[Event](b.ingress, b.service(), deliverHandler).
