@@ -6,6 +6,10 @@
 // OBJECT_STORE_ACCESS_KEY a user that may read and write this bucket only.
 // Without them OBJECT_STORE_ACCESS_KEY is the root key, as in make run and
 // the test stack.
+//
+// With OBJECT_STORE_EXPIRE_DAYS it also gives the bucket a lifecycle rule:
+// an object goes that many days after it was last written. Unset or empty,
+// the bucket keeps its objects.
 package main
 
 import (
@@ -13,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/objectstore"
@@ -42,6 +47,12 @@ func run() error {
 	default:
 		root.AccessKey, root.SecretKey = rootKey, rootSecret
 	}
+	days := 0
+	if v := os.Getenv("OBJECT_STORE_EXPIRE_DAYS"); v != "" {
+		if days, err = strconv.Atoi(v); err != nil || days < 1 {
+			return fmt.Errorf("OBJECT_STORE_EXPIRE_DAYS %q: want a number of days, 1 or more", v)
+		}
+	}
 	s, err := objectstore.New(root)
 	if err != nil {
 		return fmt.Errorf("object store: %w", err)
@@ -51,6 +62,12 @@ func run() error {
 		return fmt.Errorf("prepare the bucket: %w", err)
 	}
 	fmt.Println("bucket", user.Bucket, "ready")
+	if days > 0 {
+		if err := expire(ctx, root, days); err != nil {
+			return fmt.Errorf("lifecycle of %s: %w", user.Bucket, err)
+		}
+		fmt.Println("objects in", user.Bucket, "expire", days, "days after their last write")
+	}
 	if rootKey == "" {
 		return nil
 	}
