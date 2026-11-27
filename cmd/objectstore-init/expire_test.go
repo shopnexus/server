@@ -13,7 +13,9 @@ import (
 )
 
 // TestExpire sets the test bucket's lifecycle twice and reads one rule back.
+// A rule of 7 days removes nothing while the other tests of the bucket run.
 func TestExpire(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("needs the object store")
 	}
@@ -24,7 +26,7 @@ func TestExpire(t *testing.T) {
 	objectstoretest.New(t)
 	ctx := context.Background()
 	for range 2 {
-		if err := expire(ctx, root, 7); err != nil {
+		if err = expire(ctx, root, 7); err != nil {
 			t.Fatal(err)
 		}
 	}

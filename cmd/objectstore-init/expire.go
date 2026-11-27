@@ -27,7 +27,7 @@ func expire(ctx context.Context, root config.ObjectStoreConfig, days int) error 
 		Secure: u.Scheme == "https",
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("object store client: %w", err)
 	}
 	cfg := lifecycle.NewConfiguration()
 	cfg.Rules = []lifecycle.Rule{{
@@ -36,5 +36,8 @@ func expire(ctx context.Context, root config.ObjectStoreConfig, days int) error 
 		RuleFilter: lifecycle.Filter{Prefix: ""},
 		Expiration: lifecycle.Expiration{Days: lifecycle.ExpirationDays(days)},
 	}}
-	return client.SetBucketLifecycle(ctx, root.Bucket, cfg)
+	if err := client.SetBucketLifecycle(ctx, root.Bucket, cfg); err != nil {
+		return fmt.Errorf("bucket %s lifecycle: %w", root.Bucket, err)
+	}
+	return nil
 }
