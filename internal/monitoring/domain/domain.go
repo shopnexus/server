@@ -42,7 +42,7 @@ const (
 	// MaxLines is the most log lines a query returns.
 	MaxLines = 500
 	// MaxMetrics is the most metrics a list returns.
-	MaxMetrics = 100
+	MaxMetrics = 300
 	// LineCut is where a log line is cut.
 	LineCut = 2000
 	// QueryTimeout is how long a query may run.
@@ -132,12 +132,16 @@ func (s Series) Last() *float64 {
 	return s.Points[len(s.Points)-1].Value
 }
 
-// Metric is one metric the system records.
+// Metric is one metric the system records: a histogram once, under the
+// name its _bucket, _count and _sum share. Labels leave out the labels most
+// listed metrics have, the list's common labels; Lacks names those of them
+// the metric does not have.
 type Metric struct {
 	Name   string   `json:"name"`
 	Type   string   `json:"type"`
-	Help   string   `json:"help"`
+	Help   string   `json:"help,omitempty"`
 	Labels []string `json:"labels"`
+	Lacks  []string `json:"lacks,omitempty"`
 }
 
 // LogLine is one log line, masked.

@@ -170,30 +170,43 @@ VisitorFigures:
 MetricList:
   type: object
   additionalProperties: false
-  required: [metrics, truncated]
+  required: [metrics, common_labels, truncated]
   properties:
     metrics:
       type: array
-      maxItems: 100
+      maxItems: 300
       items:
         $ref: "#/Metric"
+    common_labels:
+      type: array
+      description: In a list of five or more, the labels most metrics have, such as the process's. A metric's labels leave them out, and its lacks names those it does not have; a shorter list leaves this empty.
+      items:
+        type: string
     truncated:
       type: boolean
       description: More metrics matched than came back.
 Metric:
   type: object
   additionalProperties: false
-  required: [name, type, help, labels]
+  required: [name, type, labels]
   properties:
     name:
       type: string
+      description: A histogram's name without _bucket, _count or _sum, which its series add.
     type:
       type: string
-      description: counter, gauge, histogram, summary or unknown.
+      description: counter, gauge, histogram or summary. Without metadata, a histogram has buckets, a counter's name ends in _total and the rest are gauges.
     help:
       type: string
+      description: The metric's help, when it has one.
     labels:
       type: array
+      description: Its labels besides the common labels.
+      items:
+        type: string
+    lacks:
+      type: array
+      description: The common labels it does not have.
       items:
         type: string
 Series:

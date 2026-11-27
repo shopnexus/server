@@ -59,8 +59,8 @@ func TestMonitoring(t *testing.T) {
 		t.Errorf("routes %+v visitors %+v", health.SlowRoutes, health.Visitors)
 	}
 
-	// A1. The metrics whose name holds match, a histogram's type found
-	// under its name.
+	// A1. The metrics whose name holds match, a histogram once under the
+	// name its series share.
 	list := expect[struct {
 		Metrics []struct {
 			Name   string   `json:"name"`
@@ -68,7 +68,8 @@ func TestMonitoring(t *testing.T) {
 			Labels []string `json:"labels"`
 		} `json:"metrics"`
 	}](t, consoleCall(t, admin, "GET", "/v1/console/monitoring/metrics?match=http_server", nil), http.StatusOK)
-	if len(list.Metrics) != 2 || list.Metrics[0].Type != "histogram" || strings.Join(list.Metrics[0].Labels, ",") != "http_route,job" {
+	if len(list.Metrics) != 1 || list.Metrics[0].Name != "http_server_request_duration_seconds" || list.Metrics[0].Type != "histogram" ||
+		strings.Join(list.Metrics[0].Labels, ",") != "http_route,job" {
 		t.Errorf("metrics %+v", list)
 	}
 

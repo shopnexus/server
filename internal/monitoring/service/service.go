@@ -73,8 +73,11 @@ type LogsResult struct {
 
 // MetricList is the metrics a list found.
 type MetricList struct {
-	Metrics   []domain.Metric `json:"metrics"`
-	Truncated bool            `json:"truncated"`
+	Metrics []domain.Metric `json:"metrics"`
+	// CommonLabels are the labels most listed metrics have, in a list of
+	// five or more.
+	CommonLabels []string `json:"common_labels"`
+	Truncated    bool     `json:"truncated"`
 }
 
 // end is q's end, now when it has none.

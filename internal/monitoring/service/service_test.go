@@ -52,15 +52,25 @@ func (m *metrics) Query(_ context.Context, q string, span domain.Span) ([]domain
 }
 
 func (*metrics) Names(context.Context) ([]string, error) {
-	return []string{"db_client_connection_max", "http_server_request_duration_seconds_bucket", "http_server_request_duration_seconds_count", "up"}, nil
+	return []string{
+		"db_client_connection_max", "http_server_request_duration_seconds_bucket", "http_server_request_duration_seconds_count",
+		"http_server_request_duration_seconds_sum", "process_cpu_time_seconds_total", "traces_spanmetrics_calls_total", "up",
+	}, nil
 }
 
 func (*metrics) Metadata(context.Context) (map[string]repository.Meta, error) {
 	return map[string]repository.Meta{"http_server_request_duration_seconds": {Type: "histogram", Help: "Duration of HTTP server requests."}}, nil
 }
 
-func (*metrics) Labels(context.Context, string) ([]string, error) {
-	return []string{"http_route", "job"}, nil
+func (*metrics) Labels(_ context.Context, metric string) ([]string, error) {
+	switch {
+	case strings.HasSuffix(metric, "_bucket"):
+		return []string{"http_route", "job", "le"}, nil
+	case strings.HasPrefix(metric, "traces_"):
+		return []string{"span_name"}, nil
+	default:
+		return []string{"job"}, nil
+	}
 }
 
 type logs struct {
@@ -233,19 +243,30 @@ func TestQueryLogs(t *testing.T) {
 	}
 }
 
-// The metrics that hold match, a histogram's metadata found under its
-// name. UC-MOD-13 A1.
+// The metrics that hold match, a histogram once with its metadata, and the
+// labels every metric has named once. UC-MOD-13 A1.
 func TestListMetrics(t *testing.T) {
 	t.Parallel()
 	svc := service.New(service.Deps{Metrics: &metrics{}, Now: func() time.Time { return now }})
 	got, err := svc.ListMetrics(context.Background(), "http_server")
-	if err != nil || len(got.Metrics) != 2 || got.Truncated {
+	if err != nil || len(got.Metrics) != 1 || got.Truncated {
 		t.Fatalf("%+v %v", got, err)
 	}
-	if m := got.Metrics[0]; m.Type != "histogram" || m.Help == "" || len(m.Labels) != 2 {
-		t.Errorf("bucket %+v", m)
+	if m := got.Metrics[0]; m.Name != "http_server_request_duration_seconds" || m.Type != "histogram" || m.Help == "" ||
+		fmt.Sprint(m.Labels) != "[http_route job le]" || len(got.CommonLabels) != 0 {
+		t.Errorf("the histogram %+v %v", m, got.CommonLabels)
 	}
-	if got, _ := svc.ListMetrics(context.Background(), ""); len(got.Metrics) != 4 || got.Metrics[3].Type != "unknown" {
-		t.Errorf("all %+v", got)
+	all, err := svc.ListMetrics(context.Background(), "")
+	if err != nil || fmt.Sprint(all.CommonLabels) != "[job]" || len(all.Metrics) != 5 {
+		t.Fatalf("all %+v %v", all, err)
+	}
+	want := map[string]string{
+		"db_client_connection_max": "gauge [] []", "http_server_request_duration_seconds": "histogram [http_route le] []",
+		"process_cpu_time_seconds_total": "counter [] []", "traces_spanmetrics_calls_total": "counter [span_name] [job]", "up": "gauge [] []",
+	}
+	for _, m := range all.Metrics {
+		if got := m.Type + " " + fmt.Sprint(m.Labels) + " " + fmt.Sprint(m.Lacks); got != want[m.Name] {
+			t.Errorf("%s: %q, want %q", m.Name, got, want[m.Name])
+		}
 	}
 }

@@ -45,11 +45,13 @@ metrics:
     x-uc: [UC-MOD-13]
     summary: "The metrics the system records, with their type, help and labels. Admins only."
     description: |
-      Metrics whose name contains match, or all of them, at most 100. Read
+      Metrics whose name contains match, or all of them, at most 300. Read
       it before writing a PromQL query, so the query names metrics and
-      labels that exist. An OpenTelemetry histogram such as
-      http.server.request.duration is http_server_request_duration_seconds
-      with _bucket, _count and _sum.
+      labels that exist. A histogram is listed once, such as
+      http_server_request_duration_seconds; query its series with _bucket,
+      _count and _sum. In a list of five or more, the labels most metrics
+      have are listed once, in common_labels; a metric's lacks names those
+      it does not have.
     tags: [console, internal]
     security:
       - consoleAuth: []
