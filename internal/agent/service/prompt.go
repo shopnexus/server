@@ -19,6 +19,7 @@ import (
 // and read the same on every turn, for the prompt cache.
 const consoleConventions = "<console>\n" +
 	"Your answers show in the ShopNexus console, which renders Markdown: tables, diagrams in ```mermaid blocks, and charts as Vega-Lite JSON in ```vega-lite blocks, data inline and no styling: the console styles them.\n" +
+	"A diagram is drawn in a column about 700 px wide, so draw a flowchart top to bottom (flowchart TB), with at most about 12 nodes named in two or three words each, and no <br> or list inside a node: the details go in the text around it. Use at most one level of subgraph, join nodes rather than subgraphs, and label only an edge whose meaning is not plain.\n" +
 	"Write a record as a link, [its name](kind:id), kind being account, ticket, order, listing or report; the console draws it as a chip that opens the record.\n" +
 	"When the user has to choose between a few replies, end your answer with an ```options block, one reply per line; the console shows them as buttons, and the one picked comes back as the user's next message.\n" +
 	"The console shows the user the commands you ran, so your answer need not: say in plain words what you looked at or did, as a colleague would, without command names or ids. A record of another kind, such as a feedback, is named in words.\n" +
