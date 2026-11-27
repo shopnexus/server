@@ -118,7 +118,7 @@ type AgentView struct {
 	Fallbacks           []domain.ModelRef `json:"fallbacks"`
 	Instructions        string            `json:"instructions,omitempty"`
 	InstructionsVersion int               `json:"instructions_version"`
-	Tools               []string          `json:"tools"`
+	Capabilities        []string          `json:"capabilities"`
 	Limits              domain.Limits     `json:"limits"`
 	MonthlyBudgetUSD    *float64          `json:"monthly_budget_usd"`
 	// BudgetSpentUSD is this month's spend against the budget, and
@@ -142,7 +142,7 @@ type NewAgent struct {
 	Model            domain.ModelRef   `json:"model"`
 	Fallbacks        []domain.ModelRef `json:"fallbacks"`
 	Instructions     string            `json:"instructions"`
-	Tools            []string          `json:"tools"`
+	Capabilities     []string          `json:"capabilities"`
 	Limits           domain.Limits     `json:"limits"`
 	MonthlyBudgetUSD *float64          `json:"monthly_budget_usd,omitempty"`
 	Enabled          *bool             `json:"enabled,omitempty"`
@@ -158,7 +158,7 @@ type AgentPatch struct {
 	Model        *domain.ModelRef   `json:"model,omitempty"`
 	Fallbacks    *[]domain.ModelRef `json:"fallbacks,omitempty"`
 	Instructions *string            `json:"instructions,omitempty"`
-	Tools        *[]string          `json:"tools,omitempty"`
+	Capabilities *[]string          `json:"capabilities,omitempty"`
 	Limits       *domain.Limits     `json:"limits,omitempty"`
 	// MonthlyBudgetUSD is absent, null for none, or an amount.
 	MonthlyBudgetUSD Budget `json:"monthly_budget_usd,omitzero"`

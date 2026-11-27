@@ -1,13 +1,15 @@
 // Package service holds module agent's use cases: a console member's
-// conversations with the console agent, whose runs the agent service
-// streams back to the server, the AI settings, and the record of what the
-// agent read of people through the MCP server.
+// conversations with the console agent, whose turns run in the agent
+// runtime; the agent's calls of the console API with its turn's token and
+// the approvals of the changes it asks for; the AI settings; and the record
+// of the reads of personal data on the console's record pages.
 package service
 
 import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 	"uuid"
 
@@ -27,8 +29,8 @@ import (
 // Service is module agent's contract.
 type Service interface {
 	// Conversations lists the conversations caller may open that q picks:
-	// the one of a record, those about records of a kind, the caller's own
-	// that mention a record, or all the caller's own.
+	// the one of a record, those about records of a kind, or all the
+	// caller's own.
 	//
 	// UC-MOD-08
 	Conversations(ctx context.Context, caller authn.ConsoleMember, q ConversationQuery) ([]Conversation, error)
@@ -38,7 +40,7 @@ type Service interface {
 	//
 	// UC-MOD-08
 	CreateConversation(ctx context.Context, caller authn.ConsoleMember, in NewConversation) (Conversation, error)
-	// Conversation reads a conversation with its turns.
+	// Conversation reads a conversation with its messages and turns.
 	//
 	// UC-MOD-08
 	Conversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConversationDetail, error)
@@ -47,64 +49,79 @@ type Service interface {
 	//
 	// UC-MOD-08
 	RenameConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, title string) (Conversation, error)
-	// DeleteConversation deletes a conversation with its turns, events and
-	// documents, by the same rule as RenameConversation; a turn still open
-	// refuses it (agent_turn_in_progress).
+	// DeleteConversation deletes a conversation with what it holds, by the
+	// same rule as RenameConversation; a turn running refuses it.
 	//
 	// UC-MOD-08
 	DeleteConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error
-	// Ask puts caller's question to a console agent in a conversation and
-	// starts its run, which goes on in the background.
+	// Ask adds caller's message to a conversation and starts a turn of a
+	// console agent on it, which runs on in the background.
 	//
-	// UC-MOD-08 · BR-MOD-03 · ADR-0003
+	// UC-MOD-08
 	Ask(ctx context.Context, caller authn.ConsoleMember, conversation uuid.UUID, in NewTurn) (TurnStarted, error)
+	// Resume runs the conversation's last turn again where it ended.
+	//
+	// UC-MOD-08
+	Resume(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID) (TurnState, error)
+	// Pause asks a running turn to stop before its next model call, once
+	// its commands finished; Stop ends it at once.
+	//
+	// UC-MOD-08
+	Pause(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID) (TurnState, error)
+	Stop(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID) (TurnState, error)
+	// Steer gives a running turn a message to read before its next model
+	// call.
+	//
+	// UC-MOD-08
+	Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string) (TurnState, error)
+	// Turn reads a turn.
+	//
+	// UC-MOD-08
+	Turn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Turn, error)
 	// Events calls emit with a turn's events after lastEventID until the
 	// stream ends; an error before the first emit refuses the stream.
 	//
 	// UC-MOD-08
 	Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string, emit func(TurnEvent) error) error
-	// Control pauses, stops, continues or ends a turn's run.
-	//
-	// UC-MOD-08 A1, A2
-	Control(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, c Control) (TurnState, error)
-	// Steer gives a run text to read before its next model call; a key
-	// caller used answers its steer.
-	//
-	// UC-MOD-08 A3
-	Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string, key *uuid.UUID) (Steering, error)
-	// Turn reads a turn.
-	//
-	// UC-MOD-08
-	Turn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Turn, error)
-	// Answer answers a turn's clarifying questions.
-	//
-	// UC-MOD-08 A4
-	Answer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, answers Answers) (TurnState, error)
-	// TurnControl is what a running segment polls through the MCP
-	// listener: the turn's pauses, stops and steers after a seq.
-	TurnControl(ctx context.Context, turn uuid.UUID, after int64) (TurnControl, error)
 	// FollowTurns hands this replica's event streams the rings of new
 	// events until ctx is done.
 	FollowTurns(ctx context.Context)
-	// SweepTurns closes the turns running past their deadline as
-	// agent_stuck.
+	// SweepTurns closes the turns running past their deadline, whose run
+	// this replica or another lost.
+	SweepTurns(ctx context.Context) error
+	// StopRuns cancels the runs this replica follows and waits for them to
+	// end, as the server stops.
+	StopRuns()
+
+	// TurnOfToken reads the running turn a turn token belongs to;
+	// domain.ErrTokenInvalid when none does.
+	TurnOfToken(ctx context.Context, token string) (authn.Turn, error)
+	// Operation is the operation a route pattern serves, when an agent
+	// may be given it.
+	Operation(method, pattern string) (domain.Operation, bool)
+	// Operations lists the operations an agent may be given, or those its
+	// turn holds when turn is set.
 	//
 	// UC-MOD-08
-	SweepTurns(ctx context.Context) error
-	// ToolCall reads a tool call in full.
-	ToolCall(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ToolCall, error)
-	// Document reads a document a turn wrote, with its versions.
-	Document(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Document, error)
-	// Skill reads a skill.
-	Skill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Skill, error)
-	// Skills lists the skills every member shares.
-	Skills(ctx context.Context, caller authn.ConsoleMember) ([]Skill, error)
-	// CreateSkill saves a skill.
-	CreateSkill(ctx context.Context, caller authn.ConsoleMember, in SkillInput) (Skill, error)
-	// UpdateSkill changes a skill.
-	UpdateSkill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in SkillPatch) (Skill, error)
-	// DeleteSkill deletes a skill.
-	DeleteSkill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error
+	Operations(ctx context.Context, caller authn.ConsoleMember, turn *authn.Turn) ([]domain.Operation, error)
+	// Hold stores a change a turn's agent asked for as a pending approval.
+	//
+	// UC-MOD-08
+	Hold(ctx context.Context, turn authn.Turn, op domain.Operation, req Request) (Approval, error)
+	// RecordCall records an API call a turn's token made.
+	RecordCall(ctx context.Context, turn authn.Turn, op domain.Operation, method, path string, status int, took time.Duration)
+	// Approvals lists the approvals of the conversations caller may open,
+	// or of turn's conversation when turn is set.
+	//
+	// UC-MOD-08
+	Approvals(ctx context.Context, caller authn.ConsoleMember, turn *authn.Turn, q ApprovalQuery) ([]Approval, error)
+	// Approve makes an approval's request through replay, as caller, and
+	// stores what it answered; Reject only stores the decision.
+	//
+	// UC-MOD-08
+	Approve(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, replay Replay) (Approval, error)
+	Reject(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Approval, error)
+
 	// ConsoleAgents lists the console agents a member may pick.
 	ConsoleAgents(ctx context.Context) ([]ConsoleAgent, error)
 
@@ -160,73 +177,64 @@ type Service interface {
 	//
 	// UC-MOD-12 A4
 	AgentUsage(ctx context.Context, caller authn.ConsoleMember, rng string) ([]AgentUsage, error)
-	// Tools reads the agent's tool calls over a range.
-	//
-	// UC-MOD-12 A4
-	Tools(ctx context.Context, caller authn.ConsoleMember, rng string) (ToolStats, error)
 	// Order reads an order for the console's order page, recording the
 	// read of its tickets for caller.
 	Order(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConsoleOrder, error)
 	// Listing reads a listing for the console's listing page, recording
 	// the read of its reports for caller.
 	Listing(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConsoleListing, error)
-	// Guardrails reads the agent's guardrail notices over a range.
-	//
-	// UC-MOD-12 A4
-	Guardrails(ctx context.Context, caller authn.ConsoleMember, rng string) (GuardrailStats, error)
-	// RecordRead records that an MCP tool read personal data of subject
-	// for member.
-	//
-	// UC-MOD-08 · NFR-PRIV-02
-	RecordRead(ctx context.Context, member uuid.UUID, tool string, kind domain.SubjectKind, ids []uuid.UUID) error
-	// SweepReads deletes the reads older than ReadsKeptFor, blanks the
-	// tool outputs as old and deletes the conversations idle for
-	// ConversationsKeptFor.
+	// SweepReads deletes the reads and the agent's API calls older than
+	// ReadsKeptFor, blanks the command outputs as old and deletes the
+	// conversations idle for ConversationsKeptFor.
 	//
 	// NFR-PRIV-02
 	SweepReads(ctx context.Context) error
-	// AccountDeleted blanks the tool outputs of the conversation about a
-	// deleted account; the worker calls it on account.deleted, and a
+	// AccountDeleted blanks the command outputs of the conversation about
+	// a deleted account; the worker calls it on account.deleted, and a
 	// second call finds nothing.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
 }
 
 // ReadsKeptFor is how long a read of personal data stays recorded, and a
-// tool call's output kept.
+// command's output kept.
 const ReadsKeptFor = 90 * 24 * time.Hour
 
 // ConversationsKeptFor is how long a conversation stays after its last
-// activity; then it goes with its turns and documents.
+// activity; then it goes with what it holds.
 const ConversationsKeptFor = 180 * 24 * time.Hour
 
 // Deps is what New builds Agent from.
 type Deps struct {
-	Reads    repository.Reads
-	Settings repository.Settings
-	Runs     repository.Runs
+	Reads         repository.Reads
+	Settings      repository.Settings
+	Conversations repository.Conversations
+	// Ops is the console operations an agent may be given.
+	Ops domain.Catalog
 	// Gateway is Bifrost's admin API, and Ring the server's virtual keys,
-	// which a console run's key comes from.
+	// which a turn's key comes from.
 	Gateway bifrost.Admin
 	Ring    *bifrost.Ring
-	// Console lists the console's members, for their names, and the audit
-	// log.
+	// Console names the console's members, and keeps the audit log.
 	Console consolesvc.Service
-	// The services the record pages read, as the MCP tools do, and the
-	// similarity floors of the price guide.
-	Accounts          accountsvc.Service
-	Catalog           catalogsvc.Service
-	Deals             dealsvc.Service
-	Shipping          shippingsvc.Service
-	Support           supportsvc.Service
-	Trust             trustsvc.Service
+	// The services the record pages read.
+	Accounts accountsvc.Service
+	Catalog  catalogsvc.Service
+	Deals    dealsvc.Service
+	Shipping shippingsvc.Service
+	Support  supportsvc.Service
+	Trust    trustsvc.Service
+	// TextMin and PhotoMin are the similarity floors of the listing page's
+	// price guide.
 	TextMin, PhotoMin float64
-	// BaseURL is the agent service's, and Token the bearer token it takes
-	// (AGENT_BASE_URL and AGENT_SERVICE_TOKEN).
-	BaseURL string
-	Token   string
-	HTTP    *http.Client
-	Now     func() time.Time
-	Log     *slog.Logger
+	// RuntimeURL is the agent runtime's, and RuntimeKey the bearer key it
+	// takes (AGENT_URL and AGENT_KEY).
+	RuntimeURL string
+	RuntimeKey string
+	// HTTP calls the runtime; it has no timeout, as a turn's stream lasts
+	// the turn.
+	HTTP *http.Client
+	Now  func() time.Time
+	Log  *slog.Logger
 }
 
 // Agent implements Service in this process.
@@ -234,6 +242,10 @@ type Agent struct {
 	d       Deps
 	limiter *limiter
 	hub     *hub
+	// runs are the runs this replica follows, which StopRuns cancels.
+	runs     sync.WaitGroup
+	runsCtx  context.Context //nolint:containedctx // the runs outlive the requests that start them, until StopRuns.
+	stopRuns context.CancelFunc
 }
 
 var _ Service = (*Agent)(nil)
@@ -242,5 +254,6 @@ func New(d Deps) *Agent {
 	if d.Log == nil {
 		d.Log = slog.New(slog.DiscardHandler)
 	}
-	return &Agent{d: d, limiter: newLimiter(), hub: newHub()}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Agent{d: d, limiter: newLimiter(), hub: newHub(), runsCtx: ctx, stopRuns: cancel}
 }

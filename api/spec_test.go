@@ -198,6 +198,45 @@ func TestSpecUseCaseIDs(t *testing.T) {
 	}
 }
 
+// x-capability says which agents may call a console operation: none (no
+// agent), turn (any agent's turn) or the capability an agent must hold. A
+// new console operation must pick one, so an agent never gains an
+// operation by accident; no other operation takes one, since an agent's
+// token reaches console operations only.
+func TestSpecCapabilities(t *testing.T) {
+	t.Parallel()
+	doc, err := api.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := regexp.MustCompile(`^(none|turn|[a-z]+\.[a-z]+)$`)
+	granted := 0
+	for path, item := range doc.Paths.Map() {
+		for method, op := range item.Operations() {
+			raw, ok := op.Extensions["x-capability"]
+			console := strings.HasPrefix(path, "/v1/console/")
+			switch {
+			case !console && ok:
+				t.Errorf("%s %s: x-capability outside /v1/console/", method, path)
+			case console && !ok:
+				t.Errorf("%s %s: no x-capability", method, path)
+			case console:
+				c, isString := raw.(string)
+				if !isString || !form.MatchString(c) {
+					t.Errorf("%s %s: x-capability %v is not none, turn or area.verb", method, path, raw)
+				}
+				if c != "none" && c != "turn" {
+					granted++
+				}
+			default:
+			}
+		}
+	}
+	if granted == 0 {
+		t.Error("no operation is granted by a capability")
+	}
+}
+
 // x-rate-limit names a tier of httpx. An exempt operation counts nothing,
 // so adding one means adding it here too.
 func TestSpecRateLimitTiers(t *testing.T) {

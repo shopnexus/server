@@ -148,7 +148,7 @@ func TestAISettings(t *testing.T) {
 	slug := "writer-" + suffix
 	agentBody := map[string]any{
 		"name": "Writer " + suffix, "slug": slug, "model": haiku, "fallbacks": []aiModelRef{gemini}, "required_tags": []string{"Chat"},
-		"instructions": "Write.", "tools": []string{"count"}, "limits": map[string]int{"deadline_s": 120}, "monthly_budget_usd": 5,
+		"instructions": "Write.", "capabilities": []string{"tickets.read"}, "limits": map[string]int{"deadline_s": 120}, "monthly_budget_usd": 5,
 	}
 	agent := expect[aiAgent](t, consoleCall(t, minh, "POST", settings+"/agents", agentBody), 201)
 	if agent.Kind != "console" || agent.Model != haiku || len(agent.Fallbacks) != 1 || *agent.MonthlyBudgetUSD != 5 ||
@@ -253,20 +253,6 @@ func TestAISettings(t *testing.T) {
 		422, "ai_spend_range_invalid")
 	check(t, "a range without its end", consoleCall(t, minh, "GET", settings+"/spend?from="+today, nil), 400, "")
 
-	tools := expect[struct {
-		Items []struct {
-			DisplayName string `json:"display_name"`
-		} `json:"items"`
-	}](t, consoleCall(t, minh, "GET", settings+"/tools?range=30d", nil), 200)
-	if !slices.ContainsFunc(tools.Items, func(i struct {
-		DisplayName string `json:"display_name"`
-	},
-	) bool {
-		return i.DisplayName == "Ticket"
-	}) {
-		t.Errorf("tools %+v", tools)
-	}
-	expectStatus(t, consoleCall(t, minh, "GET", settings+"/guardrails", nil), 200)
 	floors := expect[struct {
 		Items []struct {
 			App   string `json:"app"`
@@ -338,8 +324,6 @@ func settingsCalls(agent string) []settingsCall {
 		{"GET", settings + "/agents/" + agent + "/versions", nil},
 		{"GET", settings + "/spend?from=2026-11-01&to=2026-11-07", nil},
 		{"GET", settings + "/agents/usage", nil},
-		{"GET", settings + "/tools", nil},
-		{"GET", settings + "/guardrails", nil},
 		{"GET", settings + "/dashboards", nil},
 		{"PATCH", settings + "/dashboards", map[string]any{"items": []map[string]string{{"app": "grafana", "floor": "moderator"}}}},
 	}
@@ -348,7 +332,7 @@ func settingsCalls(agent string) []settingsCall {
 // A stack whose Bifrost and agent are down answers ai_gateway_unavailable
 // on every setting that reads or writes Bifrost, with the change saved,
 // and agent_unavailable on a question; the agents without their spend,
-// the tags, versions, tools, guardrails and skills are the server's. The
+// the tags and versions are the server's. The
 // second server has a database and an admin of its own.
 // UC-MOD-12 A2.
 func TestAISettingsDown(t *testing.T) {
@@ -359,7 +343,7 @@ func TestAISettingsDown(t *testing.T) {
 	t.Cleanup(down.Close)
 	down.SetDown(true)
 	cfg.DatabaseURL, cfg.Restate = pool.Config().ConnString(), restatetest.Config(t)
-	cfg.Gateway.URL, cfg.Agent.BaseURL = down.URL(), "http://127.0.0.1:1"
+	cfg.Gateway.URL, cfg.Agent.RuntimeURL = down.URL(), "http://127.0.0.1:1"
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast), fakeAI())
 	if err != nil {
@@ -397,7 +381,6 @@ func TestAISettingsDown(t *testing.T) {
 		agents.Items[i].BudgetResetsAt != nil {
 		t.Errorf("agents %+v", agents)
 	}
-	expectStatus(t, at("GET", "/v1/console/agent/skills", nil), 200)
 	own := expect[agentConversation](t, at("POST", "/v1/console/agent/conversations", map[string]any{}), 200)
 	check(t, "a question", at("POST", "/v1/console/agent/conversations/"+own.ID+"/turns", map[string]string{"text": "?"}), 503,
 		"agent_unavailable")

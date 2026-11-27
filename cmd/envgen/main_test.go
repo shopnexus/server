@@ -41,15 +41,15 @@ func TestEnsureEnvCreatesEveryKey(t *testing.T) {
 
 	got := read(t, env)
 	for _, k := range []string{
-		"JWT_KEY_ID", "JWT_PRIVATE_KEY", "CONSOLE_KEY", "OTP_KEY", "CARRIER_TOKEN_KEY", "AGENT_SERVICE_TOKEN", "AGENT_MCP_TOKEN",
+		"JWT_KEY_ID", "JWT_PRIVATE_KEY", "CONSOLE_KEY", "OTP_KEY", "CARRIER_TOKEN_KEY", "AGENT_KEY",
 		"RESTATE_IDENTITY_KEY",
 	} {
 		if value(got, k) == "" {
 			t.Errorf("%s is empty in\n%s", k, got)
 		}
 	}
-	if a, m := value(got, "AGENT_SERVICE_TOKEN"), value(got, "AGENT_MCP_TOKEN"); len(a) < 32 || len(m) < 32 || a == m {
-		t.Errorf("the agent tokens are not two fresh tokens of 32 characters or more: %q, %q", a, m)
+	if k := value(got, "AGENT_KEY"); len(k) < 32 {
+		t.Errorf("AGENT_KEY is not a fresh key of 32 characters or more: %q", k)
 	}
 	if seed, err := base64.StdEncoding.DecodeString(value(got, "JWT_PRIVATE_KEY")); err != nil || len(seed) != ed25519.SeedSize {
 		t.Errorf("JWT_PRIVATE_KEY is not base64 of an Ed25519 seed: %d bytes, %v", len(seed), err)

@@ -246,7 +246,7 @@ AIAgentCaller:
 AIAgent:
   type: object
   additionalProperties: false
-  required: [id, kind, name, slug, icon, purpose, required_tags, model, fallbacks, instructions_version, tools, limits,
+  required: [id, kind, name, slug, icon, purpose, required_tags, model, fallbacks, instructions_version, capabilities, limits,
     monthly_budget_usd, budget_spent_usd, budget_resets_at, callers, enabled, updated_at]
   properties:
     id:
@@ -281,9 +281,12 @@ AIAgent:
       description: A console agent's instructions.
     instructions_version:
       type: integer
-    tools:
+    capabilities:
       type: array
-      description: The MCP tools a console agent may call.
+      description: >-
+        What a console agent may do through the API: each capability grants the operations whose x-capability
+        names it (GET /v1/console/agent/operations lists them). An operation that changes something still waits
+        for a member's approval.
       items:
         type: string
     limits:
@@ -353,7 +356,7 @@ AIAgentNew:
     instructions:
       type: string
       maxLength: 20000
-    tools:
+    capabilities:
       type: array
       maxItems: 50
       items:
@@ -398,7 +401,7 @@ AIAgentPatch:
     instructions:
       type: string
       maxLength: 20000
-    tools:
+    capabilities:
       type: array
       maxItems: 50
       items:
@@ -502,101 +505,3 @@ AIAgentUsageList:
             type: array
             items:
               $ref: "#/AIDayCount"
-AIToolStats:
-  type: object
-  additionalProperties: false
-  required: [items, recent]
-  properties:
-    items:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        required: [name, display_name, calls, failed, days]
-        properties:
-          name:
-            type: string
-          display_name:
-            type: string
-            description: The tool's title.
-          calls:
-            type: integer
-          failed:
-            type: integer
-          p50_ms:
-            type: integer
-          days:
-            type: array
-            items:
-              type: object
-              additionalProperties: false
-              required: [date, calls]
-              properties:
-                date:
-                  type: string
-                  format: date
-                calls:
-                  type: integer
-    recent:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        required: [call_id, turn_id, tool, label, status, at]
-        properties:
-          call_id:
-            type: string
-            format: uuid
-          turn_id:
-            type: string
-            format: uuid
-          member_id:
-            type: string
-            format: uuid
-          tool:
-            type: string
-          label:
-            type: string
-          duration_ms:
-            type: integer
-          status:
-            type: string
-          at:
-            type: string
-            format: date-time
-AIGuardrailStats:
-  type: object
-  additionalProperties: false
-  required: [items, recent]
-  properties:
-    items:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        required: [rule, count]
-        properties:
-          rule:
-            type: string
-          count:
-            type: integer
-    recent:
-      type: array
-      items:
-        type: object
-        additionalProperties: false
-        required: [rule, detail, at]
-        properties:
-          rule:
-            type: string
-          detail:
-            type: string
-          member_id:
-            type: string
-            format: uuid
-          turn_id:
-            type: string
-            format: uuid
-          at:
-            type: string
-            format: date-time

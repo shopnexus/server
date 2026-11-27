@@ -77,7 +77,19 @@ AgentTurnNotFound:
       schema:
         $ref: "../schemas/error.yaml#/Error"
 AgentTurnState:
-  description: "The turn is not in a state that takes this control (agent_turn_state): pause and stop take a running turn, continue a paused one or a continuable failed or timed out one, end a paused one or one awaiting input, input one awaiting input."
+  description: "The turn is not in a state that takes this control (agent_turn_state): pause, stop and steer take a running turn, resume the conversation's last turn once its run ended."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+AgentApprovalNotFound:
+  description: "No such approval, or one of a conversation this member may not open (agent_approval_not_found)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+AgentApprovalDecided:
+  description: "The approval was already decided (agent_approval_decided)."
   content:
     application/json:
       schema:

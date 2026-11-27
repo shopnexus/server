@@ -134,7 +134,7 @@ ON CONFLICT (provider, model_id) DO UPDATE SET input_usd_per_token = EXCLUDED.in
 // selectAgents reads the agents with their latest version's instructions
 // and their callers.
 const selectAgents = `SELECT a.id, a.agent_kind, a.display_name, a.slug, a.icon, a.purpose, a.required_tags,
-    a.model_provider, a.model_id, a.fallbacks, a.extra_body, v.instructions, a.instructions_version, a.tools, a.limits,
+    a.model_provider, a.model_id, a.fallbacks, a.extra_body, v.instructions, a.instructions_version, a.capabilities, a.limits,
     a.monthly_budget_usd::float8, a.enabled, a.updated_by, a.updated_at, a.write_id,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('name', c.caller_name, 'requests_per_min', c.requests_per_min,
         'tokens_per_min', c.tokens_per_min) ORDER BY c.caller_name)
@@ -145,7 +145,7 @@ func scanAgent(r pgx.CollectableRow) (Agent, error) {
 	var a Agent
 	var fallbacks []string
 	if err := r.Scan(&a.ID, &a.Kind, &a.Name, &a.Slug, &a.Icon, &a.Purpose, &a.RequiredTags, &a.Model.Provider, &a.Model.Model,
-		&fallbacks, &a.ExtraBody, &a.Instructions, &a.InstructionsVersion, &a.Tools, &a.Limits, &a.MonthlyBudgetUSD, &a.Enabled,
+		&fallbacks, &a.ExtraBody, &a.Instructions, &a.InstructionsVersion, &a.Capabilities, &a.Limits, &a.MonthlyBudgetUSD, &a.Enabled,
 		&a.UpdatedBy, &a.UpdatedAt, &a.WriteID, &a.Callers); err != nil {
 		return a, fmt.Errorf("scan ai agent: %w", err)
 	}
@@ -199,7 +199,7 @@ func agentArgs(a Agent) pgx.StrictNamedArgs {
 	return pgx.StrictNamedArgs{
 		"id": a.ID, "kind": a.Kind, "name": a.Name, "slug": a.Slug, "icon": a.Icon, "purpose": a.Purpose,
 		"required": a.RequiredTags, "provider": a.Model.Provider, "model": a.Model.Model, "fallbacks": fallbacks,
-		"extra": extra, "version": a.InstructionsVersion, "tools": a.Tools, "limits": a.Limits,
+		"extra": extra, "version": a.InstructionsVersion, "capabilities": a.Capabilities, "limits": a.Limits,
 		"budget": a.MonthlyBudgetUSD, "enabled": a.Enabled, "by": a.UpdatedBy, "at": a.UpdatedAt, "write_id": a.WriteID,
 	}
 }
@@ -230,9 +230,9 @@ VALUES (@id, @version, @instructions, @by, @at)`, pgx.StrictNamedArgs{
 func (s pgSettings) CreateAgent(ctx context.Context, a Agent, e audit.Entry) error {
 	b := &pgx.Batch{}
 	b.Queue(`INSERT INTO ai_agents (id, agent_kind, display_name, slug, icon, purpose, required_tags, model_provider,
-    model_id, fallbacks, extra_body, instructions_version, tools, limits, monthly_budget_usd, enabled, updated_by,
+    model_id, fallbacks, extra_body, instructions_version, capabilities, limits, monthly_budget_usd, enabled, updated_by,
     updated_at, write_id)
-VALUES (@id, @kind, @name, @slug, @icon, @purpose, @required, @provider, @model, @fallbacks, @extra, @version, @tools,
+VALUES (@id, @kind, @name, @slug, @icon, @purpose, @required, @provider, @model, @fallbacks, @extra, @version, @capabilities,
     @limits, @budget, @enabled, @by, @at, @write_id)`, agentArgs(a)).Fn = taken("insert ai agent")
 	b.Queue(`INSERT INTO ai_agent_callers (caller_name, agent_id, requests_per_min, tokens_per_min)
 SELECT c.name, @id, c.requests_per_min, c.tokens_per_min
@@ -266,7 +266,7 @@ func (s pgSettings) SaveAgent(ctx context.Context, a Agent, readWriteID uuid.UUI
 		b := &pgx.Batch{}
 		b.Queue(`UPDATE ai_agents SET display_name = @name, icon = @icon, purpose = @purpose,
     required_tags = @required, model_provider = @provider, model_id = @model, fallbacks = @fallbacks,
-    extra_body = @extra, instructions_version = @version, tools = @tools, limits = @limits,
+    extra_body = @extra, instructions_version = @version, capabilities = @capabilities, limits = @limits,
     monthly_budget_usd = @budget, enabled = @enabled, updated_by = @by, updated_at = @at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, args).Fn = func(br pgx.BatchResults) error {
 			tag, err := br.Exec()

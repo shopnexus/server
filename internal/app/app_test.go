@@ -53,8 +53,7 @@ func testConfig(t *testing.T) config.Config {
 		Assist: config.AssistConfig{CallTimeout: time.Second},
 		Trust:  config.TrustConfig{CallTimeout: time.Second},
 		Agent: config.AgentConfig{
-			BaseURL: "http://127.0.0.1:1", ServiceToken: "app-test-agent-service-token-0123456789",
-			MCPAddr: "127.0.0.1:0", MCPToken: "app-test-agent-mcp-token-0123456789abcdef",
+			RuntimeURL: "http://127.0.0.1:1", RuntimeKey: "app-test-agent-key-0123456789abcdefgh",
 		},
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},

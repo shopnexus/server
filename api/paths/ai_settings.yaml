@@ -10,6 +10,7 @@ providers:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listAIProviders
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "The providers Bifrost runs, each with its status over the last hour. Admins only."
     description: >-
@@ -38,6 +39,7 @@ providerModels:
     - $ref: "../parameters/common.yaml#/AIProviderName"
   get:
     operationId: listAIProviderModels
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "A provider's catalog in Bifrost, each model with its list price. Admins only."
     description: "The model picker reads it; a model's list price is where its price starts."
@@ -68,6 +70,7 @@ models:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listAIModels
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "Every model an agent uses, or that has a price or tags, with its price and its catalog's. Admins only."
     tags: [console, internal]
@@ -91,6 +94,7 @@ modelTags:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   put:
     operationId: setAIModelTags
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "Replace a model's tags. Admins only; each change is a console action."
     description: "The model is in the body, as its id may hold a slash. An agent that requires a tag the model loses keeps running on it."
@@ -123,6 +127,7 @@ modelPrice:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   put:
     operationId: setAIModelPrice
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "Set a model's price, new or over the old. Admins only; each change is a console action."
     description: >-
@@ -165,6 +170,7 @@ agents:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listAIAgents
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "The app agents and the console agents, each with this month's spend. Admins only."
     description: "When Bifrost cannot be read, budget_spent_usd and budget_resets_at are null and the rest answers."
@@ -184,6 +190,7 @@ agents:
         $ref: "../responses/common.yaml#/ConsoleForbidden"
   post:
     operationId: createAIAgent
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "Make a console agent. Admins only; each change is a console action."
     description: >-
@@ -228,6 +235,7 @@ agent:
     - $ref: "../parameters/common.yaml#/AIAgentID"
   patch:
     operationId: updateAIAgent
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "Change an agent. Admins only; each change is a console action."
     description: >-
@@ -277,6 +285,7 @@ agentUsage:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getAIAgentUsage
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "Each agent's requests by day over a range. Admins only."
     description: "A console agent's are its turns; an app agent's are its team's requests in Bifrost."
@@ -309,6 +318,7 @@ agentVersions:
     - $ref: "../parameters/common.yaml#/AIAgentID"
   get:
     operationId: listAIAgentVersions
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "An agent's instructions, newest first. Admins only."
     tags: [console, internal]
@@ -336,6 +346,7 @@ spend:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getAISpend
+    x-capability: none
     x-uc: [UC-MOD-12]
     summary: "The spend of each UTC day from from to to, in all and by agent, as Bifrost logged it. Admins only."
     description: "At most 366 days (else ai_spend_range_invalid). Bifrost's totals trail real time by up to lag_s seconds."
@@ -376,67 +387,12 @@ spend:
               $ref: "../schemas/error.yaml#/Error"
       "503":
         $ref: "../responses/common.yaml#/AIGatewayUnavailable"
-tools:
-  parameters:
-    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-  get:
-    operationId: getAITools
-    x-uc: [UC-MOD-12]
-    summary: "The agent's tool calls over a range, each tool with its title. Admins only."
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
-    parameters:
-      - name: range
-        in: query
-        schema:
-          type: string
-          enum: [7d, 30d, 90d]
-          default: 7d
-    responses:
-      "200":
-        description: "Done."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/ai_settings.yaml#/AIToolStats"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "403":
-        $ref: "../responses/common.yaml#/ConsoleForbidden"
-guardrails:
-  parameters:
-    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-  get:
-    operationId: getAIGuardrails
-    x-uc: [UC-MOD-12]
-    summary: "The agent's guardrail notices over a range. Admins only."
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
-    parameters:
-      - name: range
-        in: query
-        schema:
-          type: string
-          enum: [7d, 30d, 90d]
-          default: 7d
-    responses:
-      "200":
-        description: "Done."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/ai_settings.yaml#/AIGuardrailStats"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "403":
-        $ref: "../responses/common.yaml#/ConsoleForbidden"
 dashboards:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listDashboardFloors
+    x-capability: none
     x-uc: [UC-MOD-10]
     summary: "The ops dashboards and the lowest role that opens each. Admins only."
     description: "Moderators read the same list on GET /v1/console/me."
@@ -456,6 +412,7 @@ dashboards:
         $ref: "../responses/common.yaml#/ConsoleForbidden"
   patch:
     operationId: setDashboardFloors
+    x-capability: none
     x-uc: [UC-MOD-10]
     summary: "Change dashboards' floors. Admins only; each change is a console action."
     description: "The ticket and the dashboards' forwardAuth check read the new floor at once, so a dashboard session of a member below it is refused on its next request."

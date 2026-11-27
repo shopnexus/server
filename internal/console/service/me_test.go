@@ -79,7 +79,7 @@ func TestLogout(t *testing.T) {
 	}
 }
 
-// The agent's MCP server reads an active member only.
+// An agent's turn works for an active member only.
 func TestActiveMemberRefusesUnknownAndDisabled(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

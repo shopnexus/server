@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"unicode/utf8"
 	"uuid"
@@ -15,11 +14,11 @@ import (
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
-// listLimit is the most conversations a list returns.
-const listLimit = 50
+// conversationPage is the most conversations a list returns.
+const conversationPage = 100
 
-// visible says whether caller may open c: every conversation with a
-// subject, and the caller's own.
+// visible says whether caller may open c: one about a record is every
+// member's, one without is its member's own.
 func visible(c repository.Conversation, caller authn.ConsoleMember) bool {
 	return c.SubjectKind != "" || c.MemberID == caller.MemberID
 }
@@ -31,39 +30,33 @@ func conversationView(c repository.Conversation) Conversation {
 }
 
 // Conversations is UC-MOD-08 step 1: the member finds the conversation of a
-// record, those about records of a kind, their own that mention a record,
-// or all their own.
+// record, those about records of a kind, or all their own.
 func (s *Agent) Conversations(ctx context.Context, caller authn.ConsoleMember, q ConversationQuery) ([]Conversation, error) {
-	if q.SubjectID != nil && q.SubjectKind == "" {
+	if q.SubjectKind == "" && q.SubjectID != nil {
 		return nil, domain.ErrInvalidSubject
 	}
-	mention := q.MentionKind != "" || q.MentionID != nil
-	if mention && (q.MentionID == nil || !slices.Contains(domain.AttachmentKinds, q.MentionKind) || q.SubjectKind != "") {
-		return nil, domain.ErrRequestInvalid
-	}
-	list, err := s.d.Runs.Conversations(ctx, caller.MemberID, repository.ConversationFilter{
-		SubjectKind: string(q.SubjectKind), SubjectID: q.SubjectID, MentionKind: q.MentionKind, MentionID: q.MentionID,
-	}, listLimit)
+	rows, err := s.d.Conversations.Conversations(ctx, caller.MemberID,
+		repository.ConversationFilter{SubjectKind: string(q.SubjectKind), SubjectID: q.SubjectID}, conversationPage)
 	if err != nil {
 		return nil, fmt.Errorf("list the conversations: %w", err)
 	}
-	out := make([]Conversation, 0, len(list))
-	for i := range list {
-		out = append(out, conversationView(list[i]))
+	out := make([]Conversation, 0, len(rows))
+	for i := range rows {
+		out = append(out, conversationView(rows[i]))
 	}
 	return out, nil
 }
 
-// CreateConversation is UC-MOD-08 step 1: the member opens the record's
-// conversation, which every member shares and the first member makes, or
-// a new one of their own, which a key the member used answers.
+// CreateConversation opens the conversation of a record, which every
+// member shares, or starts one of the caller's own.
 func (s *Agent) CreateConversation(ctx context.Context, caller authn.ConsoleMember, in NewConversation) (Conversation, error) {
 	if (in.SubjectKind == "") != (in.SubjectID == nil) {
 		return Conversation{}, domain.ErrInvalidSubject
 	}
-	c, err := s.d.Runs.OpenConversation(ctx, repository.Conversation{
+	now := s.d.Now().UTC()
+	c, err := s.d.Conversations.OpenConversation(ctx, repository.Conversation{
 		ID: uuid.NewV7(), MemberID: caller.MemberID, SubjectKind: string(in.SubjectKind), SubjectID: in.SubjectID,
-		CreatedAt: s.d.Now().UTC(), RequestKey: in.Key,
+		CreatedAt: now, UpdatedAt: now, LastActivityAt: now, RequestKey: in.Key,
 	})
 	if err != nil {
 		return Conversation{}, fmt.Errorf("open the conversation: %w", err)
@@ -71,57 +64,62 @@ func (s *Agent) CreateConversation(ctx context.Context, caller authn.ConsoleMemb
 	return conversationView(c), nil
 }
 
-// Conversation is UC-MOD-08 step 1: the member reads a conversation, each
-// question with the member who asked it.
-func (s *Agent) Conversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConversationDetail, error) {
-	c, err := s.d.Runs.Conversation(ctx, id)
+func (s *Agent) visibleConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (repository.Conversation, error) {
+	c, err := s.d.Conversations.Conversation(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && !visible(c, caller)) {
-		return ConversationDetail{}, domain.ErrConversationNotFound
+		return repository.Conversation{}, domain.ErrConversationNotFound
 	}
 	if err != nil {
-		return ConversationDetail{}, fmt.Errorf("read the conversation: %w", err)
+		return repository.Conversation{}, fmt.Errorf("read the conversation: %w", err)
 	}
-	turns, err := s.d.Runs.Turns(ctx, id)
+	return c, nil
+}
+
+// Conversation reads a conversation with its history and turns.
+func (s *Agent) Conversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConversationDetail, error) {
+	c, err := s.visibleConversation(ctx, caller, id)
+	if err != nil {
+		return ConversationDetail{}, err
+	}
+	msgs, err := s.d.Conversations.Messages(ctx, id)
+	if err != nil {
+		return ConversationDetail{}, fmt.Errorf("read the conversation's messages: %w", err)
+	}
+	turns, err := s.d.Conversations.Turns(ctx, id)
 	if err != nil {
 		return ConversationDetail{}, fmt.Errorf("read the conversation's turns: %w", err)
 	}
-	ids := make([]uuid.UUID, 0, len(turns))
-	for i := range turns {
-		ids = append(ids, turns[i].ID)
+	out := ConversationDetail{Conversation: conversationView(c), Messages: make([]Message, 0, len(msgs)), Turns: make([]Turn, 0, len(turns))}
+	for _, m := range msgs {
+		v := Message{Seq: m.Seq, TurnID: m.TurnID}
+		if err = json.Unmarshal(m.Body, &v.Message); err != nil {
+			return ConversationDetail{}, fmt.Errorf("read message %d of conversation %s: %w", m.Seq, id, err)
+		}
+		out.Messages = append(out.Messages, v)
 	}
-	steers, err := s.d.Runs.Steers(ctx, ids)
-	if err != nil {
-		return ConversationDetail{}, fmt.Errorf("read the turns' steers: %w", err)
-	}
-	out := ConversationDetail{Conversation: conversationView(c), Turns: make([]Turn, 0, len(turns))}
 	for i := range turns {
-		out.Turns = append(out.Turns, turnView(turns[i], steers[turns[i].ID]))
+		out.Turns = append(out.Turns, turnView(turns[i]))
 	}
 	return out, nil
 }
 
-// changeable is the conversation caller may change: their own, any for an
-// admin; a shared one is an admin's (agent_forbidden), another member's
-// own is not found, as for reading.
+// changeable reads a conversation caller may rename or delete: their own,
+// or any for an admin; a shared one is an admin's.
 func (s *Agent) changeable(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error {
-	c, err := s.d.Runs.Conversation(ctx, id)
-	if errors.Is(err, repository.ErrNotFound) {
-		return domain.ErrConversationNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("read the conversation: %w", err)
-	}
+	c, err := s.d.Conversations.Conversation(ctx, id)
 	admin := caller.Role == "admin"
 	switch {
-	case c.SubjectKind == "" && c.MemberID != caller.MemberID && !admin:
+	case errors.Is(err, repository.ErrNotFound), err == nil && !admin && c.SubjectKind == "" && c.MemberID != caller.MemberID:
 		return domain.ErrConversationNotFound
-	case c.SubjectKind != "" && !admin:
+	case err != nil:
+		return fmt.Errorf("read the conversation: %w", err)
+	case !admin && c.SubjectKind != "":
 		return domain.ErrForbidden
 	}
 	return nil
 }
 
-// RenameConversation is UC-MOD-08: the member names a conversation.
+// RenameConversation gives a conversation a title.
 func (s *Agent) RenameConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, title string) (Conversation, error) {
 	title = strings.TrimSpace(title)
 	if title == "" || utf8.RuneCountInString(title) > 80 {
@@ -130,7 +128,7 @@ func (s *Agent) RenameConversation(ctx context.Context, caller authn.ConsoleMemb
 	if err := s.changeable(ctx, caller, id); err != nil {
 		return Conversation{}, err
 	}
-	c, err := s.d.Runs.RenameConversation(ctx, id, title, s.d.Now().UTC())
+	c, err := s.d.Conversations.RenameConversation(ctx, id, title, s.d.Now().UTC())
 	if errors.Is(err, repository.ErrNotFound) {
 		return Conversation{}, domain.ErrConversationNotFound
 	}
@@ -140,13 +138,13 @@ func (s *Agent) RenameConversation(ctx context.Context, caller authn.ConsoleMemb
 	return conversationView(c), nil
 }
 
-// DeleteConversation is UC-MOD-08: the member deletes a conversation with
-// its turns, events and documents.
+// DeleteConversation deletes a conversation with its messages, turns and
+// approvals.
 func (s *Agent) DeleteConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error {
 	if err := s.changeable(ctx, caller, id); err != nil {
 		return err
 	}
-	switch err := s.d.Runs.DeleteConversation(ctx, id); {
+	switch err := s.d.Conversations.DeleteConversation(ctx, id); {
 	case errors.Is(err, repository.ErrNotFound):
 		return domain.ErrConversationNotFound
 	case errors.Is(err, repository.ErrBusy):
@@ -155,39 +153,4 @@ func (s *Agent) DeleteConversation(ctx context.Context, caller authn.ConsoleMemb
 		return fmt.Errorf("delete the conversation: %w", err)
 	}
 	return nil
-}
-
-// turnView is a turn as the console reads it, with its steers.
-func turnView(t repository.Turn, steers []repository.Input) Turn {
-	st := stateOf(t)
-	v := Turn{
-		ID: t.ID, ConversationID: &t.ConversationID, MemberID: t.MemberID, Status: t.Status, Text: t.Question,
-		Attachments: t.Attachments, Blocks: rawList(t.Blocks), Sources: []Source{}, Outcome: domain.Outcome(t.Status, t.ErrorCode), ErrorCode: t.ErrorCode,
-		Continuable: domain.Continuable(t.Status, t.ErrorCode, t.Wrote, t.Latest),
-		Agent:       &TurnAgent{ID: t.AgentID, Name: t.AgentName},
-		Usage: &Usage{
-			InputTokens: int(t.Usage.InputTokens), OutputTokens: int(t.Usage.OutputTokens),
-			CacheReadTokens: new(int(t.Usage.CacheReadTokens)), CacheWriteTokens: new(int(t.Usage.CacheWriteTokens)),
-			CostUSD: t.Usage.CostUSD, Provider: t.Usage.Provider,
-		},
-		Steers: make([]Steer, 0, len(steers)), LastSeq: int(t.EventSeq), CreatedAt: t.StartedAt, FinishedAt: t.FinishedAt,
-		DurationMS: t.LatencyMS,
-	}
-	if t.Answer != nil {
-		v.Answer = *t.Answer
-	}
-	if t.Usage.FirstTokenMS != nil {
-		v.Usage.FirstTokenMS = new(int(*t.Usage.FirstTokenMS))
-	}
-	_ = json.Unmarshal(sourcesOf(t), &v.Sources)
-	if v.Sources == nil {
-		v.Sources = []Source{}
-	}
-	for i := range steers {
-		v.Steers = append(v.Steers, Steer{SteerID: steers[i].ID, Text: steers[i].Text})
-	}
-	if t.Status == domain.TurnAwaitingInput && nullable(st.PendingAsk) != nil {
-		_ = json.Unmarshal(st.PendingAsk, &v.Questions)
-	}
-	return v
 }

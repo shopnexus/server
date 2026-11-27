@@ -27,7 +27,7 @@ const (
 )
 
 // stopEvents end a stream: the run stopped writing until someone acts.
-var stopEvents = map[string]bool{"turn.finished": true, "turn.paused": true, "clarify": true}
+var stopEvents = map[string]bool{"turn.finished": true, "turn.paused": true}
 
 // TurnEvent is one thing a turn's event stream sends: first the delay a
 // browser waits before it reconnects, then stored events and keep-alives.
@@ -73,7 +73,7 @@ func (s *Agent) follow(ctx context.Context, turn uuid.UUID, after int64, ring <-
 	deliver := func() (int, error) {
 		n := 0
 		for {
-			events, err := s.d.Runs.Events(ctx, turn, last, eventPage)
+			events, err := s.d.Conversations.Events(ctx, turn, last, eventPage)
 			if err != nil {
 				return n, fmt.Errorf("read the turn's events: %w", err)
 			}
@@ -90,7 +90,7 @@ func (s *Agent) follow(ctx context.Context, turn uuid.UUID, after int64, ring <-
 		}
 	}
 	running := func() bool {
-		t, err := s.d.Runs.Turn(ctx, turn)
+		t, err := s.d.Conversations.Turn(ctx, turn)
 		return err == nil && t.Status == domain.TurnRunning
 	}
 	if err := emit(TurnEvent{Retry: retryAfter}); err != nil {
@@ -100,7 +100,7 @@ func (s *Agent) follow(ctx context.Context, turn uuid.UUID, after int64, ring <-
 		return err
 	}
 	if lastType == "" && last > 0 {
-		if prev, err := s.d.Runs.Events(ctx, turn, last-1, 1); err == nil && len(prev) == 1 {
+		if prev, err := s.d.Conversations.Events(ctx, turn, last-1, 1); err == nil && len(prev) == 1 {
 			lastType = prev[0].Type
 		}
 	}
@@ -226,5 +226,5 @@ func (h *hub) ringAll() {
 // FollowTurns hands this replica's streams the agent_turn rings until ctx
 // is done.
 func (s *Agent) FollowTurns(ctx context.Context) {
-	s.d.Runs.ListenTurns(ctx, s.hub.ring, s.hub.ringAll)
+	s.d.Conversations.ListenTurns(ctx, s.hub.ring, s.hub.ringAll)
 }

@@ -117,17 +117,3 @@ func (h *Handler) AgentUsage(w http.ResponseWriter, r *http.Request) {
 		return listOf(h.svc.AgentUsage(r.Context(), c, in.Range))
 	})
 }
-
-// Tools serves GET /v1/console/settings/tools.
-func (h *Handler) Tools(w http.ResponseWriter, r *http.Request) {
-	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in rangeRequest) (service.ToolStats, error) {
-		return h.svc.Tools(r.Context(), c, in.Range)
-	})
-}
-
-// Guardrails serves GET /v1/console/settings/guardrails.
-func (h *Handler) Guardrails(w http.ResponseWriter, r *http.Request) {
-	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in rangeRequest) (service.GuardrailStats, error) {
-		return h.svc.Guardrails(r.Context(), c, in.Range)
-	})
-}

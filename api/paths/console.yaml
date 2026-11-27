@@ -3,6 +3,7 @@ login:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: consoleLogin
+    x-capability: none
     x-uc: [UC-MOD-10]
     x-rate-limit: auth
     summary: Sign a console member in.
@@ -51,6 +52,7 @@ loginTotpEnrollment:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: consoleLoginTotpEnrollment
+    x-capability: none
     x-uc: [UC-MOD-10]
     x-rate-limit: auth
     summary: Start TOTP enrollment during the first sign-in.
@@ -83,6 +85,7 @@ logout:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: consoleLogout
+    x-capability: none
     x-uc: [UC-MOD-10]
     summary: Sign this session out and clear the cookie.
     tags: [console, internal]
@@ -98,6 +101,7 @@ me:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleMe
+    x-capability: none
     x-uc: [UC-MOD-10]
     summary: The signed-in console member.
     tags: [console, internal]
@@ -117,6 +121,7 @@ mePassword:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   put:
     operationId: changeConsolePassword
+    x-capability: none
     x-uc: [UC-MOD-10]
     summary: Change the password and end every session of the member, this one included.
     tags: [console, internal]
@@ -140,6 +145,7 @@ members:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleMembers
+    x-capability: none
     x-uc: [UC-MOD-04]
     summary: Console members, newest first. Admins only.
     tags: [console, internal]
@@ -161,6 +167,7 @@ members:
         $ref: "../responses/common.yaml#/ConsoleForbidden"
   post:
     operationId: createConsoleMember
+    x-capability: none
     x-uc: [UC-MOD-04]
     summary: Create a moderator with a temporary password. Admins only.
     tags: [console, internal]
@@ -190,6 +197,7 @@ member:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   patch:
     operationId: renameConsoleMember
+    x-capability: none
     x-uc: [UC-MOD-04]
     summary: Rename a moderator. Admins only.
     tags: [console, internal]
@@ -221,6 +229,7 @@ memberDisable:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: disableConsoleMember
+    x-capability: none
     x-uc: [UC-MOD-04]
     summary: Disable a moderator and end their sessions. Admins only.
     tags: [console, internal]
@@ -244,6 +253,7 @@ memberEnable:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: enableConsoleMember
+    x-capability: none
     x-uc: [UC-MOD-04]
     summary: Enable a disabled moderator. Admins only.
     tags: [console, internal]
@@ -267,6 +277,7 @@ memberUnlock:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: unlockConsoleMember
+    x-capability: none
     x-uc: [UC-MOD-04]
     summary: Clear the sign-in lock on a moderator's email. Admins only.
     tags: [console, internal]
@@ -290,6 +301,7 @@ memberResetPassword:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: resetConsoleMemberPassword
+    x-capability: none
     x-uc: [UC-MOD-04]
     summary: Give a moderator a temporary password and end their sessions. Admins only.
     tags: [console, internal]
@@ -313,6 +325,7 @@ memberResetTotp:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: resetConsoleMemberTotp
+    x-capability: none
     x-uc: [UC-MOD-04]
     summary: Remove a moderator's TOTP and end their sessions. Admins only.
     tags: [console, internal]
@@ -336,6 +349,7 @@ accounts:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleAccounts
+    x-capability: accounts.read
     x-uc: [UC-MOD-02]
     summary: Customer accounts, newest first, or the one q names.
     description: >-
@@ -377,6 +391,7 @@ account:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleAccount
+    x-capability: accounts.read
     x-uc: [UC-MOD-02]
     summary: One customer account with its identities and console history.
     tags: [console, internal]
@@ -398,6 +413,7 @@ accountSuspend:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: suspendConsoleAccount
+    x-capability: accounts.suspend
     x-uc: [UC-MOD-02]
     summary: Suspend a customer account.
     tags: [console, internal]
@@ -433,6 +449,7 @@ accountUnsuspend:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: unsuspendConsoleAccount
+    x-capability: accounts.suspend
     x-uc: [UC-MOD-02]
     summary: Lift a customer account's suspension.
     tags: [console, internal]
@@ -460,6 +477,7 @@ actions:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleActions
+    x-capability: audit.read
     x-uc: [UC-MOD-05]
     summary: The audit log, newest first. Admins only.
     tags: [console, internal]
@@ -492,6 +510,7 @@ dashboardTickets:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: createConsoleDashboardTicket
+    x-capability: none
     x-uc: [UC-MOD-10]
     summary: A one-time ticket that opens an ops dashboard on its own host.
     description: |
@@ -528,6 +547,7 @@ dashboardTickets:
 dashboardAuth:
   get:
     operationId: authorizeConsoleDashboard
+    x-capability: none
     x-uc: [UC-MOD-10]
     x-rate-limit: exempt
     summary: Traefik's forwardAuth check in front of every ops dashboard.
@@ -644,6 +664,7 @@ supportTickets:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleTickets
+    x-capability: tickets.read
     x-uc: [UC-MOD-09]
     summary: The ticket queue, newest activity first.
     tags: [console, internal]
@@ -668,6 +689,7 @@ supportTicket:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleTicket
+    x-capability: tickets.read
     x-uc: [UC-MOD-09]
     summary: One ticket with its person, order, other tickets and first page of messages.
     tags: [console, internal]
@@ -695,6 +717,7 @@ supportTicketMessages:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleTicketMessages
+    x-capability: tickets.read
     x-uc: [UC-MOD-09]
     summary: Older messages of a ticket's chat, newest first.
     tags: [console, internal]
@@ -724,6 +747,7 @@ supportTicketReplies:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: replyConsoleTicket
+    x-capability: tickets.reply
     x-uc: [UC-MOD-09]
     summary: Reply in a ticket's chat as ShopNexus.
     tags: [console, internal]
@@ -764,6 +788,7 @@ supportTicketResolve:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: resolveConsoleTicket
+    x-capability: tickets.resolve
     x-uc: [UC-MOD-09]
     summary: Mark a ticket resolved; a carrier request sends "Đã ghi nhận hãng <name>." in its chat.
     tags: [console, internal]
@@ -791,6 +816,7 @@ supportTicketReopen:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: reopenConsoleTicket
+    x-capability: tickets.resolve
     x-uc: [UC-MOD-09]
     summary: Open a resolved ticket again.
     tags: [console, internal]
@@ -818,6 +844,7 @@ supportSummary:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleSupportSummary
+    x-capability: tickets.read
     x-uc: [UC-MOD-09]
     summary: The open count for the drawer.
     tags: [console, internal]
@@ -837,6 +864,7 @@ feedbackQueue:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleFeedback
+    x-capability: feedback.read
     x-uc: [UC-MOD-11]
     summary: Feedback, newest first.
     tags: [console, internal]
@@ -861,6 +889,7 @@ feedbackDetail:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleFeedback
+    x-capability: feedback.read
     x-uc: [UC-MOD-11]
     summary: A feedback with the rest of its group.
     tags: [console, internal]
@@ -888,6 +917,7 @@ feedbackGroups:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleFeedbackGroups
+    x-capability: feedback.read
     x-uc: [UC-MOD-11]
     summary: Feedback groups, largest first, with their figures.
     tags: [console, internal]
@@ -909,6 +939,7 @@ feedbackSummary:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleFeedbackSummary
+    x-capability: feedback.read
     x-uc: [UC-MOD-11]
     summary: What was sent in the last 30 days.
     tags: [console, internal]
@@ -928,6 +959,7 @@ feedbackStatus:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: setConsoleFeedbackStatus
+    x-capability: feedback.triage
     x-uc: [UC-MOD-11]
     summary: Set the status of a feedback's whole group.
     description: |
@@ -972,6 +1004,7 @@ feedbackReply:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: replyConsoleFeedback
+    x-capability: feedback.reply
     x-uc: [UC-MOD-11]
     summary: Set ShopNexus's one reply to a feedback.
     description: A second call replaces the text. Only the first tells the owner.
@@ -1013,6 +1046,7 @@ feedbackHeart:
     - $ref: "../parameters/common.yaml#/ConsoleFeedbackID"
   put:
     operationId: heartConsoleFeedback
+    x-capability: feedback.triage
     x-uc: [UC-MOD-11]
     summary: Heart a feedback.
     tags: [console, internal]
@@ -1035,6 +1069,7 @@ feedbackHeart:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: unheartConsoleFeedback
+    x-capability: feedback.triage
     x-uc: [UC-MOD-11]
     summary: Take a feedback's heart back.
     tags: [console, internal]
@@ -1060,6 +1095,7 @@ feedbackSameAs:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: joinConsoleFeedback
+    x-capability: feedback.triage
     x-uc: [UC-MOD-11]
     summary: Join a feedback to another's group.
     description: |
@@ -1103,6 +1139,7 @@ reportCases:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleReportCases
+    x-capability: reports.read
     x-uc: [UC-MOD-02]
     summary: Report cases, open or resolved, newest first.
     description: >-
@@ -1139,6 +1176,7 @@ reportCase:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: getConsoleReportCase
+    x-capability: reports.read
     x-uc: [UC-MOD-02]
     summary: An account's open report case or, without one, its latest resolved case.
     tags: [console, internal]
@@ -1177,6 +1215,7 @@ reportCaseDismiss:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: dismissConsoleReportCase
+    x-capability: reports.resolve
     x-uc: [UC-MOD-02]
     summary: Close the account's open case as dismissed ("Không vi phạm").
     description: >-
@@ -1211,6 +1250,7 @@ reportCaseResolve:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: resolveConsoleReportCase
+    x-capability: reports.resolve
     x-uc: [UC-MOD-02]
     summary: Close the account's open case as actioned.
     description: >-
@@ -1245,6 +1285,7 @@ reportCaseReopen:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: reopenConsoleReportCase
+    x-capability: reports.resolve
     x-uc: [UC-MOD-02]
     summary: Undo the account's latest resolution.
     description: >-
@@ -1279,6 +1320,7 @@ listingHide:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: hideConsoleListing
+    x-capability: listings.hide
     x-uc: [UC-MOD-02]
     summary: Hide a listing as ShopNexus.
     description: >-
@@ -1319,6 +1361,7 @@ listingUnhide:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: unhideConsoleListing
+    x-capability: listings.hide
     x-uc: [UC-MOD-02]
     summary: Lift ShopNexus's hide of a listing.
     description: >-

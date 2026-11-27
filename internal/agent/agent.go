@@ -1,22 +1,20 @@
-// Package agent serves the console agent's two sides in the server: the
-// console's agent endpoints, whose runs the agent service streams back,
-// and the MCP server the agent reads through and polls a run's control
-// on, on a listener of its own.
+// Package agent serves the console agent in the server: the console's
+// agent endpoints, whose turns run in the agent runtime and stream back,
+// and the gate through which a turn's agent calls the console API with its
+// token.
 package agent
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"net"
 	"net/http"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	restate "github.com/restatedev/sdk-go"
 
 	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/handler"
-	"github.com/shopnexus/server/internal/agent/mcp"
 	"github.com/shopnexus/server/internal/agent/repository"
 	"github.com/shopnexus/server/internal/agent/service"
 	"github.com/shopnexus/server/internal/agent/worker"
@@ -34,12 +32,10 @@ import (
 )
 
 const (
-	// sweepEvery is how often reads past service.ReadsKeptFor are deleted
-	// and tool outputs as old blanked, as the events are.
+	// sweepEvery is how often reads and calls past service.ReadsKeptFor
+	// are deleted and command outputs as old blanked.
 	sweepEvery = time.Hour
-	// stopWait bounds the MCP server's shutdown.
-	stopWait = 10 * time.Second
-	// turnSweepEvery is how often turns stuck running are closed.
+	// turnSweepEvery is how often turns whose run was lost are closed.
 	turnSweepEvery = time.Minute
 	// A failed reconcile is tried again after retryFirst, doubling up to
 	// retryMax; a key the ring misses asks for one at most every missGap.
@@ -51,53 +47,56 @@ const (
 // Settings is what agent's Mount takes beyond module.Deps.
 type Settings struct {
 	Config config.AgentConfig
-	// TextMin and PhotoMin are the similarity floors price_guide samples
-	// with, EMBED_TEXT_MIN_SIMILARITY and EMBED_PHOTO_MIN_SIMILARITY.
+	// TextMin and PhotoMin are the similarity floors of the listing page's
+	// price guide, EMBED_TEXT_MIN_SIMILARITY and EMBED_PHOTO_MIN_SIMILARITY.
 	TextMin, PhotoMin float64
 	// Gateway is Bifrost's admin API, and Ring the server's keys, which
 	// the reconciler fills.
 	Gateway bifrost.Admin
 	Ring    *bifrost.Ring
+	// Doc is the API spec: its x-capability says which operations an
+	// agent may be given.
+	Doc *openapi3.T
 }
 
 // Mounted is the agent module as app runs it: its Service, its Restate
-// services, and Run, which serves the MCP server until app stops.
+// services, its gate, and Run, which follows turns and sweeps until app
+// stops.
 type Mounted struct {
 	Service  service.Service
 	Services []restate.ServiceDefinition
-	listener net.Listener
-	mcp      http.Handler
+	handler  *handler.Handler
 	d        module.Deps
 	// missed is a reconcile the ring asked for, when it lacked a caller.
 	missed chan struct{}
 }
 
 // Mount registers the console's agent endpoints behind moderator, console's
-// guard of a moderator's route, and the AI settings behind admin, builds the
-// MCP server over the services of console, support, account, catalog,
-// deal, shipping and trust, and opens its listener at AGENT_MCP_ADDR, so an
-// address in use stops the start. Its worker blanks the tool outputs about
+// guard of a moderator's route, and the AI settings behind admin, over the
+// services of console, support, account, catalog, deal, shipping and trust
+// that the record pages read. Its worker blanks the command outputs about
 // a deleted account.
 func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.Handler, consoles consolesvc.Service,
 	support supportsvc.Service, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service,
 	shipping shippingsvc.Service, trust trustsvc.Service,
 ) (*Mounted, error) {
+	ops, err := domain.NewCatalog(s.Doc)
+	if err != nil {
+		return nil, err
+	}
 	svc := service.New(service.Deps{
-		Reads: repository.NewReads(d.Pool), Settings: repository.NewSettings(d.Pool), Runs: repository.NewRuns(d.Pool, d.Log),
+		Reads: repository.NewReads(d.Pool), Settings: repository.NewSettings(d.Pool),
+		Conversations: repository.NewConversations(d.Pool, d.Log), Ops: ops,
 		Gateway: s.Gateway, Ring: s.Ring,
 		Console: consoles, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping, Support: support, Trust: trust,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin,
-		BaseURL: s.Config.BaseURL, Token: s.Config.ServiceToken, HTTP: httpx.NewClient(0), Now: d.Now,
+		RuntimeURL: s.Config.RuntimeURL, RuntimeKey: s.Config.RuntimeKey, HTTP: httpx.NewClient(0), Now: d.Now,
 		Log: d.Log,
 	})
-	handler.New(svc, d.Log).Register(d.Router, moderator, admin)
+	h := handler.New(svc, d.Log)
+	h.Register(d.Router, moderator, admin)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Agent: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
-	h := mcp.Handler(mcp.Deps{
-		Token: s.Config.MCPToken, Console: consoles, Agent: svc,
-		Support: support, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping, Trust: trust,
-		TextMin: s.TextMin, PhotoMin: s.PhotoMin, Now: d.Now, Log: d.Log,
-	})
 	missed := make(chan struct{}, 1)
 	if s.Ring != nil {
 		s.Ring.OnMiss(func(string) {
@@ -107,30 +106,30 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 			}
 		})
 	}
-	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", s.Config.MCPAddr)
-	if err != nil {
-		return nil, fmt.Errorf("listen for MCP at AGENT_MCP_ADDR: %w", err)
-	}
 	return &Mounted{
-		Service: svc, Services: []restate.ServiceDefinition{restate.Reflect(watch)}, listener: l,
-		mcp: httpx.Trace(d.Log)(httpx.Recover(d.Log)(h)), d: d, missed: missed,
+		Service: svc, Services: []restate.ServiceDefinition{restate.Reflect(watch)}, handler: h, d: d, missed: missed,
 	}, nil
 }
 
-// Addr is where the MCP server listens, for a test that listens on port 0.
-func (m *Mounted) Addr() net.Addr { return m.listener.Addr() }
+// Gate lets an agent's turn call the console API with its token; route
+// names the route pattern that serves a method and path. It goes outside
+// the request validator.
+func (m *Mounted) Gate(route func(method, path string) string) func(http.Handler) http.Handler {
+	return m.handler.Gate(route)
+}
 
-// Run serves the MCP server, hands the turns' event streams their rings,
-// sweeps old reads and tool outputs at start and every hour, closes stuck turns at start
-// and every minute, and reconciles Bifrost with the AI settings: at start,
+// SetRoot hands the module the server's whole handler, which an approved
+// change goes through as the approver's request.
+func (m *Mounted) SetRoot(root http.Handler) { m.handler.SetRoot(root) }
+
+// Run hands the turns' event streams their rings, sweeps old reads and
+// command outputs at start and every hour, closes lost turns at start and
+// every minute, and reconciles Bifrost with the AI settings: at start,
 // again after retryFirst doubling to retryMax until it succeeds, then every
 // 5 minutes, and when the ring lacks a caller's key (at most every
-// missGap); until ctx is done, then it waits for the calls in flight and
-// returns nil.
+// missGap); until ctx is done, then it stops the runs this replica follows
+// and returns nil.
 func (m *Mounted) Run(ctx context.Context) error {
-	srv := &http.Server{Handler: m.mcp, ReadHeaderTimeout: 10 * time.Second}
-	served := make(chan error, 1)
-	go func() { served <- srv.Serve(m.listener) }()
 	followed := make(chan struct{})
 	go func() {
 		defer close(followed)
@@ -173,12 +172,8 @@ func (m *Mounted) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return shutdown(ctx, srv)
-		case err := <-served:
-			if errors.Is(err, http.ErrServerClosed) {
-				return nil
-			}
-			return fmt.Errorf("serve MCP: %w", err)
+			m.Service.StopRuns()
+			return nil
 		case <-tick.C:
 			sweep()
 		case <-turnTick.C:
@@ -191,15 +186,4 @@ func (m *Mounted) Run(ctx context.Context) error {
 			}
 		}
 	}
-}
-
-// shutdown stops srv once ctx is done, waiting stopWait at most for the
-// calls in flight.
-func shutdown(ctx context.Context, srv *http.Server) error {
-	stop, cancel := context.WithTimeout(context.WithoutCancel(ctx), stopWait)
-	defer cancel()
-	if err := srv.Shutdown(stop); err != nil {
-		return fmt.Errorf("stop the MCP server: %w", err)
-	}
-	return nil
 }

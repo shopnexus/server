@@ -107,10 +107,8 @@ func required() map[string]string {
 		"CHOTOT_CDN_URL":               "https://cdn.chotot.com",
 		"TRUST_CALL_TIMEOUT":           "20s",
 		"TRUST_SCAM_CHECKS":            "on",
-		"AGENT_BASE_URL":               "http://agent.example.test:3000",
-		"AGENT_SERVICE_TOKEN":          "agent-service-token-of-32-characters",
-		"AGENT_MCP_ADDR":               "0.0.0.0:9090",
-		"AGENT_MCP_TOKEN":              "agent-mcp-token-of-at-least-32-chars",
+		"AGENT_URL":                    "http://agent.example.test:8080",
+		"AGENT_KEY":                    "agent-key-of-at-least-32-characters",
 		"FCM_CREDENTIALS":              "",
 		"FIREBASE_PROJECT_ID":          "shopnexus-test",
 		"FIREBASE_PROJECT_NUMBER":      "123456789",
@@ -219,8 +217,7 @@ func TestLoadAllSet(t *testing.T) {
 			CallTimeout: 20 * time.Second, ScamChecks: true,
 		},
 		Agent: AgentConfig{
-			BaseURL: "http://agent.example.test:3000", ServiceToken: "agent-service-token-of-32-characters",
-			MCPAddr: "0.0.0.0:9090", MCPToken: "agent-mcp-token-of-at-least-32-chars",
+			RuntimeURL: "http://agent.example.test:8080", RuntimeKey: "agent-key-of-at-least-32-characters",
 		},
 		Firebase: FirebaseConfig{
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
@@ -331,8 +328,7 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 		{"indexnow key too short", map[string]string{"INDEXNOW_KEY": "abc"}, "INDEXNOW_KEY"},
 		{"indexnow key with a slash", map[string]string{"INDEXNOW_KEY": "0123456789abcdef/"}, "INDEXNOW_KEY"},
 		{"short console key", map[string]string{"CONSOLE_KEY": b64(make([]byte, 16))}, "CONSOLE_KEY"},
-		{"short agent service token", map[string]string{"AGENT_SERVICE_TOKEN": "short"}, "AGENT_SERVICE_TOKEN"},
-		{"short agent MCP token", map[string]string{"AGENT_MCP_TOKEN": "short"}, "AGENT_MCP_TOKEN"},
+		{"short agent runtime key", map[string]string{"AGENT_KEY": "short"}, "AGENT_KEY"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

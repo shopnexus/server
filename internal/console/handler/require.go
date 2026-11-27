@@ -29,9 +29,19 @@ func FromConsole(log *slog.Logger) func(http.Handler) http.Handler {
 // Require lets a request through only with the cookie of a live session
 // whose member holds at least floor's role; svc.Authenticate reads both on
 // every request. The member counts against the route's rate limit tier.
+//
+// A console agent's turn (authn.Turn, which the agent module's gate puts
+// in the request in place of a cookie) passes as the member it works for,
+// who must be active and hold floor's role. A change it asks for, any
+// method but GET, goes to the turn's Hold instead of the handler: it waits
+// for a member's approval.
 func Require(svc service.Service, log *slog.Logger, floor domain.Role) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if t, ok := authn.TurnFrom(r.Context()); ok {
+				requireTurn(svc, log, floor, t, next, w, r)
+				return
+			}
 			c, err := r.Cookie(sessionCookie)
 			if err != nil || c.Value == "" {
 				httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
@@ -54,4 +64,30 @@ func Require(svc service.Service, log *slog.Logger, floor domain.Role) func(http
 			next.ServeHTTP(w, r.WithContext(authn.WithConsoleMember(r.Context(), caller)))
 		})
 	}
+}
+
+// requireTurn is Require for an agent's turn.
+func requireTurn(svc service.Service, log *slog.Logger, floor domain.Role, t authn.Turn, next http.Handler,
+	w http.ResponseWriter, r *http.Request,
+) {
+	m, err := svc.ActiveMember(r.Context(), t.MemberID)
+	if err != nil {
+		httpx.WriteError(w, r, log, err)
+		return
+	}
+	if !m.Role.AtLeast(floor) {
+		httpx.WriteError(w, r, log, domain.ErrConsoleForbidden)
+		return
+	}
+	if err = httpx.LimitCaller(r, m.ID); err != nil {
+		httpx.WriteError(w, r, log, err)
+		return
+	}
+	caller := authn.ConsoleMember{MemberID: m.ID, Role: string(m.Role), IP: httpx.ClientIP(r)}
+	r = r.WithContext(authn.WithConsoleMember(r.Context(), caller))
+	if r.Method != http.MethodGet {
+		t.Hold(w, r)
+		return
+	}
+	next.ServeHTTP(w, r)
 }

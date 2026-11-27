@@ -31,8 +31,8 @@ type Service interface {
 	//
 	// UC-MOD-10
 	Authenticate(ctx context.Context, token string) (domain.Grant, error)
-	// ActiveMember reads an active member by id, as the console agent's MCP
-	// server names one; an unknown or disabled member is
+	// ActiveMember reads an active member by id, as a console agent's turn
+	// names the member it works for; an unknown or disabled member is
 	// authn.ErrUnauthenticated.
 	ActiveMember(ctx context.Context, id uuid.UUID) (Me, error)
 	// GetMe reads the signed-in member.

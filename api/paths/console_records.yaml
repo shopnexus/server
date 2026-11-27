@@ -12,6 +12,7 @@ order:
         format: uuid
   get:
     operationId: getConsoleOrder
+    x-capability: orders.read
     summary: One order, its listing, its parties, its shipment and its tickets.
     description: |
       The facts of the agent's order_get, with the parties' accounts, the
@@ -49,6 +50,7 @@ listing:
         format: uuid
   get:
     operationId: getConsoleListing
+    x-capability: listings.read
     summary: One listing, its seller, its hold, its reports and its price guide.
     description: |
       The facts of the agent's listing_get, read as its seller reads it so a

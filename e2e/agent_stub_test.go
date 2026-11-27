@@ -3,271 +3,249 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
-	"testing"
 	"time"
-	"uuid"
 )
 
-const (
-	// agentServiceToken and agentMCPToken are the e2e server's
-	// AGENT_SERVICE_TOKEN and AGENT_MCP_TOKEN.
-	agentServiceToken = "e2e-agent-service-token-0123456789abcdef"
-	agentMCPToken     = "e2e-agent-mcp-token-0123456789abcdefghij"
-)
+// agentKey is the key the server calls the agent runtime with.
+const agentKey = "e2e-agent-key-0123456789abcdefghijklmnop"
 
-// stubAgent stands in for the agent service's POST /runs as
-// shopnexus/agent serves it: it refuses a request without the service
-// token, and streams NDJSON lines by the question. "down" is refused with
-// 503; "ask" waits for answers; "pause" pauses; "break" ends the stream
-// without an end line; "hold" polls the server's control endpoint, reads
-// each steer and pauses at a stop; any other question reads a ticket,
-// writes a document twice and answers with one source. A resumed segment
-// answers, but one of a question ending in "-down" is refused with 503.
+// stubAgent stands in for the agent runtime. A turn's last message with
+// content is its script:
+//
+//	down   the runtime refuses the turn with 503
+//	hold   the turn runs until a pause or a stop, keeping the steers it
+//	       gets, so a test calls the server with its token meanwhile
+//
+// Any other script, and a turn the stub ran before (a resumed one), gets
+// the answer "Đã xong.". A conversation the stub refuses gets 503 for a
+// turn and 500 for a control.
 type stubAgent struct {
 	srv *httptest.Server
-	mu  sync.Mutex
-	// asked is the member and role each turn's last run came with, configs the
-	// aliases of the agents the runs went to, answers the answers text of
-	// each resumed segment, and made the tool call and document of each
-	// turn, and mentions the records each run was told of.
-	asked    map[string][2]string
-	configs  []string
-	answers  []string
-	made     map[string][2]string
-	mentions map[string][]string
+
+	mu      sync.Mutex
+	turns   map[string]*stubTurn // by turn id
+	running map[string]*stubTurn // by conversation id
+	refused map[string]bool      // by conversation id
 }
 
-type stubRun struct {
-	TurnID       string `json:"turn_id"`
-	Mode         string `json:"mode"`
-	Question     string `json:"question"`
-	ControlAfter int64  `json:"control_after"`
-	Answers      string `json:"answers"`
-	Member       struct {
-		ID   string `json:"id"`
-		Role string `json:"role"`
-	} `json:"member"`
-	AgentConfig struct {
-		Alias string `json:"alias"`
-	} `json:"agent_config"`
-	Mentions []struct {
-		Kind string `json:"kind"`
-		ID   string `json:"id"`
-	} `json:"mentions"`
+// stubTurn is what the last run of a turn received.
+type stubTurn struct {
+	Instructions string
+	History      []agentMessage
+	Token        string
+	Model        string
+	ModelKey     string
+	Steers       []stubControl
+
+	id      string
+	runs    int
+	control chan stubControl
+}
+
+type stubControl struct {
+	What    string `json:"-"`
+	TurnID  string `json:"turn_id"`
+	Content string `json:"content"`
+	Context string `json:"context"`
+}
+
+// agentMessage is a message of a conversation's history.
+type agentMessage struct {
+	Role    string `json:"role"`
+	Context string `json:"context,omitempty"`
+	Content string `json:"content,omitempty"`
 }
 
 func newAgent() *stubAgent {
-	a := &stubAgent{asked: map[string][2]string{}, made: map[string][2]string{}, mentions: map[string][]string{}}
-	a.srv = httptest.NewServer(http.HandlerFunc(a.run))
+	a := &stubAgent{turns: map[string]*stubTurn{}, running: map[string]*stubTurn{}, refused: map[string]bool{}}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/turns", a.serveTurn)
+	mux.HandleFunc("POST /v1/turns/{conversation}/{what}", a.serveControl)
+	a.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+agentKey {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	}))
 	return a
 }
 
 func (a *stubAgent) url() string { return a.srv.URL }
 
-// askedBy is the member and role the last run of turn came with.
-func (a *stubAgent) askedBy(turn string) [2]string {
+// ran reads what the last run of a turn received.
+func (a *stubAgent) ran(id string) stubTurn {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.asked[turn]
+	if t, ok := a.turns[id]; ok {
+		return *t
+	}
+	return stubTurn{}
 }
 
-// mentionsOf is the records the last run of turn was told of, as kind:id.
-func (a *stubAgent) mentionsOf(turn string) []string {
+// holding waits until turn id holds, so its token works and a control
+// finds it.
+func (a *stubAgent) holding(id string) bool {
+	for range 250 {
+		a.mu.Lock()
+		t, ok := a.turns[id]
+		held := ok && t.control != nil
+		a.mu.Unlock()
+		if held {
+			return true
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return false
+}
+
+// refuse makes the runtime fail conversation's turns and controls, or
+// take them again.
+func (a *stubAgent) refuse(conversation string, refused bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.mentions[turn]
+	a.refused[conversation] = refused
 }
 
-// madeBy is the tool call and the document turn's run made.
-func (a *stubAgent) madeBy(turn string) [2]string {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.made[turn]
-}
-
-func (a *stubAgent) run(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost || r.URL.Path != "/runs" || r.Header.Get("Authorization") != "Bearer "+agentServiceToken {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"code": "unauthorized"})
+func (a *stubAgent) serveTurn(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ConversationID string            `json:"conversation_id"`
+		TurnID         string            `json:"turn_id"`
+		Instructions   string            `json:"instructions"`
+		History        []json.RawMessage `json:"history"`
+		Token          string            `json:"token"`
+		Model          string            `json:"model"`
+		ModelKey       string            `json:"model_key"`
+		Deadline       time.Time         `json:"deadline"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TurnID == "" || req.Token == "" || req.Deadline.IsZero() {
+		http.Error(w, "bad turn", http.StatusBadRequest)
 		return
 	}
-	var in stubRun
-	if json.NewDecoder(r.Body).Decode(&in) != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"code": "bad_request"})
-		return
+	history := make([]agentMessage, 0, len(req.History))
+	for _, raw := range req.History {
+		var m agentMessage
+		if json.Unmarshal(raw, &m) != nil {
+			http.Error(w, "bad message", http.StatusBadRequest)
+			return
+		}
+		history = append(history, m)
+	}
+	script := ""
+	for _, m := range slices.Backward(history) {
+		if m.Role == "user" && m.Content != "" {
+			script = strings.TrimSpace(m.Content)
+			break
+		}
 	}
 	a.mu.Lock()
-	a.asked[in.TurnID] = [2]string{in.Member.ID, in.Member.Role}
-	a.configs = append(a.configs, in.AgentConfig.Alias)
-	a.mentions[in.TurnID] = nil
-	for _, m := range in.Mentions {
-		a.mentions[in.TurnID] = append(a.mentions[in.TurnID], m.Kind+":"+m.ID)
+	if script == "down" || a.refused[req.ConversationID] {
+		a.mu.Unlock()
+		http.Error(w, "down", http.StatusServiceUnavailable)
+		return
 	}
-	if in.Mode == "resume" {
-		a.answers = append(a.answers, in.Answers)
+	if _, busy := a.running[req.ConversationID]; busy {
+		a.mu.Unlock()
+		http.Error(w, "busy", http.StatusConflict)
+		return
+	}
+	t := a.turns[req.TurnID]
+	if t == nil {
+		t = &stubTurn{id: req.TurnID}
+		a.turns[req.TurnID] = t
+	}
+	t.runs++
+	if t.runs > 1 {
+		script = ""
+	}
+	t.Instructions, t.History, t.Token, t.Model, t.ModelKey = req.Instructions, history, req.Token, req.Model, req.ModelKey
+	a.running[req.ConversationID] = t
+	a.mu.Unlock()
+	defer func() {
+		a.mu.Lock()
+		delete(a.running, req.ConversationID)
+		t.control = nil
+		a.mu.Unlock()
+	}()
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.WriteHeader(http.StatusOK)
+	send := func(event string, v any) {
+		b, _ := json.Marshal(v)
+		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, b)
+		_ = http.NewResponseController(w).Flush()
+	}
+	result := func(stop string, messages ...agentMessage) {
+		send("result", map[string]any{
+			"messages": messages, "stop": stop,
+			"usage": map[string]int{"input_tokens": 100, "output_tokens": 10, "cached_tokens": 40},
+		})
+	}
+	if script == "hold" {
+		send("tool_call", map[string]string{"type": "tool_call", "tool_call_id": "c1", "tool": "shell", "input": "shopnexus getAccount"})
+		send("tool_result", map[string]string{"type": "tool_result", "tool_call_id": "c1", "tool": "shell", "output": "{}"})
+		control := make(chan stubControl, 4)
+		a.mu.Lock()
+		t.control = control
+		a.mu.Unlock()
+		for {
+			select {
+			case c := <-control:
+				if c.What == "steer" {
+					a.mu.Lock()
+					t.Steers = append(t.Steers, c)
+					a.mu.Unlock()
+					continue
+				}
+				if c.What == "pause" {
+					result("paused")
+				} else {
+					result("stopped")
+				}
+			case <-time.After(time.Until(req.Deadline)):
+				result("deadline")
+			case <-r.Context().Done():
+			}
+			return
+		}
+	}
+	send("text", map[string]string{"type": "text", "delta": "Đã "})
+	send("text", map[string]string{"type": "text", "delta": "xong."})
+	answer := agentMessage{Role: "assistant", Content: "Đã xong."}
+	send("step", map[string]any{"type": "step", "messages": []agentMessage{answer}})
+	result("done", answer)
+}
+
+// serveControl is the runtime's pause, stop and steer of the turn running
+// in a conversation.
+func (a *stubAgent) serveControl(w http.ResponseWriter, r *http.Request) {
+	var c stubControl
+	if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+		http.Error(w, "bad control", http.StatusBadRequest)
+		return
+	}
+	c.What = r.PathValue("what")
+	conversation := r.PathValue("conversation")
+	a.mu.Lock()
+	t, ok := a.running[conversation]
+	refused := a.refused[conversation]
+	var control chan stubControl
+	if ok {
+		control = t.control
 	}
 	a.mu.Unlock()
-	question := strings.TrimSpace(in.Question)
-	if (in.Mode == "new" && question == "down") || (in.Mode == "resume" && strings.HasSuffix(question, "-down")) {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"code": "agent_unavailable"})
-		return
-	}
-	w.Header().Set("Content-Type", "application/x-ndjson")
-	send := func(lines ...any) {
-		for _, l := range lines {
-			b, _ := json.Marshal(l)
-			_, _ = w.Write(append(b, '\n'))
-		}
-		w.(http.Flusher).Flush()
-	}
-	event := func(typ string, body map[string]any) map[string]any {
-		return map[string]any{"kind": "event", "type": typ, "body": body}
-	}
-	send(event("turn.started", map[string]any{"agent": map[string]any{"id": "a", "name": "Console assistant"}, "deadline_s": 60}))
-	if in.Mode == "resume" {
-		send(end("SUCCEEDED", nil))
-		return
-	}
-	switch strings.TrimSuffix(question, "-down") {
-	case "ask":
-		send(end("AWAITING_INPUT", []map[string]any{
-			{"id": "range", "label": "Khoảng", "kind": "single", "options": []map[string]string{{"id": "week", "label": "Tuần này"}}},
-			{"id": "cities", "label": "Thành phố", "kind": "multi", "options": []map[string]string{{"id": "hn", "label": "Hà Nội"}}},
-		}))
-	case "pause":
-		send(end("PAUSED", nil))
-	case "break":
-		send(event("step.started", map[string]any{"step_id": "s1", "title": "Đọc"}))
-	case "hold":
-		a.hold(r, in, send, event)
+	switch {
+	case refused:
+		http.Error(w, "down", http.StatusInternalServerError)
+	case !ok || control == nil || t.id != c.TurnID || (c.What != "pause" && c.What != "stop" && c.What != "steer"):
+		http.Error(w, "no turn runs", http.StatusNotFound)
 	default:
-		call, doc := uuid.NewV7().String(), uuid.NewV7().String()
-		a.mu.Lock()
-		a.made[in.TurnID] = [2]string{call, doc}
-		a.mu.Unlock()
-		tool := func(status string, output any) map[string]any {
-			return map[string]any{
-				"kind": "tool_call", "id": call, "tool_use_id": "tu1", "tool": "ticket_get", "label": "Ticket", "source": "mcp",
-				"input": map[string]any{"id": "x"}, "status": status, "output": output, "content": nil, "output_spilled": false,
-				"latency_ms": 120, "attempts": 2, "timing": map[string]any{"queued": 1, "server": 100, "db": nil, "return": 4},
-				"attempt_errors": []map[string]any{{"attempt": 1, "error": "timeout", "at": time.Now().UTC().Format(time.RFC3339)}},
-				"finished_at":    nil,
-			}
-		}
-		document := func(version int) map[string]any {
-			return map[string]any{
-				"kind": "document", "document_id": doc, "version": version, "title": "Báo cáo tuần",
-				"sections": []map[string]any{{"type": "markdown", "markdown": "# Tuần"}},
-			}
-		}
-		send(tool("running", nil), tool("success", `{"status":"open"}`), document(1), document(2), end("SUCCEEDED", nil))
+		control <- c
+		w.WriteHeader(http.StatusNoContent)
 	}
-}
-
-// hold polls the control endpoint after the run's control_after, reads
-// each steer with steer.read, and pauses at the first stop.
-func (*stubAgent) hold(r *http.Request, in stubRun, send func(...any), event func(string, map[string]any) map[string]any) {
-	after := in.ControlAfter
-	base := strings.TrimSuffix(mcpURL, "/mcp")
-	for range 100 {
-		req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet,
-			fmt.Sprintf("%s/agent/turns/%s/control?after=%d", base, in.TurnID, after), http.NoBody)
-		req.Header.Set("Authorization", "Bearer "+agentMCPToken)
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return
-		}
-		var got struct {
-			Items []struct {
-				Seq     int64  `json:"seq"`
-				Kind    string `json:"kind"`
-				SteerID string `json:"steer_id"`
-			} `json:"items"`
-			Running bool `json:"running"`
-		}
-		_ = json.NewDecoder(res.Body).Decode(&got)
-		_, _ = io.Copy(io.Discard, res.Body)
-		_ = res.Body.Close()
-		for _, it := range got.Items {
-			after = it.Seq
-			switch it.Kind {
-			case "steer":
-				send(event("steer.read", map[string]any{"steer_id": it.SteerID, "step_id": nil, "step_number": 1}))
-			case "stop":
-				send(end("PAUSED", nil))
-				return
-			default:
-			}
-		}
-		if !got.Running {
-			send(end("PAUSED", nil))
-			return
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-}
-
-// end is a run's end line in status, with the questions of ask_user.
-func end(status string, questions []map[string]any) map[string]any {
-	state := map[string]any{
-		"v": 1, "question": "?", "messages": []any{}, "sources": []any{}, "steps": []any{}, "wrote": true,
-		"usage": map[string]any{"input_tokens": 10, "output_tokens": 5, "cost_usd": 0.001},
-	}
-	line := map[string]any{
-		"kind": "end", "status": status, "error_code": nil, "answer": nil, "blocks": []any{}, "sources": []any{},
-		"usage": map[string]any{
-			"input_tokens": 10, "output_tokens": 5, "cache_read_tokens": 0, "cache_write_tokens": 0, "cost_usd": 0.001,
-			"first_token_ms": 300, "provider": "anthropic",
-		},
-		"latency_ms": 4200, "wrote": true, "state": state,
-	}
-	switch status {
-	case "SUCCEEDED":
-		sources := []any{map[string]any{
-			"n": 1, "kind": "ticket", "record_id": "t1", "label": "Ticket", "call_id": uuid.NewV7(), "tool": "ticket_get",
-		}}
-		line["answer"], line["sources"] = "Đã đọc [1].", sources
-		line["blocks"] = []map[string]any{{"type": "text", "markdown": "Đã đọc [1]."}}
-		line["event"] = map[string]any{"type": "turn.finished", "body": map[string]any{
-			"status": "SUCCEEDED", "outcome": nil, "continuable": false, "sources": sources,
-		}}
-	case "PAUSED":
-		line["event"] = map[string]any{"type": "turn.paused", "body": map[string]any{"steps_done": 0, "reason": "member"}}
-	case "AWAITING_INPUT":
-		state["pending_ask"] = questions
-		line["event"] = map[string]any{"type": "clarify", "body": map[string]any{"questions": questions}}
-	default:
-	}
-	return line
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-// askAndWait opens a conversation of member's own, asks question and
-// reads the turn's events until the stream ends.
-func askAndWait(t *testing.T, member consoleSession, question string) (conversation, turn string) {
-	t.Helper()
-	c := expect[agentConversation](t, consoleCall(t, member, "POST", "/v1/console/agent/conversations", map[string]any{}), http.StatusOK)
-	started := expect[agentTurnStarted](t, consoleCall(t, member, "POST", "/v1/console/agent/conversations/"+c.ID+"/turns",
-		map[string]string{"text": question}), http.StatusAccepted)
-	waitTurn(t, member, started.TurnID)
-	return c.ID, started.TurnID
-}
-
-// waitTurn reads a turn's events until the stream ends, at a stop event.
-func waitTurn(t *testing.T, member consoleSession, turn string) string {
-	t.Helper()
-	res := consoleCall(t, member, "GET", "/v1/console/agent/turns/"+turn+"/events", nil)
-	if res.Status != http.StatusOK {
-		t.Fatalf("events of %s: %d %s", turn, res.Status, res.Body)
-	}
-	return string(res.Body)
 }

@@ -6,11 +6,8 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/agent/repository"
 )
-
-// The views are the schemas in api/schemas/console_agent.yaml. A part the
-// agent writes whole, such as an answer block or a tool's input, passes
-// through as raw JSON.
 
 // Conversation is the AgentConversation schema.
 type Conversation struct {
@@ -22,45 +19,36 @@ type Conversation struct {
 }
 
 // ConversationDetail is the AgentConversationDetail schema: a
-// conversation with its turns, oldest first.
+// conversation with its messages and turns.
 type ConversationDetail struct {
 	Conversation
 
-	Turns []Turn `json:"turns"`
+	Messages []Message `json:"messages"`
+	Turns    []Turn    `json:"turns"`
 }
 
-// Turn is the AgentTurn schema, the agent's turn view: a member's question,
-// its run's state and the answer, once it has one.
+// Message is the AgentMessage schema: a domain.Message with its place.
+type Message struct {
+	domain.Message
+
+	Seq    int        `json:"seq"`
+	TurnID *uuid.UUID `json:"turn_id,omitempty"`
+}
+
+// Turn is the AgentTurn schema.
 type Turn struct {
 	ID             uuid.UUID  `json:"id"`
-	ConversationID *uuid.UUID `json:"conversation_id,omitempty"`
+	ConversationID uuid.UUID  `json:"conversation_id"`
 	MemberID       uuid.UUID  `json:"member_id"`
-	// Status is running, paused, awaiting_input, succeeded, failed,
-	// cancelled or timed_out.
-	Status string `json:"status"`
-	Text   string `json:"text"`
-	// Attachments are the records the member mentioned in the question.
-	Attachments []Attachment      `json:"attachments,omitempty"`
-	Answer      string            `json:"answer,omitempty"`
-	Blocks      []json.RawMessage `json:"blocks"`
-	Sources     []Source          `json:"sources"`
-	// Outcome is the group a turn's end falls in, empty on success:
-	// stopped, out_of_room, broken, unavailable or blocked.
-	Outcome     string     `json:"outcome,omitempty"`
-	ErrorCode   string     `json:"error_code,omitempty"`
-	Continuable bool       `json:"continuable"`
-	Agent       *TurnAgent `json:"agent,omitempty"`
-	Usage       *Usage     `json:"usage,omitempty"`
-	Steers      []Steer    `json:"steers"`
-	// Questions are the clarifying questions while the turn is
-	// awaiting_input.
-	Questions []json.RawMessage `json:"questions,omitempty"`
-	LastSeq   int               `json:"last_seq"`
-	CreatedAt time.Time         `json:"created_at"`
-	// FinishedAt is when the run ended; DurationMS is how long it worked,
-	// pauses left out.
-	FinishedAt *time.Time `json:"finished_at,omitempty"`
-	DurationMS *int64     `json:"duration_ms,omitempty"`
+	Agent          TurnAgent  `json:"agent"`
+	Model          string     `json:"model,omitempty"`
+	Status         string     `json:"status"`
+	Stop           string     `json:"stop,omitempty"`
+	Error          string     `json:"error,omitempty"`
+	Usage          Usage      `json:"usage"`
+	LastSeq        int64      `json:"last_seq"`
+	StartedAt      time.Time  `json:"started_at"`
+	FinishedAt     *time.Time `json:"finished_at,omitempty"`
 }
 
 // TurnAgent is the agent that ran a turn.
@@ -69,215 +57,102 @@ type TurnAgent struct {
 	Name string `json:"name"`
 }
 
-// Steer is an update a member sent a run.
-type Steer struct {
-	SteerID uuid.UUID `json:"steer_id"`
-	Text    string    `json:"text"`
-}
-
-// Usage is a turn's usage summed over its model calls.
+// Usage is the AgentUsage schema, a turn's tokens over its runs.
 type Usage struct {
-	// InputTokens is the input the prompt cache did not hold.
-	InputTokens      int     `json:"input_tokens"`
-	OutputTokens     int     `json:"output_tokens"`
-	CacheReadTokens  *int    `json:"cache_read_tokens,omitempty"`
-	CacheWriteTokens *int    `json:"cache_write_tokens,omitempty"`
-	CostUSD          float64 `json:"cost_usd"`
-	FirstTokenMS     *int    `json:"first_token_ms,omitempty"`
-	Provider         string  `json:"provider,omitempty"`
+	InputTokens  int64 `json:"input_tokens"`
+	OutputTokens int64 `json:"output_tokens"`
+	CachedTokens int64 `json:"cached_tokens"`
 }
 
-// Source is a numbered record a tool call of the turn returned, which the
-// answer's [n] markers cite: its kind and id, a label, the line quoted,
-// the call and its tool.
-type Source struct {
-	N        int       `json:"n"`
-	Kind     string    `json:"kind"`
-	RecordID string    `json:"record_id"`
-	Label    string    `json:"label"`
-	Quote    string    `json:"quote,omitempty"`
-	CallID   uuid.UUID `json:"call_id"`
-	Tool     string    `json:"tool"`
+func turnView(t repository.Turn) Turn {
+	return Turn{
+		ID: t.ID, ConversationID: t.ConversationID, MemberID: t.MemberID,
+		Agent: TurnAgent{ID: t.AgentID.String(), Name: t.AgentName}, Model: t.Model, Status: t.Status, Stop: t.Stop,
+		Error: t.Error, Usage: Usage(t.Usage), LastSeq: t.EventSeq, StartedAt: t.StartedAt, FinishedAt: t.FinishedAt,
+	}
 }
 
-// ConversationQuery picks the conversations of a list: those about
-// records of SubjectKind, of SubjectID when set; the caller's own that
-// mention a record, MentionKind and MentionID together; or with neither
-// the caller's own.
+// ConversationQuery picks conversations: those about records of
+// SubjectKind, of SubjectID when set, or the caller's own.
 type ConversationQuery struct {
 	SubjectKind domain.SubjectKind
 	SubjectID   *uuid.UUID
-	MentionKind string
-	MentionID   *uuid.UUID
 }
 
 // NewConversation is the record a conversation is about, SubjectKind and
-// SubjectID together, or neither for a conversation of the member's own.
+// SubjectID together, or neither; Key is the caller's Idempotency-Key.
 type NewConversation struct {
-	SubjectKind domain.SubjectKind `json:"subject_kind,omitempty"`
-	SubjectID   *uuid.UUID         `json:"subject_id,omitempty"`
-	// Key is the Idempotency-Key, for a conversation without a subject.
-	Key *uuid.UUID `json:"-"`
+	SubjectKind domain.SubjectKind
+	SubjectID   *uuid.UUID
+	Key         *uuid.UUID
 }
 
-// NewTurn is the AgentQuestion schema: the question, the console agent
-// that answers it (the Console assistant when nil), the records attached
-// and the skill it comes from.
+// NewTurn is the AgentQuestion schema: the message, the console agent it
+// goes to (the Console assistant when nil), and the caller's
+// Idempotency-Key.
 type NewTurn struct {
-	Text        string       `json:"text"`
-	AgentID     *uuid.UUID   `json:"agent_id,omitempty"`
-	Attachments []Attachment `json:"attachments,omitempty"`
-	SkillID     *uuid.UUID   `json:"skill_id,omitempty"`
-	// Key is the Idempotency-Key, which the turn claims.
-	Key *uuid.UUID `json:"-"`
+	Text    string
+	AgentID *uuid.UUID
+	Key     *uuid.UUID
 }
 
-// Attachment is a record or a document a question is about.
-type Attachment = domain.Attachment
-
-// AgentConfig is what the agent service runs a turn with, from ai_agents.
-type AgentConfig struct {
-	ID                  uuid.UUID     `json:"id"`
-	Name                string        `json:"name"`
-	Instructions        string        `json:"instructions"`
-	InstructionsVersion int           `json:"instructions_version"`
-	Tools               []string      `json:"tools"`
-	Limits              domain.Limits `json:"limits"`
-}
-
-// TurnStarted is the AgentTurnStarted schema, the 202 of a question.
+// TurnStarted is the AgentTurnStarted schema, the 202 of a message.
 type TurnStarted struct {
 	ConversationID uuid.UUID `json:"conversation_id"`
 	TurnID         uuid.UUID `json:"turn_id"`
 }
 
 // TurnState is the AgentTurnState schema: the turn a control was taken
-// for, and its status when the control set one (end sets cancelled).
+// for.
 type TurnState struct {
 	TurnID uuid.UUID `json:"turn_id"`
-	Status string    `json:"status,omitempty"`
+	Status string    `json:"status"`
 }
 
-// Steering is the AgentSteering schema: the update the run will read, and
-// whether it continued a paused run.
-type Steering struct {
-	SteerID uuid.UUID `json:"steer_id"`
-	TurnID  uuid.UUID `json:"turn_id"`
-	Resumed bool      `json:"resumed"`
+// Approval is the AgentApproval schema.
+type Approval struct {
+	ID             uuid.UUID       `json:"id"`
+	ConversationID uuid.UUID       `json:"conversation_id"`
+	TurnID         uuid.UUID       `json:"turn_id"`
+	MemberID       uuid.UUID       `json:"member_id"`
+	Operation      string          `json:"operation"`
+	Method         string          `json:"method"`
+	Path           string          `json:"path"`
+	Body           json.RawMessage `json:"body,omitempty"`
+	Status         string          `json:"status"`
+	DecidedBy      *uuid.UUID      `json:"decided_by,omitempty"`
+	DecidedAt      *time.Time      `json:"decided_at,omitempty"`
+	ResultStatus   *int            `json:"result_status,omitempty"`
+	Result         json.RawMessage `json:"result,omitempty"`
+	CreatedAt      time.Time       `json:"created_at"`
 }
 
-// Answers are the member's answers to a turn's clarifying questions: a
-// question's id to an option's id, or to a list of them for a multi
-// question.
-type Answers map[string]json.RawMessage
-
-// ToolCall is the AgentToolCall schema.
-type ToolCall struct {
-	ID            uuid.UUID       `json:"id"`
-	TurnID        uuid.UUID       `json:"turn_id"`
-	Tool          string          `json:"tool"`
-	Status        string          `json:"status"`
-	Input         json.RawMessage `json:"input"`
-	Output        json.RawMessage `json:"output,omitempty"`
-	OutputSpilled bool            `json:"output_spilled"`
-	Attempts      int             `json:"attempts"`
-	StartedAt     time.Time       `json:"started_at"`
-	FinishedAt    *time.Time      `json:"finished_at,omitempty"`
-	DurationMS    *int            `json:"duration_ms,omitempty"`
-	Timing        *Timing         `json:"timing,omitempty"`
-	// AttemptErrors are the errors of the attempts that failed before the
-	// last.
-	AttemptErrors []AttemptError `json:"attempt_errors,omitempty"`
+func approvalView(a repository.Approval) Approval {
+	return Approval{
+		ID: a.ID, ConversationID: a.ConversationID, TurnID: a.TurnID, MemberID: a.MemberID, Operation: a.Operation,
+		Method: a.Method, Path: a.Path, Body: a.Body, Status: a.Status, DecidedBy: a.DecidedBy, DecidedAt: a.DecidedAt,
+		ResultStatus: a.ResultStatus, Result: a.ResultBody, CreatedAt: a.CreatedAt,
+	}
 }
 
-// AttemptError is a failed attempt of a tool call.
-type AttemptError struct {
-	Attempt int       `json:"attempt"`
-	Error   string    `json:"error"`
-	At      time.Time `json:"at"`
+// ApprovalQuery picks approvals: of ConversationID when set, in Status
+// when set.
+type ApprovalQuery struct {
+	ConversationID *uuid.UUID
+	Status         string
 }
 
-// Timing splits a tool call's time in milliseconds; DB is what the server
-// reported, when it did.
-type Timing struct {
-	Queued *int `json:"queued"`
-	Server *int `json:"server"`
-	DB     *int `json:"db"`
-	Return *int `json:"return"`
+// Request is a request as an approval keeps it to make later: Path with
+// its query, the headers it replays with and its JSON body, or nil.
+type Request struct {
+	ID      uuid.UUID
+	Method  string
+	Path    string
+	Headers map[string]string
+	Body    json.RawMessage
 }
 
-// Document is the AgentDocument schema: a document a turn wrote, with
-// every version, newest first.
-type Document struct {
-	ID             uuid.UUID         `json:"id"`
-	ConversationID uuid.UUID         `json:"conversation_id"`
-	TurnID         *uuid.UUID        `json:"turn_id,omitempty"`
-	Title          string            `json:"title"`
-	LatestVersion  int               `json:"latest_version"`
-	CreatedBy      *uuid.UUID        `json:"created_by,omitempty"`
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
-	Versions       []DocumentVersion `json:"versions"`
-}
-
-// DocumentVersion is one version of a document and the turn that wrote it.
-type DocumentVersion struct {
-	Version   int               `json:"version"`
-	Title     string            `json:"title"`
-	Sections  []json.RawMessage `json:"sections"`
-	TurnID    *uuid.UUID        `json:"turn_id,omitempty"`
-	CreatedBy *uuid.UUID        `json:"created_by,omitempty"`
-	CreatedAt time.Time         `json:"created_at"`
-}
-
-// Skill is the AgentSkill schema: a saved question with its variables,
-// shared with every member.
-type Skill struct {
-	ID          uuid.UUID       `json:"id"`
-	CreatedBy   uuid.UUID       `json:"created_by"`
-	Name        string          `json:"name"`
-	Slug        string          `json:"slug"`
-	Description string          `json:"description"`
-	Prompt      string          `json:"prompt"`
-	Variables   []SkillVariable `json:"variables"`
-	UpdatedAt   time.Time       `json:"updated_at"`
-}
-
-// SkillVariable is a blank in a skill's prompt, {{name}}.
-type SkillVariable = domain.SkillVariable
-
-// SkillInput is a new skill; the slug is made from the name when it has
-// none.
-type SkillInput struct {
-	Name        string          `json:"name"`
-	Slug        string          `json:"slug,omitempty"`
-	Description string          `json:"description,omitempty"`
-	Prompt      string          `json:"prompt"`
-	Variables   []SkillVariable `json:"variables,omitempty"`
-	// Key is the Idempotency-Key, which the skill claims.
-	Key *uuid.UUID `json:"-"`
-}
-
-// SkillPatch changes the fields it sets.
-type SkillPatch struct {
-	Name        *string          `json:"name,omitempty"`
-	Slug        *string          `json:"slug,omitempty"`
-	Description *string          `json:"description,omitempty"`
-	Prompt      *string          `json:"prompt,omitempty"`
-	Variables   *[]SkillVariable `json:"variables,omitempty"`
-}
-
-// TurnControl is what a running segment polls: the pauses, stops and
-// steers after its cursor, and whether the turn still runs.
-type TurnControl struct {
-	Items   []ControlItem `json:"items"`
-	Running bool          `json:"running"`
-}
-
-// ControlItem is one input of TurnControl; a steer has its id and text.
-type ControlItem struct {
-	Seq     int64      `json:"seq"`
-	Kind    string     `json:"kind"`
-	SteerID *uuid.UUID `json:"steer_id,omitempty"`
-	Text    string     `json:"text,omitempty"`
-}
+// Replay makes a request as the member approving it and returns what it
+// answered; an error is a request that could not be made, which leaves the
+// approval pending.
+type Replay func(req Request) (status int, body []byte, err error)

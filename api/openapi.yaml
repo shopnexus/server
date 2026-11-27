@@ -493,22 +493,18 @@ paths:
     $ref: "paths/console_agent.yaml#/turnPause"
   /v1/console/agent/turns/{id}/stop:
     $ref: "paths/console_agent.yaml#/turnStop"
-  /v1/console/agent/turns/{id}/continue:
-    $ref: "paths/console_agent.yaml#/turnContinue"
-  /v1/console/agent/turns/{id}/end:
-    $ref: "paths/console_agent.yaml#/turnEnd"
+  /v1/console/agent/turns/{id}/resume:
+    $ref: "paths/console_agent.yaml#/turnResume"
   /v1/console/agent/turns/{id}/steer:
     $ref: "paths/console_agent.yaml#/turnSteer"
-  /v1/console/agent/turns/{id}/input:
-    $ref: "paths/console_agent.yaml#/turnInput"
-  /v1/console/agent/tool-calls/{id}:
-    $ref: "paths/console_agent.yaml#/toolCall"
-  /v1/console/agent/documents/{id}:
-    $ref: "paths/console_agent.yaml#/document"
-  /v1/console/agent/skills:
-    $ref: "paths/console_agent.yaml#/skills"
-  /v1/console/agent/skills/{id}:
-    $ref: "paths/console_agent.yaml#/skill"
+  /v1/console/agent/operations:
+    $ref: "paths/console_agent.yaml#/operations"
+  /v1/console/agent/approvals:
+    $ref: "paths/console_agent.yaml#/approvals"
+  /v1/console/agent/approvals/{id}/approve:
+    $ref: "paths/console_agent.yaml#/approvalApprove"
+  /v1/console/agent/approvals/{id}/reject:
+    $ref: "paths/console_agent.yaml#/approvalReject"
   /v1/console/agents:
     $ref: "paths/console_agent.yaml#/consoleAgents"
   /v1/console/settings/providers:
@@ -531,10 +527,6 @@ paths:
     $ref: "paths/ai_settings.yaml#/agentVersions"
   /v1/console/settings/spend:
     $ref: "paths/ai_settings.yaml#/spend"
-  /v1/console/settings/tools:
-    $ref: "paths/ai_settings.yaml#/tools"
-  /v1/console/settings/guardrails:
-    $ref: "paths/ai_settings.yaml#/guardrails"
   /v1/console/settings/dashboards:
     $ref: "paths/ai_settings.yaml#/dashboards"
   /v1/console/dashboard-tickets:

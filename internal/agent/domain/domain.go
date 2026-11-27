@@ -1,9 +1,14 @@
-// Package domain holds what module agent names: the subjects of the
-// console agent's conversations and reads, and the errors a console member
-// sees when the agent cannot answer.
+// Package domain holds what module agent names: the console agent's
+// conversations and turns, the capabilities that let an agent call the
+// API, and the errors a console member sees.
 package domain
 
-import "github.com/shopnexus/server/internal/platform/apperr"
+import (
+	"regexp"
+	"strings"
+
+	"github.com/shopnexus/server/internal/platform/apperr"
+)
 
 // SubjectKind is what a conversation is about, or what a read of personal
 // data was of.
@@ -20,36 +25,49 @@ var (
 	ErrConversationNotFound = apperr.New(apperr.KindNotFound, "agent_conversation_not_found",
 		"no such conversation, or not one this member may open")
 	ErrRateLimited = apperr.New(apperr.KindRateLimited, "agent_rate_limited",
-		"too many questions to the agent in a short time; wait and ask again")
-	ErrInputRejected = apperr.New(apperr.KindInvalid, "agent_input_rejected",
-		"the question is longer than 2000 characters; shorten it")
+		"too many messages to the agent in a short time; wait and write again")
+	ErrInputRejected  = apperr.New(apperr.KindInvalid, "agent_input_rejected", "the message is empty")
 	ErrTurnInProgress = apperr.New(apperr.KindConflict, "agent_turn_in_progress",
-		"the agent is still answering in this conversation; wait for it")
-)
-
-// ErrInvalidSubject answers a subject id without its kind, and a new
-// conversation with a kind and no id.
-var ErrInvalidSubject = apperr.New(apperr.KindInvalid, "agent_subject_invalid",
-	"a subject_id needs its subject_kind, and a new conversation takes both or neither")
-
-// The errors of a run's controls and of what a turn made.
-var (
+		"the agent is still working in this conversation; wait for it, pause it or write to it")
+	// ErrInvalidSubject answers a subject id without its kind, and a new
+	// conversation with a kind and no id.
+	ErrInvalidSubject = apperr.New(apperr.KindInvalid, "agent_subject_invalid",
+		"a subject_id needs its subject_kind, and a new conversation takes both or neither")
 	ErrTurnNotFound = apperr.New(apperr.KindNotFound, "agent_turn_not_found",
 		"no such turn, or not one this member may open")
 	ErrTurnState = apperr.New(apperr.KindConflict, "agent_turn_state",
-		"the turn is not in a state that takes this: pause a running turn, continue a paused or broken one")
-	ErrToolCallNotFound = apperr.New(apperr.KindNotFound, "agent_tool_call_not_found", "no such tool call")
-	ErrDocumentNotFound = apperr.New(apperr.KindNotFound, "agent_document_not_found", "no such document or version")
-	ErrSkillNotFound    = apperr.New(apperr.KindNotFound, "agent_skill_not_found", "no such skill")
-	ErrSkillTaken       = apperr.New(apperr.KindConflict, "agent_skill_taken", "another skill has this slug")
+		"the turn is not in a state that takes this: pause, stop and steer a running turn, resume the last one once it ended")
+	ErrForbidden = apperr.New(apperr.KindForbidden, "agent_forbidden",
+		"a conversation shared by every member is an admin's to rename or delete")
+	// ErrTitleInvalid refuses an empty title for a conversation.
+	ErrTitleInvalid     = apperr.New(apperr.KindInvalid, "agent_title_invalid", "a title has 1 to 80 characters")
+	ErrRequestInvalid   = apperr.New(apperr.KindBadRequest, "invalid_request", "the request does not fit the agent")
+	ErrApprovalNotFound = apperr.New(apperr.KindNotFound, "agent_approval_not_found",
+		"no such approval, or one of a conversation this member may not open")
+	ErrApprovalDecided = apperr.New(apperr.KindConflict, "agent_approval_decided", "the approval was already decided")
+)
+
+// The errors an agent's turn token meets.
+var (
+	ErrTokenInvalid = apperr.New(apperr.KindUnauthenticated, "agent_token_invalid",
+		"the turn's token is unknown or its run has ended")
+	ErrOperationForbidden = apperr.New(apperr.KindForbidden, "agent_operation_forbidden",
+		"this agent holds no capability that grants the operation")
 )
 
 var (
-	ErrForbidden = apperr.New(apperr.KindForbidden, "agent_forbidden",
-		"only the member who made the skill, or an admin, may change it")
-	ErrAnswersInvalid = apperr.New(apperr.KindInvalid, "agent_answers_invalid",
-		"the answers do not fit the turn's questions")
-	ErrSkillInvalid = apperr.New(apperr.KindInvalid, "agent_skill_invalid", "the skill's fields do not fit")
-	// ErrTitleInvalid refuses an empty title for a conversation.
-	ErrTitleInvalid = apperr.New(apperr.KindInvalid, "agent_title_invalid", "a title has 1 to 80 characters")
+	zeroWidth = regexp.MustCompile(`[\x{200B}-\x{200D}\x{FEFF}]`)
+	controls  = regexp.MustCompile(`[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]`)
 )
+
+// CleanInput returns a member's message without zero-width and control
+// characters (tabs and newlines stay). A message empty once cleaned is
+// ErrInputRejected. A member is trusted, so phrases that read as
+// instructions pass; the spec bounds the length.
+func CleanInput(text string) (string, error) {
+	clean := controls.ReplaceAllString(zeroWidth.ReplaceAllString(text, ""), "")
+	if strings.TrimSpace(clean) == "" {
+		return "", ErrInputRejected
+	}
+	return clean, nil
+}

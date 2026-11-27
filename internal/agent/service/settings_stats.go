@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"math"
 	"slices"
 	"strings"
 	"time"
@@ -30,44 +29,6 @@ type DayCount struct {
 	Requests int    `json:"requests"`
 }
 
-// ToolStats is the AIToolStats schema: the agent's tool calls over a range,
-// each tool with the title the console shows.
-type ToolStats struct {
-	Items  []ToolStat   `json:"items"`
-	Recent []ToolRecent `json:"recent"`
-}
-
-// ToolStat is one tool's calls.
-type ToolStat struct {
-	Name        string     `json:"name"`
-	DisplayName string     `json:"display_name"`
-	Calls       int        `json:"calls"`
-	Failed      int        `json:"failed"`
-	P50MS       *int       `json:"p50_ms,omitempty"`
-	Days        []DayCalls `json:"days"`
-}
-
-// DayCalls is a day's calls of a tool.
-type DayCalls struct {
-	Date  string `json:"date"`
-	Calls int    `json:"calls"`
-}
-
-// ToolRecent is one recent tool call.
-type ToolRecent = repository.RecentCall
-
-// GuardrailStats is the AIGuardrailStats schema, the agent's own.
-type GuardrailStats struct {
-	Items  []GuardrailCount  `json:"items"`
-	Recent []GuardrailNotice `json:"recent"`
-}
-
-// GuardrailCount is how often a rule acted.
-type GuardrailCount = repository.RuleCount
-
-// GuardrailNotice is one time a rule acted.
-type GuardrailNotice = repository.RecentGuardrail
-
 // turnStats counts the console turns of a range by agent.
 type turnStats struct {
 	ByAgent []agentTurns
@@ -86,10 +47,6 @@ func rangeOf(rng string) int {
 	}
 	return SpendRanges["7d"]
 }
-
-// recentStats is how many recent tool calls and guardrail events the stats
-// list.
-const recentStats = 20
 
 // rangeDays is every UTC date of a range of n days ending today, oldest
 // first, and the moment the first one starts.
@@ -129,7 +86,7 @@ func byDay(rows []repository.DayCount, dates []string) map[string][]int {
 // turnsOf counts the console turns of the last n days by agent.
 func (s *Agent) turnsOf(ctx context.Context, n int) (turnStats, error) {
 	from, dates := rangeDays(s.d.Now(), n)
-	days, err := s.d.Runs.AgentDays(ctx, from)
+	days, err := s.d.Conversations.AgentDays(ctx, from)
 	if err != nil {
 		return turnStats{}, fmt.Errorf("count the turns by agent: %w", err)
 	}
@@ -293,64 +250,4 @@ func windows(from, to time.Time) [][2]time.Time {
 		out = append(out, [2]time.Time{start, end})
 	}
 	return out
-}
-
-// Tools reads the agent's tool calls over a range: each tool's calls,
-// failures, median time and calls by day, with its title, and the newest
-// calls with their turn's member.
-func (s *Agent) Tools(ctx context.Context, _ authn.ConsoleMember, rng string) (ToolStats, error) {
-	n := rangeOf(rng)
-	from, dates := rangeDays(s.d.Now(), n)
-	totals, err := s.d.Runs.ToolTotals(ctx, from)
-	if err != nil {
-		return ToolStats{}, fmt.Errorf("count the tool calls: %w", err)
-	}
-	days, err := s.d.Runs.ToolDays(ctx, from)
-	if err != nil {
-		return ToolStats{}, fmt.Errorf("count the tool calls by day: %w", err)
-	}
-	recent, err := s.d.Runs.RecentCalls(ctx, from, recentStats)
-	if err != nil {
-		return ToolStats{}, fmt.Errorf("list the recent tool calls: %w", err)
-	}
-	daysOf := byDay(days, dates)
-	out := ToolStats{Items: make([]ToolStat, 0, len(totals)), Recent: append(make([]ToolRecent, 0, len(recent)), recent...)}
-	for _, t := range totals {
-		item := ToolStat{Name: t.Name, DisplayName: domain.ToolTitles[t.Name], Calls: t.Calls, Failed: t.Failed, Days: []DayCalls{}}
-		if item.DisplayName == "" {
-			item.DisplayName = t.Name
-		}
-		if t.P50MS != nil {
-			item.P50MS = new(int(math.Round(*t.P50MS)))
-		}
-		for i, d := range dates {
-			calls := 0
-			if c := daysOf[t.Name]; c != nil {
-				calls = c[i]
-			}
-			item.Days = append(item.Days, DayCalls{Date: d, Calls: calls})
-		}
-		out.Items = append(out.Items, item)
-	}
-	return out, nil
-}
-
-// Guardrails reads the agent's guardrail events over a range: how often
-// each rule acted, and the newest events.
-func (s *Agent) Guardrails(ctx context.Context, _ authn.ConsoleMember, rng string) (GuardrailStats, error) {
-	n := rangeOf(rng)
-	from, _ := rangeDays(s.d.Now(), n)
-	rules, err := s.d.Runs.GuardrailRules(ctx, from)
-	if err != nil {
-		return GuardrailStats{}, fmt.Errorf("count the guardrail events: %w", err)
-	}
-	recent, err := s.d.Runs.RecentGuardrails(ctx, from, recentStats)
-	if err != nil {
-		return GuardrailStats{}, fmt.Errorf("list the recent guardrail events: %w", err)
-	}
-	// The lists stay [] when empty.
-	return GuardrailStats{
-		Items:  append(make([]GuardrailCount, 0, len(rules)), rules...),
-		Recent: append(make([]GuardrailNotice, 0, len(recent)), recent...),
-	}, nil
 }

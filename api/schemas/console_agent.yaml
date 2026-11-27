@@ -51,8 +51,8 @@ AgentConversationRename:
 AgentConversationDetail:
   type: object
   additionalProperties: false
-  description: A conversation with its turns, oldest first.
-  required: [id, updated_at, turns]
+  description: A conversation with its messages and turns, oldest first.
+  required: [id, updated_at, messages, turns]
   properties:
     id:
       type: string
@@ -67,15 +67,95 @@ AgentConversationDetail:
     updated_at:
       type: string
       format: date-time
+    messages:
+      type: array
+      items:
+        $ref: "#/AgentMessage"
     turns:
       type: array
       items:
         $ref: "#/AgentTurn"
+AgentMessage:
+  type: object
+  additionalProperties: false
+  description: |
+    One message of a conversation's history, as the model reads it. A user
+    message is what a member wrote, with context, the facts the server put
+    in front of it (the time, the member, the conversation's record, the
+    approvals decided since the last turn). An assistant message is the
+    model's text, reasoning and the commands it ran (tool_calls); a tool
+    message is what one of them printed.
+  required: [seq, role]
+  properties:
+    seq:
+      type: integer
+      minimum: 1
+    turn_id:
+      type: string
+      format: uuid
+    role:
+      type: string
+      enum: [user, assistant, tool]
+    context:
+      type: string
+    content:
+      type: string
+    reasoning:
+      type: string
+    tool_calls:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [id, name, input]
+        properties:
+          id:
+            type: string
+          name:
+            type: string
+          input:
+            type: string
+            description: The call's arguments as the model wrote them, a JSON object.
+    tool_call_id:
+      type: string
+    is_error:
+      type: boolean
+AgentTurnStatus:
+  type: string
+  description: |
+    A turn's status. running until its run ends: paused when a member
+    paused it, stopped when one stopped it, succeeded when the agent
+    answered, timed_out past its deadline, failed otherwise. Every status
+    but running can take a new message; the conversation's last turn can
+    also resume.
+  enum: [running, paused, stopped, succeeded, failed, timed_out]
+AgentRef:
+  type: object
+  additionalProperties: false
+  required: [id, name]
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+AgentUsage:
+  type: object
+  additionalProperties: false
+  required: [input_tokens, output_tokens, cached_tokens]
+  properties:
+    input_tokens:
+      type: integer
+      description: Every input token, the cached ones included.
+    output_tokens:
+      type: integer
+    cached_tokens:
+      type: integer
+      description: The input read from the prompt cache.
 AgentTurn:
   type: object
   additionalProperties: false
-  description: The agent's turn view, in the conversation and from GET /v1/console/agent/turns/{id}.
-  required: [id, member_id, text, status, blocks, sources, continuable, steers, last_seq, created_at]
+  description: A turn of a conversation, in it and from GET /v1/console/agent/turns/{id}.
+  required: [id, conversation_id, member_id, agent, status, usage, last_seq, started_at]
   properties:
     id:
       type: string
@@ -86,135 +166,35 @@ AgentTurn:
     member_id:
       type: string
       format: uuid
-      description: The member who asked.
-    text:
-      type: string
-      description: The question.
-    attachments:
-      type: array
-      description: The records the question mentioned; absent when it mentioned none.
-      items:
-        $ref: "#/AgentAttachment"
-    answer:
-      type: string
-      description: The agent's answer as text, once it has one.
-    status:
-      $ref: "#/AgentTurnStatus"
-    blocks:
-      type: array
-      description: The answer's blocks, in order.
-      items:
-        $ref: "#/AgentBlock"
-    sources:
-      type: array
-      description: The records the answer's [n] markers cite, by n.
-      items:
-        $ref: "#/AgentSource"
-    outcome:
-      $ref: "#/AgentOutcome"
-    error_code:
-      type: string
-      description: The run's failure, such as agent_timeout or agent_budget.
-    continuable:
-      type: boolean
-      description: Continue may resume this turn.
+      description: The member who started it.
     agent:
       $ref: "#/AgentRef"
+    model:
+      type: string
+      description: The model at the gateway, provider/model.
+    status:
+      $ref: "#/AgentTurnStatus"
+    stop:
+      type: string
+      description: |
+        Why the run ended without an error, as the runtime says: done,
+        length (the answer hit the output limit), deadline, paused, stopped,
+        loop (the same calls gave the same results three steps running),
+        context_full.
+    error:
+      type: string
+      description: What went wrong, for a failed turn.
     usage:
       $ref: "#/AgentUsage"
-    steers:
-      type: array
-      description: The updates members sent the run.
-      items:
-        type: object
-        additionalProperties: false
-        required: [steer_id, text]
-        properties:
-          steer_id:
-            type: string
-            format: uuid
-          text:
-            type: string
-    questions:
-      type: array
-      description: >-
-        The clarifying questions while the turn is awaiting_input: {id, label, kind: single|multi, options: [{id,
-        label, hint?}], default?}.
-      items:
-        type: object
-        required: [id]
-        properties:
-          id:
-            type: string
-        additionalProperties: true
     last_seq:
       type: integer
-      description: The seq of the turn's newest event; the console opens the stream after it.
-    created_at:
+      description: The seq of its last event; 0 before the first.
+    started_at:
       type: string
       format: date-time
-      description: When the member asked.
     finished_at:
       type: string
       format: date-time
-      description: When the run ended; absent while it has not.
-    duration_ms:
-      type: integer
-      description: How long the run worked, pauses left out; set once it has stopped or paused.
-AgentTurnStatus:
-  type: string
-  description: A turn's status. paused and awaiting_input wait on the member; the ones after them are final.
-  enum: [running, paused, awaiting_input, succeeded, failed, cancelled, timed_out, budget]
-AgentOutcome:
-  type: string
-  description: >-
-    The group a turn's end falls in, each with its own help: stopped (Continue), out_of_room (Continue or a
-    shorter question), broken (Continue), unavailable (another agent or later), blocked (a budget or a guardrail;
-    nothing to retry). None on success.
-  enum: [stopped, out_of_room, broken, unavailable, blocked]
-AgentRef:
-  type: object
-  additionalProperties: false
-  required: [id, name]
-  properties:
-    id:
-      type: string
-    name:
-      type: string
-AgentBlock:
-  type: object
-  description: >-
-    One block of an answer, by type: text {markdown} with [n] markers, figures {items: [{value, label, change?,
-    tone?}]}, table {columns, rows}, chart {kind: bar|stacked_bar|line, labels, series}, document_ref
-    {document_id, version}, follow_ups {items}. The agent owns their fields.
-  required: [type]
-  properties:
-    type:
-      type: string
-  additionalProperties: true
-AgentUsage:
-  type: object
-  additionalProperties: false
-  required: [input_tokens, output_tokens, cost_usd]
-  properties:
-    input_tokens:
-      type: integer
-      description: The input the prompt cache did not hold.
-    output_tokens:
-      type: integer
-    cache_read_tokens:
-      type: integer
-      description: Input read from the prompt cache; absent where the agent does not report it.
-    cache_write_tokens:
-      type: integer
-      description: Input written to the prompt cache; absent where the agent does not report it.
-    cost_usd:
-      type: number
-    first_token_ms:
-      type: integer
-    provider:
-      type: string
-      description: The provider in Bifrost that served the call, such as upstream or openrouter.
 AgentQuestion:
   type: object
   additionalProperties: false
@@ -223,39 +203,11 @@ AgentQuestion:
     text:
       type: string
       minLength: 1
-      maxLength: 4000
+      maxLength: 8000
     agent_id:
       type: string
       format: uuid
       description: A console agent from GET /v1/console/agents; the Console assistant when left out.
-    attachments:
-      type: array
-      maxItems: 10
-      items:
-        $ref: "#/AgentAttachment"
-    skill_id:
-      type: string
-      format: uuid
-      description: The skill the question comes from.
-AgentAttachmentKind:
-  type: string
-  description: A record a question may mention.
-  enum: [ticket, account, order, listing, report_case, document]
-AgentAttachment:
-  type: object
-  additionalProperties: false
-  description: A record or a document the question is about, once per question.
-  required: [kind, id]
-  properties:
-    kind:
-      $ref: "#/AgentAttachmentKind"
-    id:
-      type: string
-      format: uuid
-    label:
-      type: string
-      maxLength: 120
-      description: What the console showed for the record, trimmed. The console's alone; the agent never gets it.
 AgentTurnStarted:
   type: object
   additionalProperties: false
@@ -270,8 +222,8 @@ AgentTurnStarted:
 AgentTurnState:
   type: object
   additionalProperties: false
-  description: The turn a control was taken for; end gives its status, cancelled.
-  required: [turn_id]
+  description: The turn a control was taken for.
+  required: [turn_id, status]
   properties:
     turn_id:
       type: string
@@ -286,268 +238,7 @@ AgentSteer:
     text:
       type: string
       minLength: 1
-      maxLength: 2000
-AgentSteering:
-  type: object
-  additionalProperties: false
-  required: [steer_id, turn_id, resumed]
-  description: An update the run reads before its next model call; steer.read says when.
-  properties:
-    steer_id:
-      type: string
-      format: uuid
-    turn_id:
-      type: string
-      format: uuid
-    resumed:
-      type: boolean
-      description: The update continued a paused turn; the console opens the stream again.
-AgentInput:
-  type: object
-  additionalProperties: false
-  required: [answers]
-  properties:
-    answers:
-      type: object
-      description: Each question's id to the id of the option picked, or to a list of ids for a multi question.
-      minProperties: 1
-      additionalProperties:
-        oneOf:
-          - type: string
-          - type: array
-            items:
-              type: string
-AgentToolCall:
-  type: object
-  additionalProperties: false
-  required: [id, turn_id, tool, status, input, output_spilled, attempts, started_at]
-  properties:
-    id:
-      type: string
-      format: uuid
-    turn_id:
-      type: string
-      format: uuid
-    tool:
-      type: string
-    status:
-      type: string
-      enum: [running, success, failed, skipped]
-    input:
-      description: The arguments the model gave, as JSON.
-    output:
-      description: >-
-        The tool's result as JSON, once it has one; absent 90 days after the call, and once the account the
-        conversation is about is deleted.
-    output_spilled:
-      type: boolean
-      description: The output was too long to keep whole.
-    attempts:
-      type: integer
-      minimum: 0
-    started_at:
-      type: string
-      format: date-time
-    finished_at:
-      type: string
-      format: date-time
-    duration_ms:
-      type: integer
-    timing:
-      $ref: "#/AgentTiming"
-    attempt_errors:
-      type: array
-      description: The errors of the attempts that failed before the last.
-      items:
-        type: object
-        additionalProperties: false
-        required: [attempt, error, at]
-        properties:
-          attempt:
-            type: integer
-          error:
-            type: string
-          at:
-            type: string
-            format: date-time
-AgentTiming:
-  type: object
-  additionalProperties: false
-  description: Where a tool call's time went, in milliseconds; db is what the server reported, when it did.
-  required: [queued, server, db, return]
-  properties:
-    queued:
-      type: [integer, "null"]
-    server:
-      type: [integer, "null"]
-    db:
-      type: [integer, "null"]
-    return:
-      type: [integer, "null"]
-AgentDocument:
-  type: object
-  additionalProperties: false
-  required: [id, conversation_id, title, latest_version, created_at, updated_at, versions]
-  properties:
-    id:
-      type: string
-      format: uuid
-    conversation_id:
-      type: string
-      format: uuid
-    turn_id:
-      type: string
-      format: uuid
-    title:
-      type: string
-    latest_version:
-      type: integer
-      minimum: 1
-    created_by:
-      type: string
-      format: uuid
-    created_at:
-      type: string
-      format: date-time
-    updated_at:
-      type: string
-      format: date-time
-    versions:
-      type: array
-      description: Every version, newest first.
-      items:
-        $ref: "#/AgentDocumentVersion"
-AgentDocumentVersion:
-  type: object
-  additionalProperties: false
-  required: [version, title, sections, created_at]
-  properties:
-    version:
-      type: integer
-      minimum: 1
-    title:
-      type: string
-    sections:
-      type: array
-      description: The version's sections, each {type, ...} as the agent writes them.
-      items:
-        type: object
-        required: [type]
-        properties:
-          type:
-            type: string
-            enum: [markdown, table, chart]
-        additionalProperties: true
-    turn_id:
-      type: string
-      format: uuid
-    created_by:
-      type: string
-      format: uuid
-    created_at:
-      type: string
-      format: date-time
-AgentSkill:
-  type: object
-  additionalProperties: false
-  required: [id, created_by, name, slug, description, prompt, variables, updated_at]
-  properties:
-    id:
-      type: string
-      format: uuid
-    created_by:
-      type: string
-      format: uuid
-      description: The member who saved it.
-    name:
-      type: string
-    slug:
-      type: string
-      description: What a member types after / in the ask box.
-    description:
-      type: string
-    prompt:
-      type: string
-      description: The question, with {{name}} for each variable.
-    variables:
-      type: array
-      items:
-        $ref: "#/AgentSkillVariable"
-    updated_at:
-      type: string
-      format: date-time
-AgentSkillVariable:
-  type: object
-  additionalProperties: false
-  required: [name]
-  properties:
-    name:
-      type: string
-      pattern: "^[a-z][a-z0-9_]{0,39}$"
-    label:
-      type: string
-      maxLength: 100
-    default:
-      type: string
-      maxLength: 500
-AgentSkillList:
-  type: object
-  additionalProperties: false
-  required: [items]
-  properties:
-    items:
-      type: array
-      items:
-        $ref: "#/AgentSkill"
-AgentSkillNew:
-  type: object
-  additionalProperties: false
-  description: A skill; the slug is the name in lower-case ASCII when left out.
-  required: [name, prompt]
-  properties:
-    name:
-      type: string
-      minLength: 1
-      maxLength: 100
-    slug:
-      type: string
-      pattern: "^[a-z0-9][a-z0-9-]{0,39}$"
-    description:
-      type: string
-      maxLength: 500
-    prompt:
-      type: string
-      minLength: 1
       maxLength: 4000
-    variables:
-      type: array
-      maxItems: 10
-      items:
-        $ref: "#/AgentSkillVariable"
-AgentSkillPatch:
-  type: object
-  additionalProperties: false
-  minProperties: 1
-  properties:
-    name:
-      type: string
-      minLength: 1
-      maxLength: 100
-    slug:
-      type: string
-      pattern: "^[a-z0-9][a-z0-9-]{0,39}$"
-    description:
-      type: string
-      maxLength: 500
-    prompt:
-      type: string
-      minLength: 1
-      maxLength: 4000
-    variables:
-      type: array
-      maxItems: 10
-      items:
-        $ref: "#/AgentSkillVariable"
 ConsoleAgent:
   type: object
   additionalProperties: false
@@ -577,46 +268,26 @@ ConsoleAgentList:
 AgentRunEvent:
   type: object
   description: |
-    The data of one server-sent event of a run, `{seq, type, at, ...}`;
+    The data of one server-sent event of a turn, `{seq, type, at, ...}`;
     the event's `id:` is its seq, counted from 1 per turn. The fields
     beside seq, type and at are those of the type:
 
-    - turn.started: agent {id, name}, model (provider/model), deadline_s
-    - turn.resumed: by (continue, steer, input)
-    - step.started: step_id, title
-    - step.finished: step_id, summary, duration_ms
-    - tool.started: call_id, step_id, tool, label, input (cut at 2000
-      characters)
-    - tool.retry: call_id, attempt, error, next_in_ms, timeout_ms
-    - tool.finished: call_id, status (success, failed, skipped),
-      duration_ms, timing {queued, server, db, return}, result_summary,
-      source_ids, sources
-    - model.switched: from_model, to_model (provider/model), reason
-      (fallback when Bifrost tried the next model, changed when an admin
-      gave the agent another model)
-    - thinking: summary, duration_ms
-    - text.delta: delta
-    - block: block, one AgentBlock
-    - clarify: questions [{id, label, kind: single|multi, options: [{id,
-      label, hint?}], default?}]; the turn waits
-    - usage: input_tokens (uncached), output_tokens, cache_read_tokens?,
-      cache_write_tokens?, cost_usd, provider (Bifrost's provider name),
-      first_token_ms
-    - steer.read: steer_id, step_id (or null), step_number
-    - turn.pausing, turn.paused: steps_done, reason (member, stop_now)
-    - rate.waiting: until
-    - context.compacting: before_tokens
-    - context.compacted: summary, before_tokens, after_tokens
-    - context.meter: used_tokens, window_tokens
-    - guardrail: rule (loop_stopped, rate_limited), detail
-    - turn.finished: status (SUCCEEDED, FAILED, CANCELLED, TIMED_OUT,
-      BUDGET), outcome (null on success), failure (the error code),
-      continuable, sources
+    - turn.started: agent {id, name}, model
+    - turn.resumed: by, the member who resumed it
+    - text.delta, reasoning.delta: delta, the model's text as it streams
+    - tool.started: call_id, tool, input
+    - tool.finished: call_id, tool, output (what the model reads),
+      is_error
+    - step: messages, the AgentMessages the step added to the
+      conversation (the model's message, its commands' outputs, and the
+      steers it read)
+    - step.failed: error; the text streamed since the last step is void
+    - approval: approval, an AgentApproval asked for or decided
+    - turn.pausing: by
+    - turn.paused: usage
+    - turn.finished: status, stop, error, usage
 
-    The stream ends after turn.finished, turn.paused or clarify; after
-    Continue, answers or an update to a paused turn the console opens it
-    again with its last seq. Tool inputs and outputs in full are not in the
-    events; GET /v1/console/agent/tool-calls/{id} serves them.
+    The stream ends after turn.paused or turn.finished.
   required: [seq, type, at]
   properties:
     seq:
@@ -627,53 +298,129 @@ AgentRunEvent:
       enum:
         - turn.started
         - turn.resumed
-        - step.started
-        - step.finished
-        - tool.started
-        - tool.retry
-        - tool.finished
-        - model.switched
-        - thinking
         - text.delta
-        - block
-        - clarify
-        - usage
-        - steer.read
+        - reasoning.delta
+        - tool.started
+        - tool.finished
+        - step
+        - step.failed
+        - approval
         - turn.pausing
         - turn.paused
-        - rate.waiting
-        - context.compacting
-        - context.compacted
-        - context.meter
-        - guardrail
         - turn.finished
     at:
       type: string
       format: date-time
   additionalProperties: true
-AgentSource:
+AgentOperation:
   type: object
   additionalProperties: false
-  required: [n, kind, record_id, label, call_id, tool]
-  description: A numbered record a tool call returned, which the answer's [n] markers cite.
+  description: One API operation an agent may call, a command of the shopnexus CLI.
+  required: [name, method, path, summary, capability, approval, parameters]
   properties:
-    n:
-      type: integer
-      minimum: 1
-    kind:
+    name:
       type: string
-      enum: [report, account, ticket, order, listing, data, log]
-    record_id:
+      description: The operationId without Console, the CLI's command.
+    method:
       type: string
-    label:
+    path:
       type: string
-    quote:
+    summary:
       type: string
-      description: The line of the record the answer quotes.
-    call_id:
+    description:
+      type: string
+    capability:
+      type: string
+      description: The capability that grants it, its x-capability.
+    approval:
+      type: boolean
+      description: It changes something, so an agent's call waits for a member's approval.
+    parameters:
+      type: array
+      description: Its path and query parameters.
+      items:
+        type: object
+        additionalProperties: false
+        required: [name, in, required]
+        properties:
+          name:
+            type: string
+          in:
+            type: string
+            enum: [path, query]
+          required:
+            type: boolean
+          description:
+            type: string
+          schema:
+            type: object
+    body:
+      type: object
+      description: Its request body's JSON Schema; absent when it takes none.
+AgentOperationList:
+  type: object
+  additionalProperties: false
+  required: [operations]
+  properties:
+    operations:
+      type: array
+      items:
+        $ref: "#/AgentOperation"
+AgentApprovalStatus:
+  type: string
+  description: pending until a member decides; approved when the call answered 2xx, failed when it did not.
+  enum: [pending, approved, rejected, failed]
+AgentApproval:
+  type: object
+  additionalProperties: false
+  description: A change an agent asked for, the API call it would make.
+  required: [id, conversation_id, turn_id, member_id, operation, method, path, status, created_at]
+  properties:
+    id:
       type: string
       format: uuid
-      description: The tool call that returned the record.
-    tool:
+    conversation_id:
       type: string
-      description: The MCP tool, such as ticket_get.
+      format: uuid
+    turn_id:
+      type: string
+      format: uuid
+    member_id:
+      type: string
+      format: uuid
+      description: The member the agent worked for.
+    operation:
+      type: string
+      description: The operation's name, as AgentOperation names it.
+    method:
+      type: string
+    path:
+      type: string
+      description: The path with its query.
+    body:
+      description: The request's JSON body; absent when it had none.
+    status:
+      $ref: "#/AgentApprovalStatus"
+    decided_by:
+      type: string
+      format: uuid
+    decided_at:
+      type: string
+      format: date-time
+    result_status:
+      type: integer
+      description: The HTTP status the call answered, once approved.
+    result:
+      description: The call's JSON answer, once approved; absent when it had none.
+    created_at:
+      type: string
+      format: date-time
+AgentApprovalList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/AgentApproval"

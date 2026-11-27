@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"slices"
 	"strings"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/shopnexus/server/internal/platform/mailview"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/jackc/pgx/v5/pgxpool"
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
@@ -86,8 +86,8 @@ type App struct {
 	closeAI func()
 	// geo names the access log's countries; nil without GEOIP_DB.
 	geo *geoip.DB
-	// stop cancels the event bus, the stream hub and the agent's MCP
-	// server, which run in bg.
+	// stop cancels the event bus, the stream hub and the agent module,
+	// which run in bg.
 	stop context.CancelFunc
 	bg   sync.WaitGroup
 }
@@ -117,10 +117,6 @@ func WithPasswordHasher(h consoledomain.Hasher) Option { return func(o *options)
 // WithAIEngines gives module ai these engines in place of the models
 // AI_* names, which are then not loaded; tests pass fakes.
 func WithAIEngines(e ai.Engines) Option { return func(o *options) { o.ai = &e } }
-
-// AgentMCPAddr is where the agent's MCP server listens, for tests that
-// set AGENT_MCP_ADDR to port 0.
-func (a *App) AgentMCPAddr() net.Addr { return a.agent.Addr() }
 
 // Routes lists every registered route, for the route-versus-spec test.
 func (a *App) Routes() []httpx.Route { return a.router.Routes() }
@@ -240,15 +236,15 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	a.health(log)
 	in := ingress.NewClient(cfg.Restate.IngressURL, ingress.WithHttpClient(httpx.NewClient(0)))
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, agentm, err := mountModules(a.router, pool, in, bus, a.hub, a.relay, cfg, o.hasher, sender, mailer, carriers, engines, log)
+	defs, agentm, err := mountModules(a.router, doc, pool, in, bus, a.hub, a.relay, cfg, o.hasher, sender, mailer, carriers, engines, log)
 	if err != nil {
 		return nil, err
 	}
-	// The MCP listener is open; Run serves it until Close.
+	// Run follows the agent's turns and sweeps until Close.
 	a.agent = agentm
 	a.bg.Go(func() {
 		if runErr := agentm.Run(runCtx); runErr != nil {
-			log.ErrorContext(runCtx, "agent MCP server stopped", "err", runErr)
+			log.ErrorContext(runCtx, "agent module stopped", "err", runErr)
 		}
 	})
 	defs = append(defs, bus.Definition())
@@ -286,7 +282,11 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	docsCORS := httpx.DocsCORS(cfg.DocsOrigins)
 	clientIP := httpx.ResolveClientIP(cfg.TrustedProxies)
 	visitors := httpx.Visitors(a.geo, cfg.TrustedProxies, time.Now)
-	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(visitors(cors(docsCORS(limits.Middleware(a.router.Route)(validate(a.router))))))))
+	// An agent's turn token passes the gate before the validator, so a
+	// change it asks for is checked against the spec before it is held.
+	gate := agentm.Gate(a.router.Route)
+	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(visitors(cors(docsCORS(limits.Middleware(a.router.Route)(gate(validate(a.router)))))))))
+	agentm.SetRoot(a.Handler)
 	return a, nil
 }
 
@@ -371,11 +371,11 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 }
 
 // mountModules mounts every module and returns their Restate services and
-// the agent module, whose MCP server app runs. A module mounts after the
+// the agent module, whose turns and gate app runs. A module mounts after the
 // modules whose services it takes; account's guards come first because they
 // need only the auth keys. Module ai's service is among them when engines
 // is not nil; the other modules call ai through Restate either way.
-func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub, rel *relay.Relay,
+func mountModules(router *httpx.Router, doc *openapi3.T, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub, rel *relay.Relay,
 	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, carriers shipping.Settings,
 	engines *ai.Engines, log *slog.Logger,
 ) ([]restate.ServiceDefinition, *agent.Mounted, error) {
@@ -504,7 +504,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		supportm.Service, shippingm.Service, chototm.Service)
 	agentm, agentErr := agent.Mount(d, agent.Settings{
 		Config: cfg.Agent, TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
-		Gateway: gateway, Ring: ring,
+		Gateway: gateway, Ring: ring, Doc: doc,
 	}, consolem.Moderator, consolem.Admin, consolem.Service, supportm.Service, accounts, catalogm.Service, dealm.Service, shippingm.Service, trustm.Service)
 	if agentErr != nil {
 		return nil, nil, fmt.Errorf("agent: %w", agentErr)
@@ -573,8 +573,8 @@ func (a *App) CloseStreams() {
 	}
 }
 
-// Close ends the streams, stops the event bus, the stream hub, the agent's
-// MCP server and the Restate endpoint, then releases the models and closes
+// Close ends the streams, stops the event bus, the stream hub, the agent
+// module's runs and the Restate endpoint, then releases the models and closes
 // the pool and the country database.
 func (a *App) Close(ctx context.Context) error {
 	a.CloseStreams()

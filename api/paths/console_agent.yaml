@@ -1,20 +1,22 @@
-# The console agent: a member's conversations with the agent, which the
-# server keeps. Each run segment goes to the agent service with the
-# member's id and role and streams back. The agent only reads, through the
-# server's MCP tools; every change stays a console call of its own.
+# The console agent: a member's conversations with an agent that runs in
+# the agent runtime. The server keeps the conversations, their messages and
+# each turn's events, starts a turn's run on the runtime and streams the
+# run back. The agent reads and changes ShopNexus through this API with a
+# token of its turn: it may call the operations whose x-capability its
+# agent holds, as the member it works for, and a change it asks for waits
+# for a member's approval.
 conversations:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleAgentConversations
+    x-capability: none
     x-uc: [UC-MOD-08]
     summary: The agent conversation of a record, those about records of a kind, or the caller's own.
     description: |
       With subject_kind and subject_id, the conversation of that ticket or
       account, which every member shares (at most one). With subject_kind
-      alone, the conversations about records of that kind. With
-      mention_kind and mention_id, the caller's conversations without a
-      record in which a question mentioned that record. With none, the
+      alone, the conversations about records of that kind. With none, the
       caller's conversations without a record. Newest activity first.
     tags: [console, internal]
     security:
@@ -29,17 +31,6 @@ conversations:
         schema:
           type: string
           format: uuid
-      - name: mention_kind
-        in: query
-        description: Taken with mention_id and without a subject.
-        schema:
-          $ref: "../schemas/console_agent.yaml#/AgentAttachmentKind"
-      - name: mention_id
-        in: query
-        description: Taken with mention_kind.
-        schema:
-          type: string
-          format: uuid
     responses:
       "200":
         description: Done.
@@ -48,19 +39,14 @@ conversations:
             schema:
               $ref: "../schemas/console_agent.yaml#/AgentConversationList"
       "400":
-        description: >-
-          The request does not match the API description, or mention_kind and mention_id come apart or with a
-          subject (invalid_request).
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
+        $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "422":
         $ref: "../responses/common.yaml#/AgentSubjectInvalid"
   post:
     operationId: createConsoleAgentConversation
+    x-capability: none
     x-uc: [UC-MOD-08]
     summary: Open the agent conversation of a record, or start one of the caller's own.
     description: |
@@ -96,9 +82,13 @@ conversation:
     - $ref: "../parameters/common.yaml#/AgentConversationID"
   get:
     operationId: getConsoleAgentConversation
+    x-capability: none
     x-uc: [UC-MOD-08]
-    summary: One agent conversation with its turns, oldest first.
-    description: Each turn names the member who asked.
+    summary: One agent conversation with its messages and turns, oldest first.
+    description: |
+      The messages are the conversation's history as the model reads it:
+      what members wrote, what the agent answered, the commands it ran and
+      what they printed. Each turn names the member who started it.
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -115,6 +105,7 @@ conversation:
         $ref: "../responses/common.yaml#/AgentConversationNotFound"
   patch:
     operationId: renameConsoleAgentConversation
+    x-capability: none
     x-uc: [UC-MOD-08]
     summary: Give a conversation a title.
     description: >-
@@ -156,11 +147,11 @@ conversation:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: deleteConsoleAgentConversation
+    x-capability: none
     x-uc: [UC-MOD-08]
-    summary: Delete a conversation with its turns, events and documents.
+    summary: Delete a conversation with its messages, turns and approvals.
     description: >-
-      Who may is as for the rename. A conversation with a turn running, paused or waiting for answers is refused
-      (agent_turn_in_progress).
+      Who may is as for the rename. A conversation with a turn running is refused (agent_turn_in_progress).
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -178,7 +169,7 @@ conversation:
       "404":
         $ref: "../responses/common.yaml#/AgentConversationNotFound"
       "409":
-        description: "A turn of the conversation is still open (agent_turn_in_progress)."
+        description: "A turn of the conversation is running (agent_turn_in_progress)."
         content:
           application/json:
             schema:
@@ -189,18 +180,17 @@ conversationTurns:
     - $ref: "../parameters/common.yaml#/AgentConversationID"
   post:
     operationId: askConsoleAgent
+    x-capability: none
     x-uc: [UC-MOD-08]
-    summary: Ask a console agent in a conversation; the run starts and the answer comes on its events.
+    summary: Write to a console agent in a conversation; its turn starts and the answer comes on the turn's events.
     description: |
-      The server opens the turn as running and starts its run on the agent
-      service with the picked agent's configuration (the Console assistant
-      when agent_id is left out), then answers 202 with the turn's id; the
-      console opens GET /v1/console/agent/turns/{id}/events to watch the
-      run step by step. Closing the stream does not stop the run. The
-      attachments are kept on the turn, each record once; the run is told
-      the kind and id of every record the conversation's questions
-      mention, without the labels. A repeated Idempotency-Key answers the
-      turn its first call opened and starts no run.
+      The server adds the message to the conversation, opens the turn as
+      running and starts its run on the agent runtime with the picked
+      agent (the Console assistant when agent_id is left out), then
+      answers 202 with the turn's id; the console opens GET
+      /v1/console/agent/turns/{id}/events to watch it. Closing the stream
+      does not stop the run. A repeated Idempotency-Key answers the turn
+      its first call opened and starts no run.
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -237,14 +227,13 @@ conversationTurns:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "The question is longer than 2000 characters (agent_input_rejected)."
+        description: "The message is empty once trimmed (agent_input_rejected)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "429":
-        description: "The member asked too much in a short time (agent_rate_limited). A spent monthly budget
-          ends the run instead, with the status budget."
+        description: "The member asked too much in a short time (agent_rate_limited)."
         content:
           application/json:
             schema:
@@ -257,11 +246,10 @@ turn:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   get:
     operationId: getConsoleAgentTurn
-    summary: One turn as the agent keeps it.
-    description: |
-      Its status, answer, sources, outcome, usage, the updates sent to it
-      and, while it waits, its questions. last_seq is where a page that
-      loads opens the stream.
+    x-capability: none
+    x-uc: [UC-MOD-08]
+    summary: One turn.
+    description: Its status, why it stopped, its usage, and last_seq, where a page that loads opens the stream.
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -282,18 +270,17 @@ turnEvents:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   get:
     operationId: streamConsoleAgentTurnEvents
+    x-capability: none
     x-uc: [UC-MOD-08]
     summary: A turn's run as server-sent events, replayed after Last-Event-ID and then live.
     description: |
       text/event-stream. Each event has `id:` its seq and `data:` one
       AgentRunEvent as JSON; a comment line keeps the connection open. The
-      agent replays the turn's events after the given seq from its database
-      and then follows the run live, so a closed tab reconnects with
-      Last-Event-ID, or with after in the query on a page load. The server
-      copies the stream event by event and sets no deadline. The stream ends
-      after turn.finished, turn.paused or clarify; after Continue, answers or
-      an update to a paused turn the console opens it again from its last
-      seq. Closing the stream ends the server's read, not the run.
+      server replays the turn's events after the given seq and then follows
+      the run live, so a closed tab reconnects with Last-Event-ID, or with
+      after in the query on a page load. The stream ends after turn.paused
+      or turn.finished; after a resume the console opens it again from its
+      last seq. Closing the stream does not stop the run.
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -317,6 +304,8 @@ turnEvents:
           text/event-stream:
             schema:
               $ref: "../schemas/console_agent.yaml#/AgentRunEvent"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
@@ -327,59 +316,12 @@ turnPause:
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
     operationId: pauseConsoleAgentTurn
+    x-capability: none
     x-uc: [UC-MOD-08]
     summary: Pause a run before its next model call.
-    description: "The model call in flight and the tools it asked for finish, so no tool is cut halfway. The turn goes paused (turn.pausing, then turn.paused) and keeps its state, so any agent replica can continue it."
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
-    responses:
-      "202":
-        description: Taken; the run's events show it.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/console_agent.yaml#/AgentTurnState"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        $ref: "../responses/common.yaml#/AgentTurnNotFound"
-      "409":
-        $ref: "../responses/common.yaml#/AgentTurnState"
-turnStop:
-  parameters:
-    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-    - $ref: "../parameters/common.yaml#/AgentTurnID"
-  post:
-    operationId: stopConsoleAgentTurn
-    x-uc: [UC-MOD-08]
-    summary: Stop a run now.
-    description: "Ends the model call in flight at once (Stop now). The turn goes paused with reason stop_now and keeps what it wrote; it can be continued."
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
-    responses:
-      "202":
-        description: Taken; the run's events show it.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/console_agent.yaml#/AgentTurnState"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        $ref: "../responses/common.yaml#/AgentTurnNotFound"
-      "409":
-        $ref: "../responses/common.yaml#/AgentTurnState"
-turnContinue:
-  parameters:
-    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-    - $ref: "../parameters/common.yaml#/AgentTurnID"
-  post:
-    operationId: continueConsoleAgentTurn
-    x-uc: [UC-MOD-08]
-    summary: Continue a paused, failed, timed out or stopped turn.
-    description: "Resumes the same turn with no new message, its counters carried on (turn.resumed with by continue). A spent budget or a guardrail block cannot be continued."
+    description: >-
+      The commands the agent is running finish first, so none is cut halfway (turn.pausing, then turn.paused). A
+      paused turn resumes with POST .../resume or a new message. To cut the commands short, stop the turn.
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -398,21 +340,24 @@ turnContinue:
         $ref: "../responses/common.yaml#/AgentTurnState"
       "503":
         $ref: "../responses/common.yaml#/AgentUnavailable"
-turnEnd:
+turnStop:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
-    operationId: endConsoleAgentTurn
+    operationId: stopConsoleAgentTurn
+    x-capability: none
     x-uc: [UC-MOD-08]
-    summary: End a paused turn.
-    description: "A paused turn, or one awaiting input, ends cancelled and writes nothing more."
+    summary: Stop a run now.
+    description: >-
+      Ends the model call and the commands in flight at once; the agent reads that a staff member stopped them. The
+      turn goes stopped and keeps what it wrote; it resumes as a paused one does.
     tags: [console, internal]
     security:
       - consoleAuth: []
     responses:
-      "200":
-        description: The turn is cancelled.
+      "202":
+        description: Taken; the run's events show it.
         content:
           application/json:
             schema:
@@ -423,26 +368,53 @@ turnEnd:
         $ref: "../responses/common.yaml#/AgentTurnNotFound"
       "409":
         $ref: "../responses/common.yaml#/AgentTurnState"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
+turnResume:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AgentTurnID"
+  post:
+    operationId: resumeConsoleAgentTurn
+    x-capability: none
+    x-uc: [UC-MOD-08]
+    summary: Resume the conversation's last turn where it ended, with no new message.
+    description: >-
+      Takes a paused, stopped, failed or timed out turn that is its conversation's last. The turn runs again on the
+      history it left (turn.resumed); the console opens the stream again from its last seq.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "202":
+        description: The turn is running.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_agent.yaml#/AgentTurnState"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        $ref: "../responses/common.yaml#/AgentTurnNotFound"
+      "409":
+        $ref: "../responses/common.yaml#/AgentTurnState"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
 turnSteer:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
     - $ref: "../parameters/common.yaml#/AgentTurnID"
   post:
     operationId: steerConsoleAgentTurn
+    x-capability: none
     x-uc: [UC-MOD-08]
-    summary: Steer a run, or continue a paused one with a message.
-    description: |
-      The text waits on the turn's control stream and the run reads it
-      before its next model call (steer.read names the step). Sent to a
-      paused turn it continues the run (turn.resumed with by steer). An
-      update that carries an attachment, a skill or another agent is a new
-      question instead. A repeated Idempotency-Key answers the steer its
-      first call sent and sends nothing.
+    summary: Write to a running turn; the agent reads it before its next model call.
+    description: >-
+      The message joins the conversation at the next step (in the step event's messages). A turn that is not
+      running takes a new message instead (POST .../conversations/{id}/turns).
     tags: [console, internal]
     security:
       - consoleAuth: []
-    parameters:
-      - $ref: "../parameters/common.yaml#/IdempotencyKeyOptional"
     requestBody:
       required: true
       content:
@@ -455,41 +427,6 @@ turnSteer:
         content:
           application/json:
             schema:
-              $ref: "../schemas/console_agent.yaml#/AgentSteering"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        $ref: "../responses/common.yaml#/AgentTurnNotFound"
-      "409":
-        $ref: "../responses/common.yaml#/AgentTurnState"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
-turnInput:
-  parameters:
-    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-    - $ref: "../parameters/common.yaml#/AgentTurnID"
-  post:
-    operationId: answerConsoleAgentTurn
-    x-uc: [UC-MOD-08]
-    summary: Answer the clarifying questions a turn waits on.
-    description: The turn is awaiting_input after a clarify event; the answers go to the run and it goes on.
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../schemas/console_agent.yaml#/AgentInput"
-    responses:
-      "202":
-        description: The run goes on.
-        content:
-          application/json:
-            schema:
               $ref: "../schemas/console_agent.yaml#/AgentTurnState"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
@@ -499,22 +436,24 @@ turnInput:
         $ref: "../responses/common.yaml#/AgentTurnNotFound"
       "409":
         $ref: "../responses/common.yaml#/AgentTurnState"
-      "422":
-        description: "The answers do not fit the turn's questions (agent_answers_invalid)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
       "503":
         $ref: "../responses/common.yaml#/AgentUnavailable"
-toolCall:
+operations:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-    - $ref: "../parameters/common.yaml#/AgentToolCallID"
   get:
-    operationId: getConsoleAgentToolCall
-    summary: One tool call in full, for the tool panel.
-    description: Events carry a tool call's summary only; this is its input, result, timing and attempts.
+    operationId: listConsoleAgentOperations
+    x-capability: turn
+    x-uc: [UC-MOD-08]
+    summary: The API operations an agent may be given, by capability.
+    description: |
+      For a member, every operation an agent may hold through its
+      capabilities, for the AI settings. For an agent's turn, the ones its
+      agent holds: the commands of the shopnexus CLI in its sandbox. An
+      operation with approval set changes something: the agent's call does
+      not run it but answers 202 with an approval that a member approves or
+      rejects (GET /v1/console/agent/approvals). Each operation's body is
+      its request body's JSON Schema with the references resolved.
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -524,197 +463,108 @@ toolCall:
         content:
           application/json:
             schema:
-              $ref: "../schemas/console_agent.yaml#/AgentToolCall"
+              $ref: "../schemas/console_agent.yaml#/AgentOperationList"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        description: "No such tool call (agent_tool_call_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-document:
-  parameters:
-    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-    - $ref: "../parameters/common.yaml#/AgentDocumentID"
-  get:
-    operationId: getConsoleAgentDocument
-    summary: A document a turn wrote, with every version, newest first.
-    description: Documents are kept with their chat and deleted with it. Export is the console's (Markdown copy, print to PDF).
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
-    responses:
-      "200":
-        description: Done.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/console_agent.yaml#/AgentDocument"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        description: "No such document (agent_document_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-skills:
+approvals:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
-    operationId: listConsoleAgentSkills
-    summary: Every saved skill; each is shared with every member.
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
-    responses:
-      "200":
-        description: Done.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/console_agent.yaml#/AgentSkillList"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-  post:
-    operationId: createConsoleAgentSkill
-    summary: Save a skill, a question with {{variables}}, for every member.
-    description: A repeated Idempotency-Key answers the skill its first call saved.
+    operationId: listConsoleAgentApprovals
+    x-capability: turn
+    x-uc: [UC-MOD-08]
+    summary: The changes agents asked for, newest first.
+    description: |
+      A member sees the approvals of the conversations they may open;
+      without conversation_id, every one of those, so at most 100. An
+      agent's turn sees its own conversation's only, so it can tell what
+      became of the changes it asked for.
     tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
-      - $ref: "../parameters/common.yaml#/IdempotencyKeyOptional"
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../schemas/console_agent.yaml#/AgentSkillNew"
-    responses:
-      "201":
-        description: Saved.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/console_agent.yaml#/AgentSkill"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "409":
-        description: "Another skill has this slug (agent_skill_taken)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "422":
-        description: "The skill's fields do not fit (agent_skill_invalid)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-skill:
-  parameters:
-    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-    - $ref: "../parameters/common.yaml#/AgentSkillID"
-  get:
-    operationId: getConsoleAgentSkill
-    summary: One skill.
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
+      - name: conversation_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: status
+        in: query
+        schema:
+          $ref: "../schemas/console_agent.yaml#/AgentApprovalStatus"
     responses:
       "200":
         description: Done.
         content:
           application/json:
             schema:
-              $ref: "../schemas/console_agent.yaml#/AgentSkill"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        description: "No such skill (agent_skill_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-  patch:
-    operationId: updateConsoleAgentSkill
-    summary: Change a skill; its maker or an admin may.
-    tags: [console, internal]
-    security:
-      - consoleAuth: []
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../schemas/console_agent.yaml#/AgentSkillPatch"
-    responses:
-      "200":
-        description: Changed.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/console_agent.yaml#/AgentSkill"
+              $ref: "../schemas/console_agent.yaml#/AgentApprovalList"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
-      "403":
-        description: "The skill is another member's and the caller is no admin (agent_forbidden)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "404":
-        description: "No such skill (agent_skill_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "409":
-        description: "Another skill has this slug (agent_skill_taken), or the skill changed meanwhile (try_again)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "422":
-        description: "The skill's fields do not fit (agent_skill_invalid)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-  delete:
-    operationId: deleteConsoleAgentSkill
-    summary: Delete a skill; its maker or an admin may.
+approvalApprove:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AgentApprovalID"
+  post:
+    operationId: approveConsoleAgentApproval
+    x-capability: none
+    x-uc: [UC-MOD-08]
+    summary: Approve a change an agent asked for; the server makes the call as the approver.
+    description: |
+      The stored request runs now with the approver's session and rights,
+      as if they had made it: a role too low or a record that changed
+      since fails it like any call. The approval answers with the call's
+      status and body: approved for a 2xx, failed otherwise. Any member
+      who may open the conversation may approve.
     tags: [console, internal]
     security:
       - consoleAuth: []
     responses:
-      "204":
-        description: Deleted.
+      "200":
+        description: Decided.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_agent.yaml#/AgentApproval"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
-      "403":
-        description: "The skill is another member's and the caller is no admin (agent_forbidden)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
       "404":
-        description: "No such skill (agent_skill_not_found)."
+        $ref: "../responses/common.yaml#/AgentApprovalNotFound"
+      "409":
+        $ref: "../responses/common.yaml#/AgentApprovalDecided"
+approvalReject:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AgentApprovalID"
+  post:
+    operationId: rejectConsoleAgentApproval
+    x-capability: none
+    x-uc: [UC-MOD-08]
+    summary: Reject a change an agent asked for.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: Decided.
         content:
           application/json:
             schema:
-              $ref: "../schemas/error.yaml#/Error"
+              $ref: "../schemas/console_agent.yaml#/AgentApproval"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        $ref: "../responses/common.yaml#/AgentApprovalNotFound"
+      "409":
+        $ref: "../responses/common.yaml#/AgentApprovalDecided"
 consoleAgents:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   get:
     operationId: listConsoleAgents
+    x-capability: none
     summary: The console agents a member may pick in the ask box.
     description: The agents turned on; the Console assistant is the default.
     tags: [console, internal]

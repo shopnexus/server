@@ -5,7 +5,7 @@
 // With -example, a missing .env starts as a copy of the example, and an
 // existing one gets every variable the example has and it lacks, with the
 // example's value. Then it adds the keys: JWT_KEY_ID and JWT_PRIVATE_KEY,
-// CONSOLE_KEY, OTP_KEY, CARRIER_TOKEN_KEY, AGENT_SERVICE_TOKEN, AGENT_MCP_TOKEN,
+// CONSOLE_KEY, OTP_KEY, CARRIER_TOKEN_KEY, AGENT_KEY,
 // and RESTATE_IDENTITY_KEY, the public half of the
 // Restate request identity key at -restate, which it creates when missing. A variable already
 // set stays, so a second run changes nothing. make run, make test,
@@ -114,12 +114,10 @@ func ensureEnv(envPath, examplePath, pemPath string) error {
 		set("CARRIER_TOKEN_KEY", base64.StdEncoding.EncodeToString(config.NewConsoleKey()))
 	}
 
-	// The tokens the server and the console agent trust each other by: 32
-	// random bytes each, in URL-safe base64 so they fit a header.
-	for _, key := range []string{"AGENT_SERVICE_TOKEN", "AGENT_MCP_TOKEN"} {
-		if get(key) == "" {
-			set(key, base64.RawURLEncoding.EncodeToString(config.NewConsoleKey()))
-		}
+	// The key the server calls the agent runtime with: 32 random bytes, in
+	// URL-safe base64 so it fits a header.
+	if get("AGENT_KEY") == "" {
+		set("AGENT_KEY", base64.RawURLEncoding.EncodeToString(config.NewConsoleKey()))
 	}
 
 	// A new pem next to a public key in .env would sign Restate's requests

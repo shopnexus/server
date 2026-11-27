@@ -44,7 +44,7 @@ type Agent struct {
 	ExtraBody           map[string]any
 	Instructions        string
 	InstructionsVersion int
-	Tools               []string
+	Capabilities        []string
 	Limits              domain.Limits
 	MonthlyBudgetUSD    *float64
 	// Callers are sorted by name.

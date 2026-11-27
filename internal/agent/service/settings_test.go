@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server/api"
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
 	"github.com/shopnexus/server/internal/agent/service"
@@ -70,7 +71,8 @@ VALUES (@id, @email, 'Minh', 'admin', 'active', 'x', false, 1, 0, @at, @at, @id)
 	seedRuns(t, db, admin.MemberID)
 	f := newBifrost(t)
 	s := service.New(service.Deps{
-		Settings: repository.NewSettings(db), Runs: repository.NewRuns(db, slog.New(slog.DiscardHandler)),
+		Settings: repository.NewSettings(db), Conversations: repository.NewConversations(db, slog.New(slog.DiscardHandler)),
+		Ops:     catalog(t),
 		Gateway: f.Admin(), Ring: bifrost.NewRing(f.Admin(), time.Now),
 		Console: members{list: []consolesvc.MemberView{
 			{ID: admin.MemberID, DisplayName: "Minh", Role: "admin"}, {ID: moderator, DisplayName: "Lan", Role: "moderator"},
@@ -84,12 +86,10 @@ VALUES (@id, @email, 'Minh', 'admin', 'active', 'x', false, 1, 0, @at, @at, @id)
 var moderator = uuid.MustParse("0193e000-0000-7000-8000-0000000000aa")
 
 // seedRuns puts the Console assistant's turns in db: three of the
-// moderator's at settingsNow, the first with a tool call and two guardrail
-// events, and one of the admin's 30 days earlier.
+// moderator's at settingsNow and one of the admin's 30 days earlier.
 func seedRuns(t *testing.T, db *pgxpool.Pool, admin uuid.UUID) {
 	t.Helper()
-	conversation, first := uuid.NewV7(), uuid.NewV7()
-	at, agent := settingsNow, domain.ConsoleAssistant.String()
+	conversation, at := uuid.NewV7(), settingsNow
 	for _, q := range []struct {
 		sql  string
 		args pgx.StrictNamedArgs
@@ -102,28 +102,34 @@ VALUES (@mod, 'lan@console.test', 'Lan', 'moderator', 'active', 'x', false, 1, 0
 		},
 		{`INSERT INTO agent_conversations (id, member_id, created_at, updated_at, last_activity_at)
 VALUES (@c, @mod, @at, @at, @at)`, pgx.StrictNamedArgs{"c": conversation, "mod": moderator, "at": at}},
-		{`INSERT INTO agent_turns (id, conversation_id, member_id, ordinal, status, question, agent_id, started_at, run_started_at,
-    deadline_ms)
-SELECT CASE WHEN n = 0 THEN @first::uuid ELSE uuidv7() END, @c, CASE WHEN n < 3 THEN @mod::uuid ELSE @admin::uuid END, n, 'succeeded', '?',
-    @agent, CASE WHEN n < 3 THEN @at::timestamptz ELSE @at::timestamptz - interval '30 days' END, @at, 60000
-FROM generate_series(0, 3) AS n`, pgx.StrictNamedArgs{
-			"first": first, "c": conversation, "mod": moderator, "admin": admin, "agent": agent, "at": at,
-		}},
 		{
-			`INSERT INTO agent_tool_calls (id, turn_id, tool_use_id, tool_name, tool_label, tool_input, status, latency_ms, created_at)
-VALUES (@call, @first, 'tu1', 'ticket_get', 'Ticket', '{}', 'success', 80, @at)`,
-			pgx.StrictNamedArgs{"call": uuid.NewV7(), "first": first, "at": at},
-		},
-		{
-			`INSERT INTO agent_turn_events (turn_id, seq, event_type, body, occurred_at)
-SELECT @first, n, 'guardrail', '{"rule":"loop_stopped","detail":"same call 3 times"}', @at FROM generate_series(1, 2) AS n`,
-			pgx.StrictNamedArgs{"first": first, "at": at},
+			`INSERT INTO agent_turns (id, conversation_id, member_id, agent_id, agent_name, model, capabilities, status,
+    started_at, run_started_at, deadline_at)
+SELECT uuidv7(), @c, CASE WHEN n < 3 THEN @mod::uuid ELSE @admin::uuid END, @agent, 'Console assistant', 'm', '{}',
+    'succeeded', s.t AS started_at, s.t AS run_started_at, s.t AS deadline_at
+FROM generate_series(0, 3) AS n,
+    LATERAL (SELECT CASE WHEN n < 3 THEN @at::timestamptz ELSE @at::timestamptz - interval '30 days' END + n * interval '1 ms') AS s (t)`,
+			pgx.StrictNamedArgs{"c": conversation, "mod": moderator, "admin": admin, "agent": domain.ConsoleAssistant, "at": at},
 		},
 	} {
 		if _, err := db.Exec(context.Background(), q.sql, q.args); err != nil {
 			t.Fatalf("%s: %v", q.sql, err)
 		}
 	}
+}
+
+// catalog is the operations the spec lets an agent call.
+func catalog(t *testing.T) domain.Catalog {
+	t.Helper()
+	doc, err := api.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := domain.NewCatalog(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
 }
 
 // members is console's member list.
@@ -322,17 +328,18 @@ func TestAgentRules(t *testing.T) {
 	}
 
 	got, err = s.UpdateAgent(ctx, admin, domain.ConsoleAssistant, service.AgentPatch{Instructions: new("Be brief.")})
-	if err != nil || got.InstructionsVersion != 2 {
+	// Version 2 is migration 0105's, for the agent runtime.
+	if err != nil || got.InstructionsVersion != 3 {
 		t.Fatalf("new instructions %+v %v", got, err)
 	}
 	versions, err := s.AgentVersions(ctx, domain.ConsoleAssistant)
-	if err != nil || len(versions) != 2 || versions[0].Version != 2 || versions[0].Instructions != "Be brief." ||
+	if err != nil || len(versions) != 3 || versions[0].Version != 3 || versions[0].Instructions != "Be brief." ||
 		*versions[0].CreatedBy != admin.MemberID || versions[1].CreatedBy != nil {
 		t.Fatalf("versions %+v %v", versions, err)
 	}
 	// A version that exists with other text refuses the save.
 	if _, err = db.Exec(ctx, `INSERT INTO ai_agent_versions (agent_id, version_no, instructions, created_at)
-VALUES (@id, 3, 'Stray.', now())`, pgx.StrictNamedArgs{"id": domain.ConsoleAssistant}); err != nil {
+VALUES (@id, 4, 'Stray.', now())`, pgx.StrictNamedArgs{"id": domain.ConsoleAssistant}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.UpdateAgent(ctx, admin, domain.ConsoleAssistant, service.AgentPatch{Instructions: new("Be kind.")}); err == nil {
@@ -488,7 +495,7 @@ func TestProviders(t *testing.T) {
 // Spend sums Bifrost's cost by UTC day and agent over windows Bifrost
 // answers by the day; usage counts an app agent's requests by its team and
 // a console agent's turns. UC-MOD-12 A4.
-func TestSpendUsageToolsAndGuardrails(t *testing.T) {
+func TestSpendAndUsage(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s, f, _, admin := settingsOn(t)
@@ -528,14 +535,5 @@ func TestSpendUsageToolsAndGuardrails(t *testing.T) {
 		if i < 0 || usage[i].Requests != want || usage[i].Days[len(usage[i].Days)-1].Requests != want {
 			t.Errorf("usage of %s: %+v", id, usage)
 		}
-	}
-	tools, err := s.Tools(ctx, admin, "7d")
-	if err != nil || len(tools.Items) != 1 || tools.Items[0].DisplayName != "Ticket" || tools.Items[0].Calls != 1 ||
-		*tools.Items[0].P50MS != 80 || len(tools.Items[0].Days) != 7 || len(tools.Recent) != 1 || tools.Recent[0].MemberID != moderator {
-		t.Fatalf("tools %+v %v", tools, err)
-	}
-	guards, err := s.Guardrails(ctx, admin, "bogus")
-	if err != nil || len(guards.Items) != 1 || guards.Items[0].Count != 2 || len(guards.Recent) != 2 {
-		t.Fatalf("guardrails %+v %v", guards, err)
 	}
 }

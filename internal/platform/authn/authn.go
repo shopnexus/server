@@ -5,6 +5,7 @@ package authn
 
 import (
 	"context"
+	"net/http"
 	"net/netip"
 	"time"
 	"uuid"
@@ -68,6 +69,35 @@ func WithConsoleMember(ctx context.Context, s ConsoleMember) context.Context {
 func ConsoleMemberFrom(ctx context.Context) (ConsoleMember, bool) {
 	s, ok := ctx.Value(consoleMemberKey{}).(ConsoleMember)
 	return s, ok
+}
+
+// Turn is a console agent's turn calling the console API with its token,
+// for the member it works for. The agent module's gate puts it in the
+// request; the console's guard then lets the call through as that member,
+// within the member's role, and hands a change to Hold instead of the
+// handler, as a change waits for a member's approval.
+type Turn struct {
+	ID             uuid.UUID
+	ConversationID uuid.UUID
+	MemberID       uuid.UUID
+	// Capabilities are what the turn's agent holds.
+	Capabilities []string
+	// Hold answers a change the agent asked for with the approval it now
+	// waits on.
+	Hold func(w http.ResponseWriter, r *http.Request)
+}
+
+type turnKey struct{}
+
+// WithTurn returns ctx carrying t.
+func WithTurn(ctx context.Context, t Turn) context.Context {
+	return context.WithValue(ctx, turnKey{}, t)
+}
+
+// TurnFrom returns the agent's turn in ctx, if any.
+func TurnFrom(ctx context.Context) (Turn, bool) {
+	t, ok := ctx.Value(turnKey{}).(Turn)
+	return t, ok
 }
 
 // Seen is who a request turned out to be. A middleware outside the auth

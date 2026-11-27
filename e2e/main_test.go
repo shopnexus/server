@@ -51,7 +51,7 @@ var (
 	assistStub = newAssist()        // module ai's frames and speech, and the video-read model
 	scamStub   = newScam()          // the scam-check model
 	chototStub = newChotot()        // Chợ Tốt's gateway and CDN
-	agentStub  = newAgent()         // the console agent service
+	agentStub  = newAgent()         // the agent runtime
 	gateway    = newGateway()       // Bifrost, whose callers reach the stubs above
 	phones     = newPhones()        // every push the server sends
 	mails      = newInbox()         // every mail the server sends
@@ -59,8 +59,6 @@ var (
 	// serverConfig is the shared server's configuration, for a test that
 	// starts a second server.
 	serverConfig config.Config
-	// mcpURL is the shared server's MCP endpoint.
-	mcpURL string
 )
 
 func TestMain(m *testing.M) {
@@ -167,7 +165,7 @@ func setup(closers *[]func()) error {
 		},
 		Trust: config.TrustConfig{CallTimeout: 5 * time.Second, ScamChecks: true},
 		Agent: config.AgentConfig{
-			BaseURL: agentStub.url(), ServiceToken: agentServiceToken, MCPAddr: "127.0.0.1:0", MCPToken: agentMCPToken,
+			RuntimeURL: agentStub.url(), RuntimeKey: agentKey,
 		},
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
@@ -196,7 +194,6 @@ func setup(closers *[]func()) error {
 	srv := httptest.NewServer(a.Handler)
 	*closers = append(*closers, srv.Close)
 	server = srv.URL
-	mcpURL = "http://" + a.AgentMCPAddr().String() + "/mcp"
 	if err = gatewayReady(); err != nil {
 		return err
 	}

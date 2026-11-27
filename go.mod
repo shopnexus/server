@@ -9,12 +9,11 @@ require (
 	github.com/eliben/go-sentencepiece v0.7.0
 	github.com/getkin/kin-openapi v0.151.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/google/jsonschema-go v0.4.3
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/k2-fsa/sherpa-onnx-go v1.13.8
 	github.com/minio/madmin-go/v4 v4.11.0
 	github.com/minio/minio-go/v7 v7.4.1
-	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/oschwald/maxminddb-golang/v2 v2.9.1
 	github.com/restatedev/sdk-go v1.1.0
@@ -63,7 +62,6 @@ require (
 	github.com/go-openapi/jsonpointer v1.0.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -102,15 +100,12 @@ require (
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/safchain/ethtool v0.6.1 // indirect
 	github.com/secure-io/sio-go v0.3.1 // indirect
-	github.com/segmentio/asm v1.2.0 // indirect
-	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.5 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect
-	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

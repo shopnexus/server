@@ -136,21 +136,7 @@ AgentTurnID:
   schema:
     type: string
     format: uuid
-AgentToolCallID:
-  name: id
-  in: path
-  required: true
-  schema:
-    type: string
-    format: uuid
-AgentDocumentID:
-  name: id
-  in: path
-  required: true
-  schema:
-    type: string
-    format: uuid
-AgentSkillID:
+AgentApprovalID:
   name: id
   in: path
   required: true

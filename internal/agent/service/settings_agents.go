@@ -33,7 +33,7 @@ func (s *Agent) agentViews(ctx context.Context, agents []repository.Agent) []Age
 		v := AgentView{
 			ID: a.ID, Kind: a.Kind, Name: a.Name, Slug: a.Slug, Icon: a.Icon, Purpose: a.Purpose,
 			RequiredTags: nonNil(a.RequiredTags), Model: a.Model, Fallbacks: nonNil(a.Fallbacks), Instructions: a.Instructions,
-			InstructionsVersion: a.InstructionsVersion, Tools: nonNil(a.Tools), Limits: a.Limits,
+			InstructionsVersion: a.InstructionsVersion, Capabilities: nonNil(a.Capabilities), Limits: a.Limits,
 			MonthlyBudgetUSD: a.MonthlyBudgetUSD, Callers: make([]Caller, 0, len(a.Callers)), Enabled: a.Enabled,
 			UpdatedBy: a.UpdatedBy, UpdatedAt: a.UpdatedAt,
 		}
@@ -173,6 +173,9 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 	if in.MonthlyBudgetUSD != nil && *in.MonthlyBudgetUSD <= 0 {
 		return AgentView{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", apperr.OutOfRange, "not above 0")
 	}
+	if err = s.checkCapabilities(in.Capabilities); err != nil {
+		return AgentView{}, err
+	}
 	enabled := true
 	if in.Enabled != nil {
 		enabled = *in.Enabled
@@ -181,7 +184,7 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 	a := repository.Agent{
 		ID: uuid.NewV7(), Kind: domain.AgentConsole, Name: in.Name, Slug: in.Slug, Icon: in.Icon, Purpose: in.Purpose,
 		RequiredTags: nonNil(in.RequiredTags), Model: in.Model, Fallbacks: nonNil(in.Fallbacks), ExtraBody: map[string]any{},
-		Instructions: in.Instructions, InstructionsVersion: 1, Tools: nonNil(in.Tools), Limits: limits,
+		Instructions: in.Instructions, InstructionsVersion: 1, Capabilities: nonNil(in.Capabilities), Limits: limits,
 		MonthlyBudgetUSD: in.MonthlyBudgetUSD, Callers: []repository.Caller{{Name: in.Slug}}, Enabled: enabled,
 		UpdatedBy: &by, UpdatedAt: s.d.Now(), WriteID: uuid.NewV7(),
 	}
@@ -225,7 +228,7 @@ func sameAgent(stored, made repository.Agent) bool {
 	return stored.Kind == made.Kind && stored.Name == made.Name && stored.Slug == made.Slug &&
 		stored.Icon == made.Icon && stored.Purpose == made.Purpose && slices.Equal(stored.RequiredTags, made.RequiredTags) &&
 		stored.Model == made.Model && slices.Equal(stored.Fallbacks, made.Fallbacks) &&
-		stored.Instructions == made.Instructions && slices.Equal(stored.Tools, made.Tools) &&
+		stored.Instructions == made.Instructions && slices.Equal(stored.Capabilities, made.Capabilities) &&
 		stored.Limits == made.Limits && samePtr(stored.MonthlyBudgetUSD, made.MonthlyBudgetUSD) &&
 		stored.Enabled == made.Enabled
 }
@@ -245,7 +248,7 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	}
 	// E3
 	if a.Kind == domain.AgentApp && (in.Name != nil || in.Icon != nil || in.Purpose != nil || in.RequiredTags != nil ||
-		in.Instructions != nil || in.Tools != nil || in.Enabled != nil) {
+		in.Instructions != nil || in.Capabilities != nil || in.Enabled != nil) {
 		return AgentView{}, domain.ErrAppAgentFixed
 	}
 	read := a.WriteID
@@ -265,8 +268,11 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	if in.RequiredTags != nil {
 		a.RequiredTags, details["required_tags"] = nonNil(*in.RequiredTags), *in.RequiredTags
 	}
-	if in.Tools != nil {
-		a.Tools, details["tools"] = nonNil(*in.Tools), *in.Tools
+	if in.Capabilities != nil {
+		if err = s.checkCapabilities(*in.Capabilities); err != nil {
+			return AgentView{}, err
+		}
+		a.Capabilities, details["capabilities"] = nonNil(*in.Capabilities), *in.Capabilities
 	}
 	if in.Limits != nil {
 		if a.Limits, err = in.Limits.Check(a.Kind); err != nil {
@@ -351,4 +357,14 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 		}
 	}
 	return s.agentView(ctx, a), nil
+}
+
+// checkCapabilities refuses a capability the spec does not name.
+func (s *Agent) checkCapabilities(caps []string) error {
+	for _, c := range caps {
+		if !s.d.Ops.Known(c) {
+			return domain.ErrAgentInvalid.WithField("capabilities", apperr.Invalid, "unknown_capability")
+		}
+	}
+	return nil
 }

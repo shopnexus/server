@@ -255,18 +255,12 @@ type TrustConfig struct {
 // trust each other (see the docs, agent/). No token is ever
 // logged.
 type AgentConfig struct {
-	// BaseURL is AGENT_BASE_URL, the agent service on the internal
-	// network; the console's agent endpoints forward there.
-	BaseURL string
-	// ServiceToken is AGENT_SERVICE_TOKEN, the bearer token the server
-	// sends the agent; at least 32 characters.
-	ServiceToken string
-	// MCPAddr is AGENT_MCP_ADDR, the address the MCP server listens on,
-	// apart from HTTP_ADDR and never behind the ingress.
-	MCPAddr string
-	// MCPToken is AGENT_MCP_TOKEN, the bearer token the agent sends the
-	// MCP server; at least 32 characters.
-	MCPToken string
+	// RuntimeURL is AGENT_URL, the agent runtime on the internal
+	// network, which runs the console agent's turns.
+	RuntimeURL string
+	// RuntimeKey is AGENT_KEY, the bearer key the server sends the
+	// runtime (its AGENT_KEY); at least 32 characters.
+	RuntimeKey string
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -656,8 +650,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			CallTimeout: duration("TRUST_CALL_TIMEOUT"), ScamChecks: oneOf("TRUST_SCAM_CHECKS", "on", "off") == "on",
 		},
 		Agent: AgentConfig{
-			BaseURL: need("AGENT_BASE_URL"), ServiceToken: token("AGENT_SERVICE_TOKEN"),
-			MCPAddr: need("AGENT_MCP_ADDR"), MCPToken: token("AGENT_MCP_TOKEN"),
+			RuntimeURL: need("AGENT_URL"), RuntimeKey: token("AGENT_KEY"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),
