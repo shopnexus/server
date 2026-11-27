@@ -31,6 +31,7 @@ func TestReadyzDown(t *testing.T) {
 		Auth:    keys,
 		Console: config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.e2e"},
 		Carrier: config.CarrierConfig{GHTKMode: "fake", GHNMode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
+		Payment: config.PaymentConfig{Mode: "off", PublicURL: "http://127.0.0.1:1"},
 	}
 	objectStore, err := objectstoretest.Config()
 	if err != nil {

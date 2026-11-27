@@ -248,7 +248,7 @@ func TestSpecRateLimitTiers(t *testing.T) {
 	if _, err := httpx.NewLimits(doc, time.Now, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatal(err)
 	}
-	exempt := []string{"getHealthz", "getReadyz", "carrierWebhook", "authorizeConsoleDashboard"}
+	exempt := []string{"getHealthz", "getReadyz", "carrierWebhook", "authorizeConsoleDashboard", "vnpayNotify", "vnpayReturn"}
 	var got []string
 	for _, op := range httpx.Operations(doc) {
 		if op.Extensions["x-rate-limit"] == httpx.Exempt.Name {
@@ -265,7 +265,8 @@ func TestSpecRateLimitTiers(t *testing.T) {
 // An operation has one tag of x-tagGroups, its section in the reference.
 // internal and websocket are the one list of routes the app's generated
 // client leaves out: internal on the console, the dev routes, the
-// dashboard callback, the carrier webhook, the health checks and the
+// dashboard callback, the carrier webhook, VNPay's return page and IPN,
+// the health checks and the
 // website's sitemap, websocket on /v1/ws, and neither on any other
 // operation.
 func TestSpecTags(t *testing.T) {
@@ -293,7 +294,10 @@ func TestSpecTags(t *testing.T) {
 	if len(sections) == 0 {
 		t.Fatal("x-tagGroups names no tag")
 	}
-	internal := []string{"/_dashboard/callback", "/v1/carriers/{carrier}/webhook/{secret}", "/healthz", "/readyz"}
+	internal := []string{
+		"/_dashboard/callback", "/v1/carriers/{carrier}/webhook/{secret}", "/v1/payments/vnpay/return", "/v1/payments/vnpay/ipn",
+		"/healthz", "/readyz",
+	}
 	for path, item := range doc.Paths.Map() {
 		for method, op := range item.Operations() {
 			inSection := 0

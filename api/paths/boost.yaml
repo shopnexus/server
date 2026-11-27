@@ -1,0 +1,269 @@
+boostPackages:
+  get:
+    operationId: listBoostPackages
+    x-uc: [UC-LST-03]
+    summary: The boost packages and their prices.
+    description: |
+      A boost moves one of the seller's listings to the top of the newest
+      order at once and again every 24 hours until the package ends. Only
+      the newest order moves: relevance, nearest and price sorts do not.
+    tags: [boost]
+    security: []
+    responses:
+      "200":
+        description: The packages, shortest first.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/boost.yaml#/BoostPackageList"
+boosts:
+  post:
+    operationId: createBoost
+    x-uc: [UC-LST-03]
+    summary: Buy a boost package for one of the caller's listings.
+    description: |
+      Opens a payment of the package's price and returns the boost,
+      awaiting payment, with the gateway's payment_url; the package starts
+      when the gateway confirms the payment, at most 15 minutes later.
+      Checks, in order: payment_unavailable; unknown_boost_package;
+      account_suspended; phone_required; listing_not_found (no such
+      listing, another seller's, or deleted); listing_not_boostable (not on
+      sale: processing, hidden, held by a moderator, rejected, reserved or
+      sold); boost_active (a package runs on the listing).
+
+      A boost of the same package awaiting payment on the listing is
+      answered as it is (200), so the seller picks the payment up again. A
+      boost of another package awaiting payment is cancelled and replaced;
+      should its payment still land, it is refunded in full.
+    tags: [boost]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/boost.yaml#/BoostInput"
+    responses:
+      "201":
+        description: A new boost, awaiting payment.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/boost.yaml#/Boost"
+      "200":
+        description: The boost a repeated key made, or the listing's boost of the same package still awaiting payment, as it is now.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/boost.yaml#/Boost"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended), or has no phone to sign in with (phone_required)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such listing of the caller's (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is not on sale (listing_not_boostable), or a package runs on it (boost_active, with details.boost_id)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "No package has that id (unknown_boost_package)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "This server takes no payments (payment_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+boost:
+  get:
+    operationId: getBoost
+    x-uc: [UC-LST-03]
+    summary: One of the caller's boosts.
+    description: |
+      The app reads it after the payment page closes, until the status
+      leaves awaiting_payment: the gateway's confirmation can come a few
+      seconds after the browser returns.
+    tags: [boost]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The boost.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/boost.yaml#/Boost"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such boost of the caller's (boost_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+consoleListingBoosts:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  get:
+    operationId: listConsoleListingBoosts
+    x-capability: listings.read
+    x-uc: [UC-LST-03]
+    summary: A listing's boosts and their payments, newest first.
+    description: Every purchase of a package for the listing, whatever became of it, with its payment as the gateway reported it.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: A page of boosts; none for a listing never boosted.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/boost.yaml#/ConsoleBoostList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+vnpayReturn:
+  get:
+    operationId: vnpayReturn
+    x-uc: [UC-LST-03]
+    x-rate-limit: exempt
+    summary: Where VNPay sends the payer's browser back.
+    description: |
+      VNPay's vnp_ReturnUrl, with the payment's vnp_ parameters and
+      vnp_SecureHash. A valid signature on a pending payment that VNPay
+      calls paid makes the server ask VNPay itself (querydr); the redirect
+      alone never marks a payment paid. The answer is a small page in the
+      request's language that tells the result and opens the app at
+      shopnexus://boost/{boost_id}, with a button for a browser that does
+      not follow it. A bad signature or an unknown payment gets a page that
+      says so.
+    tags: [payment, internal]
+    security: []
+    responses:
+      "200":
+        description: The result page.
+        content:
+          text/html:
+            schema:
+              type: string
+vnpayNotify:
+  get:
+    operationId: vnpayNotify
+    x-uc: [UC-LST-03]
+    x-rate-limit: exempt
+    summary: VNPay's payment notification (IPN).
+    description: |
+      VNPay calls it server to server with the payment's vnp_ parameters.
+      The server checks vnp_SecureHash, finds the payment by vnp_TxnRef,
+      checks vnp_Amount, then records the result once: vnp_ResponseCode and
+      vnp_TransactionStatus 00 mark it paid, anything else failed. A
+      success after the payment failed or expired still marks it paid, and
+      the purchase it was for is refunded. The answer is always 200 with
+      VNPay's RspCode; VNPay sends again on 99 and on any answer it cannot
+      read.
+    tags: [payment, internal]
+    security: []
+    responses:
+      "200":
+        description: VNPay's answer.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/boost.yaml#/PaymentNotifyAnswer"
+devPayment:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  get:
+    operationId: getDevPayment
+    x-uc: [UC-LST-03]
+    summary: The fake gateway's payment page.
+    description: |
+      Served only while the payment gateway is the fake, as on the dev and
+      test stacks; production does not serve it. A plain page with the
+      amount and two buttons, Pay and Cancel, which post to the same path.
+    tags: [payment, internal]
+    security: []
+    responses:
+      "200":
+        description: The page.
+        content:
+          text/html:
+            schema:
+              type: string
+      "404":
+        description: "No such payment, or one no longer pending (payment_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  post:
+    operationId: payDevPayment
+    x-uc: [UC-LST-03]
+    summary: Pay or cancel a payment at the fake gateway.
+    description: |
+      Does what VNPay does once the payer acts: calls the server's IPN with
+      the result signed as VNPay signs it (00 for pay, 24 for cancel), then
+      sends the browser to the return page with the same parameters.
+    tags: [payment, internal]
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/x-www-form-urlencoded:
+          schema:
+            $ref: "../schemas/boost.yaml#/DevPaymentInput"
+    responses:
+      "303":
+        description: To the return page. Location is /v1/payments/vnpay/return with the signed vnp_ parameters.
+        headers:
+          Location:
+            schema:
+              type: string
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "404":
+        description: "No such payment, or one no longer pending (payment_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

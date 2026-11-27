@@ -67,6 +67,10 @@ Error:
                   type: string
                 avatar_url:
                   type: [string, "null"]
+            boost_id:
+              type: string
+              format: uuid
+              description: The boost that runs on the listing, sent with boost_active.
         trace_id:
           type: string
           description: Equals the Trace-Id response header.

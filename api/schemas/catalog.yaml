@@ -168,12 +168,22 @@ Listing:
     published_at:
       type: string
       format: date-time
-      description: When the listing first went on sale.
+      description: When the listing first went on sale; a boost never changes it.
+    bumped_at:
+      $ref: "#/BumpedAt"
     sold_at:
       type: string
       format: date-time
     price_drop:
       $ref: "#/PriceDrop"
+BumpedAt:
+  type: string
+  format: date-time
+  description: |
+    When a boost last moved the listing to the top of the newest order;
+    absent for a listing never boosted. The newest order sorts by the later
+    of this and published_at, so a card that shows a time shows the
+    original posted time with a small "Được đẩy" mark.
 PriceDrop:
   type: object
   additionalProperties: false

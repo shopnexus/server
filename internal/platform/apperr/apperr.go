@@ -9,6 +9,7 @@ import (
 	"math"
 	"slices"
 	"time"
+	"uuid"
 )
 
 // Kind classifies an error by what the caller can do about it.
@@ -105,6 +106,8 @@ type Details struct {
 	MissingSpecKeys []string `json:"missing_spec_keys,omitempty"`
 	// Profile is the profile on another site that the server read.
 	Profile *Profile `json:"profile,omitempty"`
+	// BoostID is the boost that runs on a listing.
+	BoostID *uuid.UUID `json:"boost_id,omitempty"`
 }
 
 // Profile is a person's profile on another site, by its name and photo.
@@ -207,6 +210,13 @@ func (e *Error) WithMissingSpecs(keys []string) *Error {
 func (e *Error) WithProfile(p Profile) *Error {
 	c := *e
 	c.Details.Profile = &p
+	return &c
+}
+
+// WithBoost returns a copy of e whose boost_id detail is id.
+func (e *Error) WithBoost(id uuid.UUID) *Error {
+	c := *e
+	c.Details.BoostID = &id
 	return &c
 }
 

@@ -28,6 +28,8 @@ import (
 	aisvc "github.com/shopnexus/server/internal/ai/service"
 	"github.com/shopnexus/server/internal/assist"
 	"github.com/shopnexus/server/internal/beacon"
+	"github.com/shopnexus/server/internal/boost"
+	boostdomain "github.com/shopnexus/server/internal/boost/domain"
 	"github.com/shopnexus/server/internal/catalog"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
@@ -45,6 +47,7 @@ import (
 	"github.com/shopnexus/server/internal/feedback"
 	"github.com/shopnexus/server/internal/media"
 	"github.com/shopnexus/server/internal/notification"
+	paymentmodule "github.com/shopnexus/server/internal/payment"
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/geoip"
@@ -64,6 +67,7 @@ import (
 	"github.com/shopnexus/server/internal/provider/firebase"
 	"github.com/shopnexus/server/internal/provider/google"
 	"github.com/shopnexus/server/internal/provider/indexnow"
+	"github.com/shopnexus/server/internal/provider/payment"
 	"github.com/shopnexus/server/internal/provider/push"
 	"github.com/shopnexus/server/internal/screen"
 	"github.com/shopnexus/server/internal/shipping"
@@ -123,6 +127,9 @@ func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 
 // carrierTimeout bounds a call to GHTK or GHN.
 const carrierTimeout = 20 * time.Second
+
+// paymentTimeout bounds a call to VNPay's merchant API.
+const paymentTimeout = 30 * time.Second
 
 // gatewayTimeout bounds one call to Bifrost's admin API.
 const gatewayTimeout = 30 * time.Second
@@ -202,6 +209,10 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 			return nil, fmt.Errorf("%s=%q: want live, fake or off", sw.key, sw.mode)
 		}
 	}
+	payments, err := paymentGateway(cfg)
+	if err != nil {
+		return nil, err
+	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, postgres.MaxConns(cfg.DatabaseMaxConns),
 		postgres.StatementTimeout(cfg.DatabaseStatementTimeout))
 	if err != nil {
@@ -236,7 +247,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	a.health(log)
 	in := ingress.NewClient(cfg.Restate.IngressURL, ingress.WithHttpClient(httpx.NewClient(0)))
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, agentm, err := mountModules(a.router, doc, pool, in, bus, a.hub, a.relay, cfg, o.hasher, sender, mailer, carriers, engines, log)
+	defs, agentm, err := mountModules(a.router, doc, pool, in, bus, a.hub, a.relay, cfg, o.hasher, sender, mailer, carriers, payments, engines, log)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +388,7 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // is not nil; the other modules call ai through Restate either way.
 func mountModules(router *httpx.Router, doc *openapi3.T, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub, rel *relay.Relay,
 	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, carriers shipping.Settings,
-	engines *ai.Engines, log *slog.Logger,
+	payments payment.Client, engines *ai.Engines, log *slog.Logger,
 ) ([]restate.ServiceDefinition, *agent.Mounted, error) {
 	d := module.Deps{
 		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
@@ -467,6 +478,12 @@ func mountModules(router *httpx.Router, doc *openapi3.T, pool *pgxpool.Pool, in 
 	}, accounts, catalogm.Service, dealm.Service, chatm.Service, mediam.Service)
 	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service, feedbackm.Service, trustm.Service,
 		catalogm.Service)
+	paymentm := paymentmodule.Mount(d, payments)
+	packages := make([]boostdomain.Package, len(cfg.Boost.Packages))
+	for i, p := range cfg.Boost.Packages {
+		packages[i] = boostdomain.PackageOf(p.Days, p.Price)
+	}
+	boostm := boost.Mount(d, boost.Settings{Packages: packages, Moderator: consolem.Moderator}, paymentm.Service, catalogm.Service, accounts)
 	discoverym := discovery.Mount(d, discovery.Settings{
 		Model:       bifrost.Chat{Caller: caller("server-search", 0), Effort: cfg.LLM.Effort},
 		Text:        embedder("server-embed-search"),
@@ -499,9 +516,9 @@ func mountModules(router *httpx.Router, doc *openapi3.T, pool *pgxpool.Pool, in 
 	}
 	notificationm := notification.Mount(d, notification.Settings{Push: sender, Mail: mail},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service, feedbackm.Service,
-		chototm.Service)
+		chototm.Service, boostm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
-		supportm.Service, shippingm.Service, chototm.Service)
+		supportm.Service, shippingm.Service, chototm.Service, boostm.Service)
 	agentm, agentErr := agent.Mount(d, agent.Settings{
 		Config: cfg.Agent, TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 		Gateway: gateway, Ring: ring, Doc: doc,
@@ -511,7 +528,31 @@ func mountModules(router *httpx.Router, doc *openapi3.T, pool *pgxpool.Pool, in 
 	}
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
 		chatm.Services, supportm.Services, feedbackm.Services, trustm.Services, notificationm.Services, assistm.Services, chototm.Services, aiServices,
+		paymentm.Services, boostm.Services,
 		agentm.Services), agentm, nil
+}
+
+// paymentGateway is the gateway PAYMENT_VNPAY turns on; nil for off. The
+// fake's page and VNPay's return address are under API_PUBLIC_URL.
+func paymentGateway(cfg config.Config) (payment.Client, error) {
+	p := cfg.Payment
+	switch p.Mode {
+	case "fake":
+		if cfg.Env == config.EnvProd {
+			return nil, errors.New("APP_ENV=prod with PAYMENT_VNPAY=fake; anyone could pay through the dev page")
+		}
+		return payment.Fake{PagesURL: p.PublicURL + "/v1/dev/payments"}, nil
+	case "live":
+		return payment.VNPayClient{
+			TmnCode: p.TmnCode, HashSecret: p.HashSecret, PayPage: p.PayURL, APIURL: p.APIURL,
+			ReturnURL: p.PublicURL + "/v1/payments/vnpay/return", ServerIP: p.ServerIP,
+			HTTP: httpx.NewClient(paymentTimeout), Name: payment.VNPay,
+		}, nil
+	case "off":
+		return nil, nil //nolint:nilnil // off is no gateway, not a missing one
+	default:
+		return nil, fmt.Errorf("PAYMENT_VNPAY=%q: want live, fake or off", p.Mode)
+	}
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

@@ -59,6 +59,13 @@ const (
 	// TypeParcelLost tells both sides of a failed order that the carrier
 	// lost the parcel, which counts against neither.
 	TypeParcelLost Type = "parcel_lost"
+	// TypeBoostStarted and the other boost types tell a seller what became
+	// of a package bought for a listing (UC-LST-03).
+	TypeBoostStarted  Type = "boost_started"
+	TypeBoostFailed   Type = "boost_failed"
+	TypeBoostExpired  Type = "boost_expired"
+	TypeBoostRefunded Type = "boost_refunded"
+	TypeBoostEnded    Type = "boost_ended"
 )
 
 // Notice is one thing to tell one person. Params hold what its text is
@@ -347,6 +354,15 @@ func FeedbackReplied(owner, feedback uuid.UUID, reply string, at time.Time) Noti
 	}
 }
 
+// Boost tells a seller of typ on the package of days, bought at price for
+// their listing; a later notice of the same boost replaces an unread one.
+func Boost(recipient, boost, listing uuid.UUID, typ Type, title string, days int, price int64, at time.Time) Notice {
+	return Notice{
+		Recipient: recipient, Type: typ, CollapseKey: "boost:" + boost.String(), At: at,
+		Params: Params{ListingID: listing, Title: title, Count: days, Amount: price},
+	}
+}
+
 // Target is the screen a notice opens.
 type Target struct {
 	Kind string `json:"kind"`
@@ -518,6 +534,11 @@ var types = map[Type]struct {
 	TypeFeedbackReplied: {feedback, func(p Params, w writer) string { return w.say("notice.feedback_replied", p.Excerpt) }},
 	TypeChototImported:  {chototLink, func(p Params, w writer) string { return w.say("notice.chotot_imported", p.Count) }},
 	TypeChototSoldHere:  {chototAd, func(p Params, w writer) string { return w.say("notice.chotot_sold_here", p.Title) }},
+	TypeBoostStarted:    {listings, func(p Params, w writer) string { return w.say("notice.boost_started", p.Title, p.Count) }},
+	TypeBoostFailed:     {listings, func(p Params, w writer) string { return w.say("notice.boost_failed", p.Title) }},
+	TypeBoostExpired:    {listings, func(p Params, w writer) string { return w.say("notice.boost_expired", p.Title) }},
+	TypeBoostRefunded:   {listings, func(p Params, w writer) string { return w.say("notice.boost_refunded", w.money(p.Amount), p.Title) }},
+	TypeBoostEnded:      {listings, func(p Params, w writer) string { return w.say("notice.boost_ended", p.Title) }},
 }
 
 // carrierLabels name the carriers by their codes.

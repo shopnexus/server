@@ -171,11 +171,16 @@ func setup(closers *[]func()) error {
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
 		Google:   google.Config(),
 		Carrier:  config.CarrierConfig{GHTKMode: "fake", GHNMode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
+		Boost:    config.BoostConfig{Packages: []config.BoostPackage{{Days: 3, Price: 15_000}, {Days: 7, Price: 29_000}}},
 		// The website's origin is http, so no listing change is submitted.
 		IndexNowKey: indexNowKey,
 		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
+	// The fake gateway's page is under the server's own address, known
+	// once its listener is.
+	srv := httptest.NewUnstartedServer(nil)
+	cfg.Payment = config.PaymentConfig{Mode: "fake", PublicURL: "http://" + srv.Listener.Addr().String()}
 	serverConfig = cfg
 	consoleKeys, err := consolesvc.NewKeys(cfg.Console, consoledomain.Fast)
 	if err != nil {
@@ -190,9 +195,9 @@ func setup(closers *[]func()) error {
 	if err != nil {
 		return err
 	}
-	*closers = append(*closers, func() { _ = a.Close(context.Background()) })
-	srv := httptest.NewServer(a.Handler)
-	*closers = append(*closers, srv.Close)
+	*closers = append(*closers, func() { _ = a.Close(context.Background()) }, srv.Close)
+	srv.Config.Handler = a.Handler
+	srv.Start()
 	server = srv.URL
 	if err = gatewayReady(); err != nil {
 		return err

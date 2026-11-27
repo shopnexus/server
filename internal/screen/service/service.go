@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	accountsvc "github.com/shopnexus/server/internal/account/service"
+	boostsvc "github.com/shopnexus/server/internal/boost/service"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
@@ -93,6 +94,8 @@ type Deps struct {
 	Support supportsvc.Service
 	// Chotot marks the listings of Tin của bạn brought over from Chợ Tốt.
 	Chotot chototsvc.Service
+	// Boosts gives Tin của bạn and the seller's listing view their boosts.
+	Boosts boostsvc.Service
 	Now    func() time.Time
 	Log    *slog.Logger
 }

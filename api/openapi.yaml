@@ -74,6 +74,12 @@ tags:
   - name: chotot
     x-displayName: Chợ Tốt
     description: Link the caller's Chợ Tốt profile, bring its listings over, and keep the copies in step with Chợ Tốt.
+  - name: boost
+    x-displayName: Boosts
+    description: Packages that move one of the seller's listings to the top of the newest order every day, paid once through the payment gateway.
+  - name: payment
+    x-displayName: Payments
+    description: The payment gateway's return page and notifications, and the fake gateway's page on the dev stacks.
   - name: discovery
     x-displayName: Search and saved listings
     description: Search and browse listings, saved listings, recent searches and a seller's public listings.
@@ -125,9 +131,9 @@ x-tagGroups:
   - name: Accounts
     tags: [auth, account, media]
   - name: Listings and search
-    tags: [catalog, assist, chotot, discovery]
+    tags: [catalog, assist, chotot, discovery, boost]
   - name: Deals
-    tags: [chat, deal, shipping]
+    tags: [chat, deal, shipping, payment]
   - name: After the sale
     tags: [trust, support, feedback, notification, stream]
   - name: App screens
@@ -213,6 +219,18 @@ paths:
     $ref: "paths/catalog.yaml#/listingPhotoCopies"
   /v1/listing-drafts:
     $ref: "paths/catalog.yaml#/listingDrafts"
+  /v1/boost-packages:
+    $ref: "paths/boost.yaml#/boostPackages"
+  /v1/boosts:
+    $ref: "paths/boost.yaml#/boosts"
+  /v1/boosts/{id}:
+    $ref: "paths/boost.yaml#/boost"
+  /v1/payments/vnpay/return:
+    $ref: "paths/boost.yaml#/vnpayReturn"
+  /v1/payments/vnpay/ipn:
+    $ref: "paths/boost.yaml#/vnpayNotify"
+  /v1/dev/payments/{id}:
+    $ref: "paths/boost.yaml#/devPayment"
   /v1/listing-drafts/{id}:
     $ref: "paths/catalog.yaml#/listingDraft"
   /v1/categories:
@@ -467,6 +485,8 @@ paths:
     $ref: "paths/console_records.yaml#/order"
   /v1/console/listings/{id}:
     $ref: "paths/console_records.yaml#/listing"
+  /v1/console/listings/{id}/boosts:
+    $ref: "paths/boost.yaml#/consoleListingBoosts"
   /v1/console/listings/{id}/hide:
     $ref: "paths/console.yaml#/listingHide"
   /v1/console/listings/{id}/unhide:

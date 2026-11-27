@@ -16,6 +16,8 @@ import (
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	accountsvc "github.com/shopnexus/server/internal/account/service"
+	boostdomain "github.com/shopnexus/server/internal/boost/domain"
+	boostsvc "github.com/shopnexus/server/internal/boost/service"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
@@ -61,6 +63,8 @@ type Worker struct {
 	Feedback feedbacksvc.Service
 	// Chotot gives the facts of Chợ Tốt links and sold copies.
 	Chotot chototsvc.Service
+	// Boosts gives the boost a boost.* event is about.
+	Boosts boostsvc.Service
 	Push   push.Sender
 	// Mail sends the notices the recipient's settings mail.
 	Mail mailview.Mailer
@@ -334,6 +338,52 @@ func (w Worker) ChototSold(ctx restate.Context, e events.Event) error {
 		return err
 	}
 	return w.tell(ctx, e.ID, []domain.Notice{domain.ChototSoldHere(f.Account, f.ListingID, f.Title, f.ListID, e.OccurredAt)})
+}
+
+// boostTypes is the notice each boost event writes.
+var boostTypes = map[events.Kind]domain.Type{
+	events.BoostStarted: domain.TypeBoostStarted, events.BoostFailed: domain.TypeBoostFailed,
+	events.BoostExpired: domain.TypeBoostExpired, events.BoostRefunded: domain.TypeBoostRefunded,
+	events.BoostEnded: domain.TypeBoostEnded,
+}
+
+// boostFacts are a boost's notice facts: the boost, its seller, whom the
+// view's JSON leaves out, and its listing's title.
+type boostFacts struct {
+	Boost  boostsvc.View `json:"boost"`
+	Seller uuid.UUID     `json:"seller"`
+	Title  string        `json:"title"`
+}
+
+// BoostMoved tells a seller what became of a boost: started, payment
+// failed or expired, refunded, ended. A gone boost tells no one.
+func (w Worker) BoostMoved(ctx restate.Context, e events.Event) error {
+	typ, ok := boostTypes[e.Kind]
+	if !ok {
+		return nil
+	}
+	f, err := read(ctx, "boost", func(rc restate.RunContext) (boostFacts, bool, error) {
+		b, err := w.Boosts.Boost(rc, e.SubjectID)
+		if errors.Is(err, boostdomain.ErrNotFound) {
+			return boostFacts{}, false, nil
+		}
+		if err != nil {
+			return boostFacts{}, false, fmt.Errorf("read the boost: %w", err)
+		}
+		l, found, err := w.Catalog.Summary(rc, b.ListingID)
+		if err != nil {
+			return boostFacts{}, false, fmt.Errorf("read the boost's listing: %w", err)
+		}
+		if !found {
+			return boostFacts{}, false, nil
+		}
+		return boostFacts{Boost: b, Seller: b.SellerID, Title: l.Title}, true, nil
+	})
+	if err != nil || f.Boost.ID == (uuid.UUID{}) {
+		return err
+	}
+	b := f.Boost
+	return w.tell(ctx, e.ID, []domain.Notice{domain.Boost(f.Seller, b.ID, b.ListingID, typ, f.Title, b.Days, b.Price, e.OccurredAt)})
 }
 
 // FeedbackMoved tells a feedback's owner that ShopNexus works on it or

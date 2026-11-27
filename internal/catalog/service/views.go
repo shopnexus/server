@@ -39,6 +39,7 @@ type ListingView struct {
 	CreatedAt    time.Time         `json:"created_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`
 	PublishedAt  *time.Time        `json:"published_at,omitempty"`
+	BumpedAt     *time.Time        `json:"bumped_at,omitempty"`
 	SoldAt       *time.Time        `json:"sold_at,omitempty"`
 	PriceDrop    *domain.PriceDrop `json:"price_drop,omitempty"`
 }
@@ -163,7 +164,7 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing, t locale.Tag) 
 			CategoryCode: l.CategoryCode(), Condition: l.Condition(), AllowOffers: l.AllowOffers(),
 			Location: places[l.CommuneCode()],
 			Photos:   photos, Specs: specs, Status: l.Status(),
-			CreatedAt: l.CreatedAt(), UpdatedAt: l.UpdatedAt(), PublishedAt: l.PublishedAt(), SoldAt: l.SoldAt(),
+			CreatedAt: l.CreatedAt(), UpdatedAt: l.UpdatedAt(), PublishedAt: l.PublishedAt(), BumpedAt: l.BumpedAt(), SoldAt: l.SoldAt(),
 		})
 		if d, ok := l.PriceDrop(now); ok {
 			out[len(out)-1].PriceDrop = &d

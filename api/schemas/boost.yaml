@@ -1,0 +1,212 @@
+BoostPackage:
+  type: object
+  additionalProperties: false
+  required: [id, days, price]
+  description: A package a seller buys for one of their listings.
+  properties:
+    id:
+      type: string
+      description: The package's code, such as 3d; POST /v1/boosts names it.
+      example: 3d
+    days:
+      type: integer
+      minimum: 1
+      description: How long the package runs; the listing moves up once at the start and again every 24 hours.
+    price:
+      type: integer
+      format: int64
+      description: In đồng, paid once through the payment gateway.
+BoostPackageList:
+  type: object
+  additionalProperties: false
+  required: [items, available]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/BoostPackage"
+      description: Shortest first.
+    available:
+      type: boolean
+      description: False when this server takes no payments; POST /v1/boosts then answers payment_unavailable.
+BoostInput:
+  type: object
+  additionalProperties: false
+  required: [listing_id, package]
+  properties:
+    listing_id:
+      type: string
+      format: uuid
+    package:
+      type: string
+      minLength: 1
+      maxLength: 16
+      description: The id of one of GET /v1/boost-packages's items.
+BoostStatus:
+  type: string
+  enum: [awaiting_payment, active, ended, failed, expired, cancelled, refunding, refunded]
+  description: |
+    awaiting_payment: the seller has 15 minutes to pay at payment_url.
+    active: paid and running. ended: the package ran its days. failed:
+    the gateway refused or the seller cancelled the payment. expired: not
+    paid within 15 minutes. cancelled: a newer purchase for the listing
+    replaced it before it was paid. refunding: paid, but the package could
+    not start (the listing was no longer on sale, or the purchase was
+    already closed), so the full amount goes back; refunded: it went back.
+Boost:
+  type: object
+  additionalProperties: false
+  required: [id, listing_id, package, days, price, status, bumps, created_at]
+  description: One purchase of a package for one listing.
+  properties:
+    id:
+      type: string
+      format: uuid
+    listing_id:
+      type: string
+      format: uuid
+    package:
+      type: string
+    days:
+      type: integer
+      minimum: 1
+    price:
+      type: integer
+      format: int64
+      description: In đồng, as charged.
+    status:
+      $ref: "#/BoostStatus"
+    payment_url:
+      type: string
+      format: uri
+      description: |
+        The gateway's payment page; present while awaiting_payment. Open it
+        in a browser tab. Once paid or cancelled the gateway sends the
+        browser to the server's return page, which opens
+        shopnexus://boost/{id}; the app then reads this boost again. Only
+        the server's own check with the gateway moves the status, never the
+        redirect.
+    payment_expires_at:
+      type: string
+      format: date-time
+      description: Present while awaiting_payment; the payment expires then.
+    started_at:
+      type: string
+      format: date-time
+      description: When the payment landed and the first move up happened.
+    ends_at:
+      type: string
+      format: date-time
+      description: When an active package ends; started_at plus its days.
+    next_bump_at:
+      type: string
+      format: date-time
+      description: The next move up of an active package; absent after the last one.
+    last_bump_at:
+      type: string
+      format: date-time
+      description: The latest move up the package made; a day the listing was not on sale makes none.
+    bumps:
+      type: integer
+      minimum: 0
+      description: How many times the package moved the listing up.
+    ended_at:
+      type: string
+      format: date-time
+      description: When the package ended, or the purchase closed without starting.
+    refunded_at:
+      type: string
+      format: date-time
+      description: When the gateway confirmed the refund.
+    created_at:
+      type: string
+      format: date-time
+ConsoleBoost:
+  type: object
+  additionalProperties: false
+  required: [boost, payment]
+  description: A boost of a listing with its payment, as staff read them.
+  properties:
+    boost:
+      $ref: "#/Boost"
+    payment:
+      $ref: "#/ConsolePayment"
+ConsolePayment:
+  type: object
+  additionalProperties: false
+  required: [id, gateway, amount, status, created_at, expires_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Also the order reference the gateway shows (vnp_TxnRef), without its hyphens.
+    gateway:
+      type: string
+      enum: [vnpay, fake]
+    amount:
+      type: integer
+      format: int64
+    status:
+      type: string
+      enum: [pending, paid, failed, expired, refunding, refunded]
+    gateway_ref:
+      type: string
+      description: The gateway's transaction number, once it reported one.
+    bank_code:
+      type: string
+      description: The bank or method the payer used, as the gateway names it.
+    result_code:
+      type: string
+      description: The gateway's response code of the payment result, such as 00 or 24.
+    created_at:
+      type: string
+      format: date-time
+    expires_at:
+      type: string
+      format: date-time
+    paid_at:
+      type: string
+      format: date-time
+    closed_at:
+      type: string
+      format: date-time
+      description: When it failed or expired.
+    refunded_at:
+      type: string
+      format: date-time
+ConsoleBoostList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ConsoleBoost"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more boosts follow; pass it as cursor.
+PaymentNotifyAnswer:
+  type: object
+  additionalProperties: false
+  required: [RspCode, Message]
+  description: The answer VNPay expects from an IPN.
+  properties:
+    RspCode:
+      type: string
+      enum: ["00", "01", "02", "04", "97", "99"]
+      description: |
+        00 recorded; 01 no such payment; 02 already recorded; 04 the amount
+        differs; 97 the signature does not check; 99 another error, which
+        VNPay sends again.
+    Message:
+      type: string
+DevPaymentInput:
+  type: object
+  additionalProperties: false
+  required: [result]
+  properties:
+    result:
+      type: string
+      enum: [pay, cancel]

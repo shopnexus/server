@@ -138,7 +138,8 @@ func Mail(n Notice, tag locale.Tag) mailview.Letter {
 
 	case TypeOffer, TypeCounter, TypeAgreed, TypeDeclined, TypeAgreementCancelled, TypeOfferVoided, TypeListingLive,
 		TypeListingRejected, TypeFollowedListing, TypeReview, TypeReviewReply, TypeWatchMatched, TypePriceDropped,
-		TypeFeedbackMoved, TypeFeedbackReplied, TypeChototImported, TypeChototSoldHere:
+		TypeFeedbackMoved, TypeFeedbackReplied, TypeChototImported, TypeChototSoldHere,
+		TypeBoostStarted, TypeBoostFailed, TypeBoostExpired, TypeBoostRefunded, TypeBoostEnded:
 		// Never mailed.
 	default:
 	}

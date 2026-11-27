@@ -55,6 +55,15 @@ MyListingsItem:
     from_chotot:
       type: boolean
       description: The listing was brought over from the seller's Chợ Tốt profile.
+    boost:
+      $ref: "boost.yaml#/Boost"
+      description: The listing's boost awaiting payment or running; absent when none.
+    boostable:
+      type: boolean
+      description: |
+        Whether POST /v1/boosts would sell a package for the listing now:
+        it is on sale, has no boost awaiting payment or running, the
+        account may write and has a phone, and the server takes payments.
 ListingOrder:
   type: object
   additionalProperties: false

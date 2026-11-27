@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	boostsvc "github.com/shopnexus/server/internal/boost/service"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
@@ -24,6 +25,10 @@ type ListingScreen struct {
 	DistanceKm *int                   `json:"distance_km,omitempty"`
 	Seller     SellerSummary          `json:"seller"`
 	Viewer     *ListingViewer         `json:"viewer,omitempty"`
+	// Boost is the listing's live boost, and Boostable whether a package
+	// may be bought for it now; both for its seller only.
+	Boost     *boostsvc.View `json:"boost,omitempty"`
+	Boostable *bool          `json:"boostable,omitempty"`
 }
 
 // SellerSummary is the SellerSummary schema in api/schemas/screen_listing.yaml.
@@ -67,7 +72,8 @@ type ListingRead struct {
 // Listing reads the listing signed out, so its seller too gets
 // catalogdomain.ErrNotFound unless it is active or reserved, then its
 // distance from in.Near. A viewer who is not the seller also gets their
-// save, deal and conversation with the seller, and counts a view of the
+// save, deal and conversation with the seller, the seller the listing's
+// boost standing; a viewer who is not the seller counts a view of the
 // listing unless the read is a prefetch. The count is best effort: a failed
 // count is logged, and the view answers all the same.
 func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead) (ListingScreen, error) {
@@ -103,6 +109,14 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead)
 		ID: l.SellerID, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, JoinedAt: seller.CreatedAt,
 		Rating: rating, Sold: counts.Sold, PhoneVerified: phoneVerified, ReplyTime: replyTime, AwayUntil: seller.AwayUntil,
 	}}
+	if viewer != nil && *viewer == l.SellerID {
+		standing, boostErr := s.d.Boosts.Standings(ctx, l.SellerID, map[uuid.UUID]catalogdomain.Status{id: l.Status})
+		if boostErr != nil {
+			return ListingScreen{}, fmt.Errorf("read the boost: %w", boostErr)
+		}
+		sd := standing[id]
+		out.Boost, out.Boostable = sd.Boost, &sd.Boostable
+	}
 	if viewer == nil || *viewer == l.SellerID {
 		return out, nil
 	}

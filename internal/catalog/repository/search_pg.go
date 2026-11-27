@@ -426,7 +426,7 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 	}
 	switch in.Sort { //nolint:exhaustive // relevance is the default order
 	case domain.SortNewest:
-		sql += ` ORDER BY published_at DESC, id DESC`
+		sql += ` ORDER BY fresh_at DESC, id DESC`
 	case domain.SortPriceAsc:
 		sql += ` ORDER BY price ASC, id`
 	case domain.SortPriceDesc:
@@ -477,9 +477,9 @@ func (s pgSearches) blend(ctx context.Context, in domain.Search) ([]domain.Hit, 
 		shared += ` AND ` + distanceSQL + ` <= @radius`
 	}
 	branch := func(f domain.Search, cond string, weight float64) string {
-		return `(SELECT id, (row_number() OVER (ORDER BY published_at DESC, id DESC) - 0.5) / ` + q.arg(weight, "float8") + ` AS slot
-FROM (SELECT id, published_at FROM listings WHERE id @@@ paradedb.boolean(must => ` + array(q.must(f)) + `)` + shared + cond +
-			` ORDER BY published_at DESC, id DESC LIMIT @branch) b)`
+		return `(SELECT id, (row_number() OVER (ORDER BY fresh_at DESC, id DESC) - 0.5) / ` + q.arg(weight, "float8") + ` AS slot
+FROM (SELECT id, fresh_at FROM listings WHERE id @@@ paradedb.boolean(must => ` + array(q.must(f)) + `)` + shared + cond +
+			` ORDER BY fresh_at DESC, id DESC LIMIT @branch) b)`
 	}
 	branches := make([]string, 0, len(codes)+1)
 	for _, code := range codes {
@@ -496,7 +496,7 @@ FROM (SELECT id, published_at FROM listings WHERE id @@@ paradedb.boolean(must =
 	}
 	branches = append(branches, branch(in, outside, rest))
 	rows, err := s.db.Query(ctx, `SELECT l.id, l.lat, l.lng FROM listings AS l JOIN (`+strings.Join(branches, " UNION ALL ")+`) AS c ON c.id = l.id
-ORDER BY c.slot, l.published_at DESC, l.id DESC LIMIT @limit OFFSET @offset`, q.args)
+ORDER BY c.slot, l.fresh_at DESC, l.id DESC LIMIT @limit OFFSET @offset`, q.args)
 	if err != nil {
 		return nil, fmt.Errorf("search by blend: %w", err)
 	}
@@ -528,7 +528,7 @@ func (s pgSearches) hybridSearch(ctx context.Context, in domain.Search) ([]domai
 SELECT l.id, l.lat, l.lng FROM fused AS f JOIN listings AS l ON l.id = f.id`
 	switch in.Sort { //nolint:exhaustive // relevance is the default order
 	case domain.SortNewest:
-		sql += ` ORDER BY l.published_at DESC, l.id DESC`
+		sql += ` ORDER BY l.fresh_at DESC, l.id DESC`
 	case domain.SortPriceAsc:
 		sql += ` ORDER BY l.price ASC, l.id`
 	case domain.SortPriceDesc:

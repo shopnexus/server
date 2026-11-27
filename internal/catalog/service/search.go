@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/catalog/domain"
@@ -25,6 +26,10 @@ type SearchCard struct {
 	// km; absent without an origin.
 	DistanceKm *int              `json:"distance_km,omitempty"`
 	PriceDrop  *domain.PriceDrop `json:"price_drop,omitempty"`
+	// PublishedAt is when the listing first went on sale, BumpedAt its
+	// latest boost's move up, nil for none.
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+	BumpedAt    *time.Time `json:"bumped_at,omitempty"`
 	// PhotoThumbURLs are the thumbnails of the first CardPhotos photos, the
 	// cover first.
 	PhotoThumbURLs []string `json:"photo_thumb_urls,omitempty"`
@@ -81,7 +86,7 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 		out[i] = SearchCard{
 			ID: l.ID(), Slug: l.Slug(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), CategoryCode: l.CategoryCode(),
 			Condition: l.Condition(), AllowOffers: l.AllowOffers(), Commune: places[l.CommuneCode()].Commune.DisplayName,
-			CommuneCode: l.CommuneCode(),
+			CommuneCode: l.CommuneCode(), PublishedAt: l.PublishedAt(), BumpedAt: l.BumpedAt(),
 		}
 		ps := l.Photos()
 		if len(ps) > 0 && ps[0].Keys.Photo != "" {

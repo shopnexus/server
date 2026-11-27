@@ -13,11 +13,13 @@ type SortOrder string
 
 const (
 	SortRelevance SortOrder = "relevance"
+	// SortNewest orders by the later of a listing's first publication and
+	// its latest boost's move up.
 	SortNewest    SortOrder = "newest"
 	SortNearest   SortOrder = "nearest"
 	SortPriceAsc  SortOrder = "price_asc"
 	SortPriceDesc SortOrder = "price_desc"
-	// SortBlend interleaves streams, each newest first: one per category
+	// SortBlend interleaves streams, each newest first as SortNewest: one per category
 	// boost and one for the listings outside them, which weighs as much as
 	// the heaviest boost. A stream's share of every page follows its
 	// weight; a tie goes newest first, then by ID. A boost of another kind

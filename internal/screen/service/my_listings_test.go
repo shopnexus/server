@@ -15,6 +15,8 @@ import (
 	"github.com/shopnexus/server/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	accountsvc "github.com/shopnexus/server/internal/account/service"
+	boostrepo "github.com/shopnexus/server/internal/boost/repository"
+	boostsvc "github.com/shopnexus/server/internal/boost/service"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server/internal/catalog/repository"
@@ -30,6 +32,8 @@ import (
 	discoveryrepo "github.com/shopnexus/server/internal/discovery/repository"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 	"github.com/shopnexus/server/internal/media/mediatest"
+	paymentrepo "github.com/shopnexus/server/internal/payment/repository"
+	paymentsvc "github.com/shopnexus/server/internal/payment/service"
 	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/page"
@@ -115,8 +119,20 @@ func (c *countedChotot) FromChotot(ctx context.Context, account uuid.UUID, listi
 	return c.Service.FromChotot(ctx, account, listings)
 }
 
+// countedBoosts counts the boost reads through it.
+type countedBoosts struct {
+	boostsvc.Service
+
+	batches atomic.Int32
+}
+
+func (c *countedBoosts) Standings(ctx context.Context, seller uuid.UUID, listings map[uuid.UUID]catalogdomain.Status) (map[uuid.UUID]boostsvc.Standing, error) {
+	c.batches.Add(1)
+	return c.Service.Standings(ctx, seller, listings)
+}
+
 // sellCalls is how many times Tin của bạn called each service.
-type sellCalls struct{ pages, onSale, stats, deals, chats, chotot int32 }
+type sellCalls struct{ pages, onSale, stats, deals, chats, chotot, boosts int32 }
 
 type sellEnv struct {
 	db        *pgxpool.Pool
@@ -137,6 +153,7 @@ type sellEnv struct {
 		deals     *activityDeals
 		chats     *countedChats
 		chotot    *countedChotot
+		boosts    *countedBoosts
 	}
 	screen *service.Screen
 }
@@ -177,9 +194,14 @@ func newSellEnv(t *testing.T) *sellEnv {
 	e.counted.chats = &countedChats{Service: e.chats}
 	e.imports = chototrepo.NewImports(db)
 	e.counted.chotot = &countedChotot{Service: chototsvc.New(chototsvc.Deps{Imports: e.imports})}
+	e.counted.boosts = &countedBoosts{Service: boostsvc.New(boostsvc.Deps{
+		Store: boostrepo.NewStore(db), Payments: paymentsvc.New(paymentsvc.Deps{Store: paymentrepo.NewStore(db)}),
+		Accounts: e.accounts,
+	})}
 	e.screen = service.New(service.Deps{
 		Accounts: e.accounts, Catalog: e.counted.catalog, Deals: e.counted.deals, Chats: e.counted.chats,
-		Discovery: e.counted.discovery, Trust: trust, Chotot: e.counted.chotot, Now: clock, Log: slog.New(slog.DiscardHandler),
+		Discovery: e.counted.discovery, Trust: trust, Chotot: e.counted.chotot, Boosts: e.counted.boosts, Now: clock,
+		Log: slog.New(slog.DiscardHandler),
 	})
 	return e
 }
@@ -189,6 +211,7 @@ func (e *sellEnv) take() sellCalls {
 	return sellCalls{
 		pages: e.counted.catalog.pages.Swap(0), onSale: e.counted.catalog.onSale.Swap(0), stats: e.counted.discovery.stats.Swap(0),
 		deals: e.counted.deals.batches.Swap(0), chats: e.counted.chats.batches.Swap(0), chotot: e.counted.chotot.batches.Swap(0),
+		boosts: e.counted.boosts.batches.Swap(0),
 	}
 }
 
@@ -201,7 +224,7 @@ func (e *sellEnv) read(t *testing.T, seller uuid.UUID, pane catalogsvc.Pane, p p
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := e.take(), (sellCalls{pages: 1, onSale: onSale, stats: 1, deals: 1, chats: 1, chotot: 1}); got != want {
+	if got, want := e.take(), (sellCalls{pages: 1, onSale: onSale, stats: 1, deals: 1, chats: 1, chotot: 1, boosts: 1}); got != want {
 		t.Fatalf("%s page made %+v calls, want %+v", pane, got, want)
 	}
 	return v

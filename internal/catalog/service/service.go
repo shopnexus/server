@@ -152,6 +152,10 @@ type Service interface {
 	// Lift ends a member's hold and puts the listing back on sale when it is
 	// still hidden. It records listing.unhide for by.
 	Lift(ctx context.Context, id uuid.UUID, by audit.Actor) (ReportedListing, error)
+	// Bump moves the seller's active listing to the top of the newest order
+	// at at, keeping a later bump; false when the listing is not the
+	// seller's or not active. A repeated call changes nothing.
+	Bump(ctx context.Context, seller, id uuid.UUID, at time.Time) (bool, error)
 	// Reserve holds an active listing for an order; holding it again for the
 	// same order changes nothing. Another status is domain.ErrStateConflict.
 	Reserve(ctx context.Context, listingID, orderID uuid.UUID) error

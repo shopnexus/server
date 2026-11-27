@@ -19,13 +19,13 @@ type SellerCounts struct {
 }
 
 // SellerListings lists the seller's active and reserved listings that are
-// not in except as cards, newest first, each measured from near when near
+// not in except as cards, newest first as a search sorts them, each measured from near when near
 // names a position. An unknown seller is
 // accountdomain.ErrAccountNotFound, before near is checked. The seller's
 // account is read only for an empty page, since a listing shows the seller
 // exists.
 func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, except []uuid.UUID, p page.Request) (page.Page[SearchCard], error) {
-	rows, err := c.d.Listings.ListBySeller(ctx, seller, domain.Public, except, p)
+	rows, err := c.d.Listings.ListFresh(ctx, seller, domain.Public, except, p)
 	if err != nil {
 		return page.Page[SearchCard]{}, fmt.Errorf("list listings: %w", err)
 	}

@@ -9,6 +9,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	boostsvc "github.com/shopnexus/server/internal/boost/service"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
@@ -45,13 +47,17 @@ type MyListingsItem struct {
 	Order   *dealsvc.ListingOrderView `json:"order,omitempty"`
 	// FromChotot is a listing an import brought over from Chợ Tốt.
 	FromChotot bool `json:"from_chotot"`
+	// Boost is the listing's boost awaiting payment or running, and
+	// Boostable whether a package may be bought for it now.
+	Boost     *boostsvc.View `json:"boost,omitempty"`
+	Boostable bool           `json:"boostable"`
 }
 
 // MyListings reads a page of one of the seller's panes and, unless the page
 // holds them all, the IDs of the seller's listings on sale; then, for all
 // those listings at once, their views and saves, their deals, and the
-// messages about them, and which of the page came from Chợ Tốt. That is
-// five or six calls, whatever the page holds.
+// messages about them, which of the page came from Chợ Tốt and the page's
+// boosts. That is six or seven calls, whatever the page holds.
 // The week sums the listings on sale, whichever pane the page is.
 func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request, t locale.Tag) (MyListingsScreen, error) {
 	// Views are stored by UTC day, so the week is the seven UTC days that
@@ -86,6 +92,7 @@ func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogs
 		activity map[uuid.UUID]dealsvc.ListingActivity
 		wrote    map[uuid.UUID][]chatsvc.ListingAsker
 		imported map[uuid.UUID]bool
+		boosts   map[uuid.UUID]boostsvc.Standing
 	)
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
@@ -113,6 +120,17 @@ func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogs
 		var chototErr error
 		if imported, chototErr = s.d.Chotot.FromChotot(gctx, seller, shown); chototErr != nil {
 			return fmt.Errorf("read the Chợ Tốt imports: %w", chototErr)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		statuses := make(map[uuid.UUID]catalogdomain.Status, len(listings.Items))
+		for i := range listings.Items {
+			statuses[listings.Items[i].ID] = listings.Items[i].Status
+		}
+		var boostErr error
+		if boosts, boostErr = s.d.Boosts.Standings(gctx, seller, statuses); boostErr != nil {
+			return fmt.Errorf("read the boosts: %w", boostErr)
 		}
 		return nil
 	})
@@ -153,10 +171,13 @@ func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogs
 	for i := range listings.Items {
 		l := listings.Items[i]
 		st := stats[l.ID]
-		out.Items = append(out.Items, MyListingsItem{
+		item := MyListingsItem{
 			Listing: l, Views: st.Views, Views7d: st.ViewsSince, Askers: len(askers[l.ID]), Saves: st.Saves,
 			Order: activity[l.ID].Order, FromChotot: imported[l.ID],
-		})
+		}
+		sd := boosts[l.ID]
+		item.Boost, item.Boostable = sd.Boost, sd.Boostable
+		out.Items = append(out.Items, item)
 	}
 	return out, nil
 }

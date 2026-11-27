@@ -39,6 +39,7 @@ func loadSpec() error {
 	}
 	doc.Servers = nil // match paths on any host, the test server included
 	openapi3filter.RegisterBodyDecoder("text/event-stream", decodeEvents)
+	openapi3filter.RegisterBodyDecoder("text/html", decodePage)
 	specRouter, err = legacy.NewRouter(doc)
 	return err
 }
@@ -66,6 +67,16 @@ func decodeEvents(body io.Reader, _ http.Header, schema *openapi3.SchemaRef, _ o
 		return nil, errors.New("a stream without events")
 	}
 	return last, nil
+}
+
+// decodePage reads an HTML page as its text, which the schema types as a
+// string.
+func decodePage(body io.Reader, _ http.Header, _ *openapi3.SchemaRef, _ openapi3filter.EncodingFn) (any, error) {
+	b, err := io.ReadAll(body)
+	if err != nil {
+		return nil, fmt.Errorf("read the page: %w", err)
+	}
+	return string(b), nil
 }
 
 // record notes that op answered status, for the coverage check.

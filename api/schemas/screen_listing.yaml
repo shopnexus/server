@@ -16,6 +16,16 @@ ListingScreen:
       $ref: "#/SellerSummary"
     viewer:
       $ref: "#/ListingViewer"
+    boost:
+      $ref: "boost.yaml#/Boost"
+      description: The listing's boost awaiting payment or running, sent to its seller only; absent when none.
+    boostable:
+      type: boolean
+      description: |
+        Sent to the seller only: whether POST /v1/boosts would sell a
+        package for the listing now. True when the listing is on sale,
+        has no boost awaiting payment or running, the account may write and
+        has a phone, and the server takes payments.
 SoldListingScreen:
   type: object
   additionalProperties: false

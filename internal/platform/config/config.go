@@ -99,6 +99,8 @@ type Config struct {
 	Email       EmailConfig
 	Google      GoogleConfig
 	Carrier     CarrierConfig
+	Payment     PaymentConfig
+	Boost       BoostConfig
 	// IndexNowKey is INDEXNOW_KEY, the key catalog tells search engines
 	// changed listing pages with (8 to 128 letters, digits and dashes).
 	// Empty turns IndexNow off.
@@ -131,6 +133,38 @@ type CarrierConfig struct {
 	GHNURL     string //exhaustruct:optional GHN_API_URL: ends in /shiip/public-api
 	GHNPartner string //exhaustruct:optional GHN_PARTNER_TOKEN: ShopNexus's own GHN token
 	GHNWebhook string //exhaustruct:optional GHN_WEBHOOK_SECRET: the secret in GHN's webhook path
+}
+
+// PaymentConfig says where the platform's own sales are paid (module
+// payment). The hash secret is never logged.
+type PaymentConfig struct {
+	// Mode is PAYMENT_VNPAY: live, fake or off. fake (dev and test) serves
+	// the dev payment page, whose buttons pay or cancel as VNPay would;
+	// APP_ENV=prod refuses it. off takes no payment. live sends payers to
+	// VNPay with the settings below.
+	Mode string
+	// PublicURL is API_PUBLIC_URL, the server's own public origin, which
+	// the payment pages and VNPay's return address point back to.
+	PublicURL string
+	// With PAYMENT_VNPAY=live only, empty otherwise.
+	TmnCode    string //exhaustruct:optional VNPAY_TMN_CODE: the terminal VNPay gave ShopNexus
+	HashSecret string //exhaustruct:optional VNPAY_HASH_SECRET: the terminal's checksum secret
+	PayURL     string //exhaustruct:optional VNPAY_PAY_URL: the payment page, ending in vpcpay.html
+	APIURL     string //exhaustruct:optional VNPAY_API_URL: the merchant API, ending in /merchant_webapi/api/transaction
+	ServerIP   string //exhaustruct:optional VNPAY_SERVER_IP: the address the server calls VNPay from
+}
+
+// BoostConfig is what boosts are sold at (module boost).
+type BoostConfig struct {
+	// Packages is BOOST_PACKAGES: days:price pairs, comma separated, such as
+	// 3:15000,7:29000; prices in đồng, shortest first.
+	Packages []BoostPackage
+}
+
+// BoostPackage is one package: how many days it runs and its price.
+type BoostPackage struct {
+	Days  int
+	Price int64
 }
 
 // PushConfig says how pushes reach phones. Empty credentials mean the log
@@ -439,6 +473,23 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		return name, dir
 	}
 
+	// BOOST_PACKAGES: days:price pairs, strictly longer each.
+	var packages []BoostPackage
+	for pair := range strings.SplitSeq(need("BOOST_PACKAGES"), ",") {
+		if strings.TrimSpace(pair) == "" {
+			continue
+		}
+		d, p, _ := strings.Cut(strings.TrimSpace(pair), ":")
+		days, dErr := strconv.Atoi(d)
+		price, pErr := strconv.ParseInt(p, 10, 64)
+		if dErr != nil || pErr != nil || days < 1 || days > 30 || price < 1000 ||
+			(len(packages) > 0 && days <= packages[len(packages)-1].Days) {
+			errs = append(errs, fmt.Errorf("BOOST_PACKAGES: %q: want days:price, 1 to 30 days, at least 1000 đồng, shortest first", pair))
+			continue
+		}
+		packages = append(packages, BoostPackage{Days: days, Price: price})
+	}
+
 	role := RoleAll
 	if v, _ := lookup("SERVER_ROLE"); v != "" {
 		role = Role(v)
@@ -629,6 +680,12 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			GHTKURL: set("GHTK_API_URL"), GHTKPartner: set("GHTK_PARTNER_TOKEN"), GHTKSource: set("GHTK_CLIENT_SOURCE"),
 			GHTKWebhook: set("GHTK_WEBHOOK_SECRET"), GHNURL: set("GHN_API_URL"), GHNPartner: set("GHN_PARTNER_TOKEN"), GHNWebhook: set("GHN_WEBHOOK_SECRET"),
 		},
+		Payment: PaymentConfig{
+			Mode: oneOf("PAYMENT_VNPAY", "live", "fake", "off"), PublicURL: need("API_PUBLIC_URL"),
+			TmnCode: set("VNPAY_TMN_CODE"), HashSecret: set("VNPAY_HASH_SECRET"), PayURL: set("VNPAY_PAY_URL"),
+			APIURL: set("VNPAY_API_URL"), ServerIP: set("VNPAY_SERVER_IP"),
+		},
+		Boost: BoostConfig{Packages: packages},
 		Gateway: GatewayConfig{
 			URL: need("GATEWAY_URL"), AdminUsername: need("GATEWAY_ADMIN_USERNAME"), AdminPassword: need("GATEWAY_ADMIN_PASSWORD"),
 		},
@@ -704,6 +761,24 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			default:
 			}
 		}
+	}
+
+	// VNPay live needs all its settings; fake and off take none.
+	p := cfg.Payment
+	for key, v := range map[string]string{
+		"VNPAY_TMN_CODE": p.TmnCode, "VNPAY_HASH_SECRET": p.HashSecret, "VNPAY_PAY_URL": p.PayURL, "VNPAY_API_URL": p.APIURL,
+		"VNPAY_SERVER_IP": p.ServerIP,
+	} {
+		switch {
+		case p.Mode == "live" && v == "":
+			errs = append(errs, fmt.Errorf("%s is required with PAYMENT_VNPAY=live", key))
+		case p.Mode != "live" && v != "":
+			errs = append(errs, fmt.Errorf("%s is set only with PAYMENT_VNPAY=live", key))
+		default:
+		}
+	}
+	if u, err := url.Parse(p.PublicURL); p.PublicURL != "" && (err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Path != "") {
+		errs = append(errs, fmt.Errorf("API_PUBLIC_URL=%q: want an origin such as https://api.shopnexus.id.vn", p.PublicURL))
 	}
 
 	if cfg.Email.Sender == "resend" && cfg.Email.ResendAPIKey == "" {

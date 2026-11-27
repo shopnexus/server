@@ -65,6 +65,14 @@ type Listings interface {
 	// ListBySeller is a query: seller's listings in statuses with IDs below
 	// p.Before() and not in except, newest first, at most p.Fetch().
 	ListBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status, except []uuid.UUID, p page.Request) ([]domain.Listing, error)
+	// ListFresh is a query: seller's listings in statuses not in except,
+	// newest first as domain.SortNewest orders them, after the listing
+	// p.Cursor names, at most p.Fetch().
+	ListFresh(ctx context.Context, seller uuid.UUID, statuses []domain.Status, except []uuid.UUID, p page.Request) ([]domain.Listing, error)
+	// Bump moves the seller's active listing to the top of the newest order
+	// at at, keeping a later bump, and reports whether the listing was the
+	// seller's and active. A repeated call changes nothing.
+	Bump(ctx context.Context, seller, id uuid.UUID, at time.Time) (bool, error)
 	// IDsBySeller is a query: the IDs of seller's listings in statuses,
 	// newest first.
 	IDsBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status) ([]uuid.UUID, error)

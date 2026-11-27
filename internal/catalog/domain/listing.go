@@ -294,6 +294,7 @@ func (l *Listing) CreatedAt() time.Time            { return l.s.CreatedAt }
 func (l *Listing) UpdatedAt() time.Time            { return l.s.UpdatedAt }
 func (l *Listing) PublishedAt() *time.Time         { return l.s.PublishedAt }
 func (l *Listing) SoldAt() *time.Time              { return l.s.SoldAt }
+func (l *Listing) BumpedAt() *time.Time            { return l.s.BumpedAt }
 func (l *Listing) SoldOrder() *uuid.UUID           { return l.s.SoldOrder }
 func (l *Listing) HeldAt() *time.Time              { return l.s.HeldAt }
 
@@ -542,12 +543,15 @@ type ListingState struct {
 	CreatedAt    time.Time            `json:"created_at"`
 	UpdatedAt    time.Time            `json:"updated_at"`
 	PublishedAt  *time.Time           `json:"published_at,omitempty"`
-	SoldAt       *time.Time           `json:"sold_at,omitempty"`
-	DeletedAt    *time.Time           `json:"deleted_at,omitempty"`
-	HeldAt       *time.Time           `json:"held_at,omitempty"`
-	Lat          float64              `json:"lat"`
-	Lng          float64              `json:"lng"`
-	Code         string               `json:"code,omitempty"`
+	// BumpedAt is the latest boost's move up the newest order; only
+	// Listings.Bump writes it.
+	BumpedAt  *time.Time `json:"bumped_at,omitempty"`
+	SoldAt    *time.Time `json:"sold_at,omitempty"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	HeldAt    *time.Time `json:"held_at,omitempty"`
+	Lat       float64    `json:"lat"`
+	Lng       float64    `json:"lng"`
+	Code      string     `json:"code,omitempty"`
 	// PreviousPrice is 0 when PriceChangedAt is nil.
 	PreviousPrice  int64      `json:"previous_price,omitempty"`
 	PriceChangedAt *time.Time `json:"price_changed_at,omitempty"`

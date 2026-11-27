@@ -27,7 +27,8 @@ Notification:
       type: string
       enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, completed,
         failed, order_cancelled, listing_live, listing_rejected, followed_listing, review, review_reply, suspended, unsuspended,
-        watch_matched, price_dropped, feedback_moved, feedback_replied, chotot_imported, chotot_sold_here, parcel_lost]
+        watch_matched, price_dropped, feedback_moved, feedback_replied, chotot_imported, chotot_sold_here, parcel_lost,
+        boost_started, boost_failed, boost_expired, boost_refunded, boost_ended]
     text:
       type: string
       description: What the notice says, in the language Accept-Language prefers.

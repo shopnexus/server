@@ -59,6 +59,7 @@ func testConfig(t *testing.T) config.Config {
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},
 		Google:   googletest.New(t).Config(),
 		Carrier:  config.CarrierConfig{GHTKMode: "fake", GHNMode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
+		Payment:  config.PaymentConfig{Mode: "fake", PublicURL: "http://127.0.0.1:1"},
 	}
 }
 
@@ -231,6 +232,45 @@ func TestNewRefusesTheFakeCarrierInProd(t *testing.T) {
 	}
 }
 
+// Production refuses the fake gateway, whose dev page pays for anyone, and
+// any mode but live, fake and off.
+func TestNewRefusesTheFakeGatewayInProdAndUnknownModes(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey = "prod", "resend", "re_test"
+	cfg.Carrier.GHTKMode, cfg.Carrier.GHNMode, cfg.Payment.Mode = "off", "off", "fake"
+	if _, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{})); err == nil ||
+		!strings.Contains(err.Error(), "PAYMENT_VNPAY=fake") {
+		t.Fatalf("fake in prod: %v", err)
+	}
+	cfg = testConfig(t)
+	cfg.Payment.Mode = "cash"
+	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "PAYMENT_VNPAY") {
+		t.Fatalf("unknown mode: %v", err)
+	}
+}
+
+// The fake gateway's dev page is served with the fake only; VNPay's
+// return page and IPN always are.
+func TestFakeGatewayServesTheDevPage(t *testing.T) {
+	t.Parallel()
+	for mode, dev := range map[string]bool{"off": false, "fake": true} {
+		cfg := testConfig(t)
+		cfg.Payment.Mode = mode
+		a, err := New(context.Background(), cfg, discard(), withFakeAI())
+		if err != nil {
+			t.Fatalf("%s: %v", mode, err)
+		}
+		t.Cleanup(func() { a.Close(context.Background()) })
+		routes := a.Routes()
+		if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/payments/{id}"}) != dev ||
+			!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/payments/vnpay/ipn"}) ||
+			!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/payments/vnpay/return"}) {
+			t.Fatalf("%s: routes %v", mode, routes)
+		}
+	}
+}
+
 // Without a fake carrier the dev endpoint that moves shipments is not
 // served, both carriers off or GHN live alone; the shipment routes are, and
 // so is the dev endpoint that logs updates.
@@ -266,7 +306,7 @@ func TestProdServesNoDevRoute(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey = "prod", "resend", "re_test"
-	cfg.Carrier.GHTKMode, cfg.Carrier.GHNMode = "off", "off"
+	cfg.Carrier.GHTKMode, cfg.Carrier.GHNMode, cfg.Payment.Mode = "off", "off", "off"
 	a, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}), withFakeAI())
 	if err != nil {
 		t.Fatal(err)
@@ -275,6 +315,7 @@ func TestProdServesNoDevRoute(t *testing.T) {
 	routes := a.Routes()
 	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/updates"}) ||
 		slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
+		slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/payments/{id}"}) ||
 		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/updates"}) {
 		t.Fatalf("routes %v", routes)
 	}

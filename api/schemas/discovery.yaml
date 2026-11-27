@@ -112,6 +112,12 @@ SearchItem:
       type: integer
       minimum: 0
       description: Whole kilometres from the caller's position, 0 under 1 km; absent without a position.
+    published_at:
+      type: string
+      format: date-time
+      description: When the listing first went on sale.
+    bumped_at:
+      $ref: "catalog.yaml#/BumpedAt"
     saved:
       type: boolean
       description: False when signed out.

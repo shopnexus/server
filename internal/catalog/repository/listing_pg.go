@@ -37,7 +37,7 @@ func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	if err := row.Scan(&st.ID, &st.SellerID, &st.Title, &st.Price, &st.Description, &st.CategoryCode, &st.Condition,
 		&st.AllowOffers, &st.CommuneCode, &st.Photos, &st.Specs, &st.Status, &st.Rejection, &reservedFor, &st.WriteID, &st.CreatedAt,
 		&st.UpdatedAt, &st.PublishedAt, &st.SoldAt, &st.DeletedAt, &st.Lat, &st.Lng, &st.HeldAt, &previousPrice, &st.PriceChangedAt,
-		&st.SoldOrder, &st.Code); err != nil {
+		&st.SoldOrder, &st.Code, &st.BumpedAt); err != nil {
 		return domain.Listing{}, fmt.Errorf("scan listing: %w", err)
 	}
 	if reservedFor != nil {
@@ -77,6 +77,10 @@ func args(st domain.ListingState) pgx.StrictNamedArgs {
 		"sold_order_id": st.SoldOrder,
 	}
 }
+
+// listingSelect is listingColumns and the columns only their own writes
+// set.
+const listingSelect = listingColumns + `, bumped_at`
 
 // lockSeller makes the inserts and saves that may add to a seller's
 // listings on sale wait for each other, so a count they read stays true
@@ -212,7 +216,7 @@ func (s pgListings) CountAll(ctx context.Context) (map[domain.Status]int, error)
 }
 
 func (s pgListings) Get(ctx context.Context, id uuid.UUID) (domain.Listing, error) {
-	rows, err := s.db.Query(ctx, `SELECT `+listingColumns+` FROM listings WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
+	rows, err := s.db.Query(ctx, `SELECT `+listingSelect+` FROM listings WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
 	if err != nil {
 		return domain.Listing{}, fmt.Errorf("select listing: %w", err)
 	}
@@ -290,7 +294,7 @@ func (s pgListings) ListBySeller(ctx context.Context, seller uuid.UUID, statuses
 	if except == nil {
 		except = []uuid.UUID{} // id <> ALL(NULL) is never true
 	}
-	rows, err := s.db.Query(ctx, `SELECT `+listingColumns+` FROM listings
+	rows, err := s.db.Query(ctx, `SELECT `+listingSelect+` FROM listings
 WHERE seller_id = @seller AND status = ANY(@statuses) AND id <> ALL(@except) AND id < @before ORDER BY id DESC LIMIT @limit`,
 		pgx.StrictNamedArgs{"seller": seller, "statuses": statuses, "except": except, "before": p.Before(), "limit": p.Fetch()})
 	if err != nil {
@@ -301,6 +305,39 @@ WHERE seller_id = @seller AND status = ANY(@statuses) AND id <> ALL(@except) AND
 		return nil, fmt.Errorf("read listings: %w", err)
 	}
 	return ls, nil
+}
+
+func (s pgListings) ListFresh(ctx context.Context, seller uuid.UUID, statuses []domain.Status, except []uuid.UUID, p page.Request) ([]domain.Listing, error) {
+	if except == nil {
+		except = []uuid.UUID{} // id <> ALL(NULL) is never true
+	}
+	var cursor any
+	if p.Cursor != (uuid.UUID{}) {
+		cursor = p.Cursor
+	}
+	rows, err := s.db.Query(ctx, `SELECT `+listingSelect+` FROM listings
+WHERE seller_id = @seller AND status = ANY(@statuses) AND id <> ALL(@except)
+  AND (@cursor::uuid IS NULL OR (fresh_at, id) < (SELECT fresh_at, id FROM listings WHERE id = @cursor))
+ORDER BY fresh_at DESC, id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"seller": seller, "statuses": statuses, "except": except, "cursor": cursor, "limit": p.Fetch()})
+	if err != nil {
+		return nil, fmt.Errorf("select listings: %w", err)
+	}
+	ls, err := pgx.CollectRows(rows, scanListing)
+	if err != nil {
+		return nil, fmt.Errorf("read listings: %w", err)
+	}
+	return ls, nil
+}
+
+func (s pgListings) Bump(ctx context.Context, seller, id uuid.UUID, at time.Time) (bool, error) {
+	tag, err := s.db.Exec(ctx, `UPDATE listings SET bumped_at = greatest(bumped_at, @at)
+WHERE id = @id AND seller_id = @seller AND status = @active`,
+		pgx.StrictNamedArgs{"id": id, "seller": seller, "at": at, "active": domain.StatusActive})
+	if err != nil {
+		return false, fmt.Errorf("bump listing: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 func (s pgListings) IDsBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status) ([]uuid.UUID, error) {
@@ -317,7 +354,7 @@ func (s pgListings) IDsBySeller(ctx context.Context, seller uuid.UUID, statuses 
 }
 
 func (s pgListings) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Listing, error) {
-	rows, err := s.db.Query(ctx, `SELECT `+listingColumns+` FROM listings WHERE id = ANY(@ids)`, pgx.StrictNamedArgs{"ids": ids})
+	rows, err := s.db.Query(ctx, `SELECT `+listingSelect+` FROM listings WHERE id = ANY(@ids)`, pgx.StrictNamedArgs{"ids": ids})
 	if err != nil {
 		return nil, fmt.Errorf("select listings: %w", err)
 	}
