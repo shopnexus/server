@@ -521,6 +521,8 @@ paths:
     $ref: "paths/ai_settings.yaml#/agents"
   /v1/console/settings/agents/usage:
     $ref: "paths/ai_settings.yaml#/agentUsage"
+  /v1/console/settings/agents/activity:
+    $ref: "paths/ai_settings.yaml#/agentActivity"
   /v1/console/settings/agents/{id}:
     $ref: "paths/ai_settings.yaml#/agent"
   /v1/console/settings/agents/{id}/versions:

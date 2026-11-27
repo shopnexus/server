@@ -324,6 +324,7 @@ func settingsCalls(agent string) []settingsCall {
 		{"GET", settings + "/agents/" + agent + "/versions", nil},
 		{"GET", settings + "/spend?from=2026-11-01&to=2026-11-07", nil},
 		{"GET", settings + "/agents/usage", nil},
+		{"GET", settings + "/agents/activity?range=30d", nil},
 		{"GET", settings + "/dashboards", nil},
 		{"PATCH", settings + "/dashboards", map[string]any{"items": []map[string]string{{"app": "grafana", "floor": "moderator"}}}},
 	}

@@ -177,6 +177,11 @@ type Service interface {
 	//
 	// UC-MOD-12 A4
 	AgentUsage(ctx context.Context, caller authn.ConsoleMember, rng string) ([]AgentUsage, error)
+	// AgentActivity counts the console agents' calls, turns, approvals
+	// and rate limit refusals over a range.
+	//
+	// UC-MOD-12 A4
+	AgentActivity(ctx context.Context, caller authn.ConsoleMember, rng string) (Activity, error)
 	// Order reads an order for the console's order page, recording the
 	// read of its tickets for caller.
 	Order(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConsoleOrder, error)

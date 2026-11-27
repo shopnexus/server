@@ -180,7 +180,8 @@ AgentTurn:
         Why the run ended without an error, as the runtime says: done,
         length (the answer hit the output limit), deadline, paused, stopped,
         loop (the same calls gave the same results three steps running),
-        context_full.
+        context_full, or budget (the model gateway refused: the agent's
+        budget is spent, and the turn failed).
     error:
       type: string
       description: What went wrong, for a failed turn.
@@ -283,6 +284,9 @@ AgentRunEvent:
       steers it read)
     - step.failed: error; the text streamed since the last step is void
     - approval: approval, an AgentApproval asked for or decided
+    - steer: text, by; a member's steer the runtime took, which a later
+      step carries as a user message once the model reads it. A turn that
+      ends without such a step did not read it
     - turn.pausing: by
     - turn.paused: usage
     - turn.finished: status, stop, error, usage
@@ -305,6 +309,7 @@ AgentRunEvent:
         - step
         - step.failed
         - approval
+        - steer
         - turn.pausing
         - turn.paused
         - turn.finished

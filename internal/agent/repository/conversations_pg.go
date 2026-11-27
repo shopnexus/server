@@ -524,6 +524,70 @@ func (s pgConversations) DeleteCallsBefore(ctx context.Context, before time.Time
 	return int(tag.RowsAffected()), nil
 }
 
+func (s pgConversations) RecordLimit(ctx context.Context, member uuid.UUID, at time.Time) error {
+	if _, err := s.db.Exec(ctx, `INSERT INTO agent_rate_limits (member_id, limited_at) VALUES (@member, @at)`,
+		pgx.StrictNamedArgs{"member": member, "at": at}); err != nil {
+		return fmt.Errorf("insert agent rate limit: %w", err)
+	}
+	return nil
+}
+
+func (s pgConversations) DeleteLimitsBefore(ctx context.Context, before time.Time, limit int) (int, error) {
+	tag, err := s.db.Exec(ctx, `DELETE FROM agent_rate_limits WHERE id IN (
+    SELECT id FROM agent_rate_limits WHERE limited_at < @before LIMIT @limit)`, pgx.StrictNamedArgs{"before": before, "limit": limit})
+	if err != nil {
+		return 0, fmt.Errorf("delete old agent rate limits: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+func (s pgConversations) Activity(ctx context.Context, from time.Time) (Activity, error) {
+	args := pgx.StrictNamedArgs{"from": from}
+	var out Activity
+	rows, err := s.db.Query(ctx, `SELECT t.agent_id, c.operation, count(*)::int,
+    (count(*) FILTER (WHERE c.status = 202))::int, (count(*) FILTER (WHERE c.status >= 400))::int,
+    round(avg(c.took_ms))::int, max(c.called_at)
+FROM agent_turn_calls AS c JOIN agent_turns AS t ON t.id = c.turn_id
+WHERE c.called_at >= @from GROUP BY 1, 2 ORDER BY 3 DESC, 2`, args)
+	if err != nil {
+		return Activity{}, fmt.Errorf("count agent calls: %w", err)
+	}
+	if out.Calls, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (CallCount, error) {
+		var c CallCount
+		return c, scanned(r.Scan(&c.AgentID, &c.Operation, &c.Calls, &c.Held, &c.Errors, &c.AvgMS, &c.LastAt))
+	}); err != nil {
+		return Activity{}, fmt.Errorf("read agent calls: %w", err)
+	}
+	rows, err = s.db.Query(ctx, `SELECT agent_id, status, coalesce(stop_reason, ''), count(*)::int
+FROM agent_turns WHERE started_at >= @from GROUP BY 1, 2, 3 ORDER BY 4 DESC, 2, 3`, args)
+	if err != nil {
+		return Activity{}, fmt.Errorf("count agent turns: %w", err)
+	}
+	if out.Turns, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (TurnCount, error) {
+		var t TurnCount
+		return t, scanned(r.Scan(&t.AgentID, &t.Status, &t.Stop, &t.Turns))
+	}); err != nil {
+		return Activity{}, fmt.Errorf("read agent turns: %w", err)
+	}
+	rows, err = s.db.Query(ctx, `SELECT t.agent_id, a.status, count(*)::int
+FROM agent_approvals AS a JOIN agent_turns AS t ON t.id = a.turn_id
+WHERE a.created_at >= @from GROUP BY 1, 2 ORDER BY 3 DESC, 2`, args)
+	if err != nil {
+		return Activity{}, fmt.Errorf("count agent approvals: %w", err)
+	}
+	if out.Approvals, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (ApprovalCount, error) {
+		var a ApprovalCount
+		return a, scanned(r.Scan(&a.AgentID, &a.Status, &a.Approvals))
+	}); err != nil {
+		return Activity{}, fmt.Errorf("read agent approvals: %w", err)
+	}
+	if err = s.db.QueryRow(ctx, `SELECT count(*)::int FROM agent_rate_limits WHERE limited_at >= @from`, args).
+		Scan(&out.RateLimited); err != nil {
+		return Activity{}, fmt.Errorf("count agent rate limits: %w", err)
+	}
+	return out, nil
+}
+
 func (s pgConversations) AgentDays(ctx context.Context, from time.Time) ([]DayCount, error) {
 	rows, err := s.db.Query(ctx, `SELECT agent_id::text, to_char(timezone('UTC', started_at), 'YYYY-MM-DD'), count(*)::int
 FROM agent_turns WHERE started_at >= @from GROUP BY 1, 2`, pgx.StrictNamedArgs{"from": from})

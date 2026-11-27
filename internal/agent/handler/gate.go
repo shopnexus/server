@@ -79,15 +79,13 @@ func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 // replayHeaders are the request headers an approval keeps to replay with.
 var replayHeaders = []string{"Content-Type", "Idempotency-Key", "If-Match"}
 
-// held is the answer to a change an agent asked for: the approval it now
-// waits on, and a line for the model that reads it.
+// held is the answer to a change an agent asked for, which only the model
+// reads: the approval it now waits on. The rest of the approval is what the
+// model just sent, and the harness says what an approval is.
 type held struct {
-	Approval service.Approval `json:"approval"`
-	Note     string           `json:"note"`
+	ApprovalID uuid.UUID `json:"approval_id"`
+	Status     string    `json:"status"`
 }
-
-const heldNote = "Not done yet: this change waits for a staff member's approval. " +
-	"listAgentApprovals shows what became of it."
 
 // hold answers a change of an agent's turn, which the console's guard
 // let through as the member's, with 202 and the approval it waits on.
@@ -115,7 +113,7 @@ func (h *Handler) hold(w http.ResponseWriter, r *http.Request, turn authn.Turn, 
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	httpx.Respond(w, http.StatusAccepted, held{Approval: a, Note: heldNote})
+	httpx.Respond(w, http.StatusAccepted, held{ApprovalID: a.ID, Status: a.Status})
 }
 
 type operationList struct {

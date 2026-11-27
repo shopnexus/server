@@ -18,6 +18,8 @@ const agentKey = "e2e-agent-key-0123456789abcdefghijklmnop"
 // content is its script:
 //
 //	down   the runtime refuses the turn with 503
+//	budget the model gateway refuses the first call: the agent's budget is
+//	       spent
 //	hold   the turn runs until a pause or a stop, keeping the steers it
 //	       gets, so a test calls the server with its token meanwhile
 //
@@ -185,6 +187,11 @@ func (a *stubAgent) serveTurn(w http.ResponseWriter, r *http.Request) {
 			"messages": messages, "stop": stop,
 			"usage": map[string]int{"input_tokens": 100, "output_tokens": 10, "cached_tokens": 40},
 		})
+	}
+	if script == "budget" {
+		send("step_failed", map[string]string{"type": "step_failed", "err": "openai: 402 Payment Required"})
+		result("budget")
+		return
 	}
 	if script == "hold" {
 		send("tool_call", map[string]string{"type": "tool_call", "tool_call_id": "c1", "tool": "shell", "input": "shopnexus getAccount"})

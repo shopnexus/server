@@ -117,3 +117,10 @@ func (h *Handler) AgentUsage(w http.ResponseWriter, r *http.Request) {
 		return listOf(h.svc.AgentUsage(r.Context(), c, in.Range))
 	})
 }
+
+// AgentActivity serves GET /v1/console/settings/agents/activity.
+func (h *Handler) AgentActivity(w http.ResponseWriter, r *http.Request) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in rangeRequest) (service.Activity, error) {
+		return h.svc.AgentActivity(r.Context(), c, in.Range)
+	})
+}

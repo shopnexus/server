@@ -65,6 +65,7 @@ func (h *Handler) Register(r *httpx.Router, moderator, admin func(http.Handler) 
 	adm("GET /v1/console/settings/agents/{id}/versions", h.AgentVersions)
 	adm("GET /v1/console/settings/spend", h.GetSpend)
 	adm("GET /v1/console/settings/agents/usage", h.AgentUsage)
+	adm("GET /v1/console/settings/agents/activity", h.AgentActivity)
 }
 
 // items is a list response, {items}.

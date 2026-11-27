@@ -505,3 +505,72 @@ AIAgentUsageList:
             type: array
             items:
               $ref: "#/AIDayCount"
+AIAgentActivity:
+  type: object
+  additionalProperties: false
+  required: [range, calls, turns, approvals, rate_limited]
+  properties:
+    range:
+      type: string
+      enum: [7d, 30d, 90d]
+    calls:
+      type: array
+      description: Most called first.
+      items:
+        type: object
+        additionalProperties: false
+        required: [agent_id, operation, calls, held, errors, avg_ms, last_called_at]
+        properties:
+          agent_id:
+            type: string
+            format: uuid
+          operation:
+            type: string
+          calls:
+            type: integer
+          held:
+            type: integer
+            description: The calls answered 202, changes that waited for approval.
+          errors:
+            type: integer
+            description: The calls answered 4xx or 5xx.
+          avg_ms:
+            type: integer
+          last_called_at:
+            type: string
+            format: date-time
+    turns:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [agent_id, status, turns]
+        properties:
+          agent_id:
+            type: string
+            format: uuid
+          status:
+            $ref: "console_agent.yaml#/AgentTurnStatus"
+          stop:
+            type: string
+            description: Why the run ended, as AgentTurn's stop; absent while running and for a failed run.
+          turns:
+            type: integer
+    approvals:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [agent_id, status, approvals]
+        properties:
+          agent_id:
+            type: string
+            format: uuid
+          status:
+            type: string
+            enum: [pending, approved, rejected, failed]
+          approvals:
+            type: integer
+    rate_limited:
+      type: integer
+      description: The members' messages and steers the rate limit refused.

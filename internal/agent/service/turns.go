@@ -100,6 +100,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	}
 	now := s.d.Now().UTC().Truncate(time.Microsecond)
 	if !s.limiter.allow(caller.MemberID, now) {
+		s.limited(ctx, caller)
 		return TurnStarted{}, domain.ErrRateLimited
 	}
 	text, err := domain.CleanInput(in.Text)
@@ -135,7 +136,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	case err != nil:
 		return TurnStarted{}, fmt.Errorf("open the turn: %w", err)
 	}
-	facts, reported, err := s.facts(ctx, caller, c, now)
+	facts, reported, err := s.facts(ctx, caller, c, t.ID, now)
 	if err == nil {
 		msg, _ := json.Marshal(domain.Message{Role: "user", Context: facts, Content: text})
 		err = s.start(ctx, run{
@@ -225,27 +226,37 @@ func (s *Agent) Resume(ctx context.Context, caller authn.ConsoleMember, id uuid.
 	return TurnState{TurnID: id, Status: domain.TurnRunning}, nil
 }
 
-// facts are the context of a member's message: the time, the member, the
-// conversation's record and the approvals decided since the last turn.
-// The model reads them in front of the message.
-func (s *Agent) facts(ctx context.Context, caller authn.ConsoleMember, c repository.Conversation, now time.Time,
+// facts are the context of a member's message in turn: the time, the
+// member and the conversation's record when they are new to it, and the
+// approvals decided since the last turn. The model reads them in front of
+// the message.
+func (s *Agent) facts(ctx context.Context, caller authn.ConsoleMember, c repository.Conversation, turn uuid.UUID,
+	now time.Time,
 ) (string, []uuid.UUID, error) {
 	me, err := s.d.Console.ActiveMember(ctx, caller.MemberID)
 	if err != nil {
 		return "", nil, fmt.Errorf("read the member: %w", err)
 	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "Time: %s\n", now.Format("2006-01-02 15:04 MST"))
-	fmt.Fprintf(&b, "Staff member: %s (%s, id %s)\n", me.DisplayName, me.Role, me.ID)
-	if c.SubjectKind != "" {
-		fmt.Fprintf(&b, "This conversation is about %s %s.\n", c.SubjectKind, c.SubjectID)
+	turns, err := s.d.Conversations.Turns(ctx, c.ID)
+	if err != nil {
+		return "", nil, fmt.Errorf("read the conversation's turns: %w", err)
+	}
+	var prev *repository.Turn // the turn before this one
+	for i := range turns {
+		if turns[i].ID != turn {
+			prev = &turns[i]
+		}
+	}
+	subject := ""
+	if prev == nil && c.SubjectKind != "" && c.SubjectID != nil {
+		subject = c.SubjectKind + " " + c.SubjectID.String()
 	}
 	decided, reported, err := s.decisions(ctx, c.ID)
 	if err != nil {
 		return "", nil, err
 	}
-	b.WriteString(decided)
-	return strings.TrimSpace(b.String()), reported, nil
+	newWriter := prev == nil || prev.MemberID != caller.MemberID
+	return factsText(now, member(me.DisplayName, string(me.Role), me.ID.String()), newWriter, subject, decided), reported, nil
 }
 
 // decisions tells the agent what became of the changes it asked for that
@@ -255,25 +266,11 @@ func (s *Agent) decisions(ctx context.Context, conversation uuid.UUID) (string, 
 	if err != nil {
 		return "", nil, fmt.Errorf("read the decided approvals: %w", err)
 	}
-	if len(list) == 0 {
-		return "", nil, nil
-	}
-	var b strings.Builder
-	b.WriteString("Changes you asked for, decided since:\n")
 	ids := make([]uuid.UUID, 0, len(list))
 	for i := range list {
-		a := &list[i]
-		ids = append(ids, a.ID)
-		fmt.Fprintf(&b, "- %s %s (approval %s): %s", a.Operation, a.Path, a.ID, a.Status)
-		if a.ResultStatus != nil {
-			fmt.Fprintf(&b, ", the call answered %d", *a.ResultStatus)
-			if a.Status == domain.ApprovalFailed && len(a.ResultBody) > 0 {
-				fmt.Fprintf(&b, " %s", cut(string(a.ResultBody), 300))
-			}
-		}
-		b.WriteString("\n")
+		ids = append(ids, list[i].ID)
 	}
-	return b.String(), ids, nil
+	return decisionsText(list), ids, nil
 }
 
 func cut(s string, n int) string {
@@ -304,7 +301,7 @@ func (s *Agent) routeOf(ctx context.Context, a repository.Agent) (gatewayRoute, 
 // Pause asks the runtime to pause a running turn before its next model
 // call; the commands running finish first.
 func (s *Agent) Pause(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (TurnState, error) {
-	t, err := s.control(ctx, caller, id, "pause", controlRequest{})
+	t, err := s.control(ctx, caller, id, "pause", nil)
 	if err != nil {
 		return TurnState{}, err
 	}
@@ -318,7 +315,7 @@ func (s *Agent) Pause(ctx context.Context, caller authn.ConsoleMember, id uuid.U
 // Stop asks the runtime to end a running turn now; the model and the
 // commands are cut, and the agent reads that a staff member stopped them.
 func (s *Agent) Stop(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (TurnState, error) {
-	t, err := s.control(ctx, caller, id, "stop", controlRequest{})
+	t, err := s.control(ctx, caller, id, "stop", nil)
 	if err != nil {
 		return TurnState{}, err
 	}
@@ -326,30 +323,43 @@ func (s *Agent) Stop(ctx context.Context, caller authn.ConsoleMember, id uuid.UU
 }
 
 // Steer hands a running turn a member's message, which the runtime adds
-// before the next model call; it joins the history with that step.
+// before the next model call; it joins the history with that step. The
+// turn's stream notes it, so the console shows it sent until a step
+// carries it.
 func (s *Agent) Steer(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, text string) (TurnState, error) {
 	text, err := domain.CleanInput(text)
 	if err != nil {
 		return TurnState{}, err
 	}
 	if !s.limiter.allow(caller.MemberID, s.d.Now()) {
+		s.limited(ctx, caller)
 		return TurnState{}, domain.ErrRateLimited
 	}
-	me, err := s.d.Console.ActiveMember(ctx, caller.MemberID)
-	if err != nil {
-		return TurnState{}, fmt.Errorf("read the member: %w", err)
-	}
-	facts := fmt.Sprintf("Time: %s\nWritten while you worked, by %s (%s, id %s).",
-		s.d.Now().UTC().Format("2006-01-02 15:04 MST"), me.DisplayName, me.Role, me.ID)
-	t, err := s.control(ctx, caller, id, "steer", controlRequest{Content: text, Context: facts})
+	t, err := s.control(ctx, caller, id, "steer", func(t repository.Turn) (controlRequest, error) {
+		other := ""
+		if t.MemberID != caller.MemberID {
+			me, meErr := s.d.Console.ActiveMember(ctx, caller.MemberID)
+			if meErr != nil {
+				return controlRequest{}, fmt.Errorf("read the member: %w", meErr)
+			}
+			other = member(me.DisplayName, string(me.Role), me.ID.String())
+		}
+		return controlRequest{Content: text, Context: steerText(other)}, nil
+	})
 	if err != nil {
 		return TurnState{}, err
+	}
+	body, _ := json.Marshal(map[string]any{"text": text, "by": caller.MemberID})
+	if _, err = s.d.Conversations.AppendEvent(ctx, id, "steer", body, s.d.Now().UTC()); err != nil {
+		s.d.Log.WarnContext(ctx, "agent: note a steer", "turn_id", id, "err", err)
 	}
 	return TurnState{TurnID: t.ID, Status: t.Status}, nil
 }
 
-// control sends a running turn's control to the runtime.
-func (s *Agent) control(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, what string, req controlRequest,
+// control sends a running turn's control to the runtime, with the body
+// build makes for the turn.
+func (s *Agent) control(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, what string,
+	build func(repository.Turn) (controlRequest, error),
 ) (repository.Turn, error) {
 	t, err := s.visibleTurn(ctx, caller, id)
 	if err != nil {
@@ -357,6 +367,12 @@ func (s *Agent) control(ctx context.Context, caller authn.ConsoleMember, id uuid
 	}
 	if t.Status != domain.TurnRunning {
 		return repository.Turn{}, domain.ErrTurnState
+	}
+	var req controlRequest
+	if build != nil {
+		if req, err = build(t); err != nil {
+			return repository.Turn{}, err
+		}
 	}
 	req.TurnID = t.ID.String()
 	if err = s.runtimeControl(ctx, t.ConversationID, what, req); err != nil {

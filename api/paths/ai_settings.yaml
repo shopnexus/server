@@ -312,6 +312,42 @@ agentUsage:
         $ref: "../responses/common.yaml#/ConsoleForbidden"
       "503":
         $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+agentActivity:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getAIAgentActivity
+    x-capability: none
+    x-uc: [UC-MOD-12]
+    summary: "What the console agents did over a range. Admins only."
+    description: |
+      Each agent's API calls by operation (how many waited for approval,
+      how many failed, how long they took), its turns by how they ended
+      (stop: loop, context_full, length, deadline, budget), its approvals
+      by status, and how often the rate limit refused a member's message.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: range
+        in: query
+        schema:
+          type: string
+          enum: [7d, 30d, 90d]
+          default: 7d
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIAgentActivity"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
 agentVersions:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"

@@ -289,4 +289,47 @@ type Conversations interface {
 	DeleteCallsBefore(ctx context.Context, before time.Time, limit int) (int, error)
 	// AgentDays counts each agent's turns per UTC day since from.
 	AgentDays(ctx context.Context, from time.Time) ([]DayCount, error)
+
+	// RecordLimit notes that the rate limit refused a member's message.
+	RecordLimit(ctx context.Context, member uuid.UUID, at time.Time) error
+	// DeleteLimitsBefore deletes at most limit rate limit notes older than
+	// before.
+	DeleteLimitsBefore(ctx context.Context, before time.Time, limit int) (int, error)
+	// Activity counts the console agents' calls, turns and approvals, and
+	// the rate limit's refusals, since from.
+	Activity(ctx context.Context, from time.Time) (Activity, error)
+}
+
+// Activity is what the console agents did over a range.
+type Activity struct {
+	Calls       []CallCount
+	Turns       []TurnCount
+	Approvals   []ApprovalCount
+	RateLimited int
+}
+
+// CallCount counts an agent's calls of an operation.
+type CallCount struct {
+	AgentID   uuid.UUID
+	Operation string
+	Calls     int
+	Held      int // answered 202: a change that waited for approval
+	Errors    int // answered 4xx or 5xx
+	AvgMS     int
+	LastAt    time.Time
+}
+
+// TurnCount counts an agent's turns that ended one way.
+type TurnCount struct {
+	AgentID uuid.UUID
+	Status  string
+	Stop    string
+	Turns   int
+}
+
+// ApprovalCount counts an agent's approvals in a status.
+type ApprovalCount struct {
+	AgentID   uuid.UUID
+	Status    string
+	Approvals int
 }

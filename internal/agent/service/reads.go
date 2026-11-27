@@ -54,6 +54,15 @@ func (s *Agent) SweepReads(ctx context.Context) error {
 		}
 	}
 	for {
+		n, err := s.d.Conversations.DeleteLimitsBefore(ctx, before, sweepBatch)
+		if err != nil {
+			return fmt.Errorf("sweep the agent's rate limits: %w", err)
+		}
+		if n < sweepBatch {
+			break
+		}
+	}
+	for {
 		n, err := s.d.Conversations.BlankOutputsBefore(ctx, before, sweepBatch)
 		if err != nil {
 			return fmt.Errorf("sweep the agent's command outputs: %w", err)

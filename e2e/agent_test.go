@@ -156,7 +156,7 @@ func turnCall(t *testing.T, token, method, path string, body any) (status int, a
 // A record's conversation is shared by every member; one without a record
 // is the member's own. A question runs on the agent runtime over the
 // conversation's history, as the member who asked.
-// UC-MOD-08 A5, A6, E2, E4, E6, E7.
+// UC-MOD-08 A5, A6, E1, E2, E4, E6, E7.
 func TestConsoleAgentConversations(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
@@ -196,7 +196,7 @@ func TestConsoleAgentConversations(t *testing.T) {
 		t.Fatalf("turn %+v", turn)
 	}
 	sent := agentStub.ran(started.TurnID)
-	if len(sent.History) != 1 || sent.Instructions == "" || sent.Model != turn.Model || sent.ModelKey == "" ||
+	if len(sent.History) != 1 || !strings.Contains(sent.Instructions, "<console>") || sent.Model != turn.Model || sent.ModelKey == "" ||
 		!strings.HasPrefix(sent.Token, "snt_") {
 		t.Fatalf("the runtime got %+v", sent)
 	}
@@ -223,6 +223,16 @@ func TestConsoleAgentConversations(t *testing.T) {
 		h[1].Content != "Đã xong." || h[2].Content != "Còn gì nữa?" {
 		t.Fatalf("the second turn's history %+v", h)
 	}
+	// The record is told once; a member is told when they first write.
+	if h := agentStub.ran(second.TurnID).History; !strings.Contains(h[2].Context, "id "+minh.ID+")") ||
+		strings.Contains(h[2].Context, "about account") {
+		t.Fatalf("the second question's context %q", h[2].Context)
+	}
+	third := ask(t, minh, first.ID, "Thêm nữa?")
+	waitTurn(t, minh, third.TurnID)
+	if h := agentStub.ran(third.TurnID).History; strings.Contains(h[4].Context, "Staff member") || !strings.HasPrefix(h[4].Context, "Time: ") {
+		t.Fatalf("the third question's context %q", h[4].Context)
+	}
 	detail := expect[struct {
 		agentConversation
 
@@ -233,16 +243,19 @@ func TestConsoleAgentConversations(t *testing.T) {
 		} `json:"messages"`
 		Turns []agentTurn `json:"turns"`
 	}](t, consoleCall(t, minh, "GET", path+"/"+first.ID, nil), http.StatusOK)
-	if detail.ID != first.ID || len(detail.Messages) != 4 || detail.Messages[3].Content != "Đã xong." || len(detail.Turns) != 2 ||
+	if detail.ID != first.ID || len(detail.Messages) != 6 || detail.Messages[3].Content != "Đã xong." || len(detail.Turns) != 3 ||
 		detail.Turns[0].MemberID != lan.ID || detail.Turns[1].MemberID != minh.ID {
 		t.Fatalf("detail %+v", detail)
 	}
 
 	turns := path + "/" + first.ID + "/turns"
+	if spent := askAndWait(t, lan, "budget"); spent.Status != "failed" || spent.Stop != "budget" {
+		t.Fatalf("a turn past the agent's budget %+v", spent)
+	}
 	check(t, "the runtime down", consoleCall(t, lan, "POST", turns, map[string]string{"text": "down"}), 503, "agent_unavailable")
 	if again := expect[struct {
 		Turns []agentTurn `json:"turns"`
-	}](t, consoleCall(t, lan, "GET", path+"/"+first.ID, nil), http.StatusOK); len(again.Turns) != 2 {
+	}](t, consoleCall(t, lan, "GET", path+"/"+first.ID, nil), http.StatusOK); len(again.Turns) != 3 {
 		t.Fatalf("a turn the runtime refused is kept: %+v", again.Turns)
 	}
 	check(t, "no text", consoleCall(t, lan, "POST", turns, map[string]string{}), 400, "")
@@ -307,7 +320,8 @@ func TestConsoleAgentConversations(t *testing.T) {
 // A turn's token calls the console API as the member, within its agent's
 // capabilities; a change waits for a member's approval, which runs it as
 // the approver, and the agent hears of the decision in the next run.
-// UC-MOD-08 A2, A3, A4.
+// The AI settings count what it did.
+// UC-MOD-08 A2, A3, A4 · UC-MOD-12 A4.
 func TestConsoleAgentApprovals(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
@@ -365,20 +379,20 @@ func TestConsoleAgentApprovals(t *testing.T) {
 	if refused, answer := turnCall(t, token, "POST", accounts+spammer.Account.ID+"/suspend", map[string]any{}); refused != 400 {
 		t.Errorf("a change the spec refuses: %d %s", refused, answer)
 	}
-	var held struct {
-		Approval agentApproval `json:"approval"`
-		Note     string        `json:"note"`
+	// The model reads only the approval's id and status: the rest is what
+	// it sent.
+	type heldChange struct {
+		ApprovalID string `json:"approval_id"`
+		Status     string `json:"status"`
 	}
+	var held heldChange
 	status, body = turnCall(t, token, "POST", accounts+spammer.Account.ID+"/suspend", map[string]string{"reason": "spam"})
 	_ = json.Unmarshal(body, &held)
-	if status != 202 || held.Approval.Status != "pending" || held.Approval.Operation != "suspendAccount" || held.Note == "" ||
-		held.Approval.TurnID != started.TurnID {
+	if status != 202 || held.Status != "pending" || held.ApprovalID == "" || len(body) > 80 {
 		t.Fatalf("a held change: %d %s", status, body)
 	}
 	status, body = turnCall(t, token, "POST", accounts+other.Account.ID+"/suspend", map[string]string{"reason": "spam"})
-	var heldOther struct {
-		Approval agentApproval `json:"approval"`
-	}
+	var heldOther heldChange
 	_ = json.Unmarshal(body, &heldOther)
 	if status != 202 {
 		t.Fatalf("a second held change: %d %s", status, body)
@@ -396,7 +410,7 @@ func TestConsoleAgentApprovals(t *testing.T) {
 	var seen page[agentApproval]
 	status, body = turnCall(t, token, "GET", agentPath+"/approvals?status=pending", nil)
 	_ = json.Unmarshal(body, &seen)
-	if status != 200 || len(seen.Items) != 2 {
+	if status != 200 || len(seen.Items) != 2 || seen.Items[0].Operation != "suspendAccount" || seen.Items[0].TurnID != started.TurnID {
 		t.Fatalf("the turn's approvals: %d %s", status, body)
 	}
 	listed := expect[page[agentApproval]](t, consoleCall(t, minh, "GET", agentPath+"/approvals?conversation_id="+conversation.ID, nil), 200)
@@ -412,8 +426,12 @@ func TestConsoleAgentApprovals(t *testing.T) {
 	if paused := waitTurn(t, lan, started.TurnID); paused.Status != "paused" || paused.Stop != "paused" {
 		t.Fatalf("paused %+v", paused)
 	}
+	if events := consoleCall(t, lan, "GET", agentPath+"/turns/"+started.TurnID+"/events", nil); !strings.Contains(string(events.Body),
+		`"type":"steer"`) || !strings.Contains(string(events.Body), "Chỉ khoá tài khoản spam.") {
+		t.Errorf("no steer in the turn's events: %s", events.Body)
+	}
 	if steers := agentStub.ran(started.TurnID).Steers; len(steers) != 1 || steers[0].Content != "Chỉ khoá tài khoản spam." ||
-		!strings.Contains(steers[0].Context, "Written while you worked") {
+		steers[0].Context != "Written while you worked." {
 		t.Fatalf("steers %+v", steers)
 	}
 	if status, _ := turnCall(t, token, "GET", accounts+spammer.Account.ID, nil); status != 401 {
@@ -421,18 +439,18 @@ func TestConsoleAgentApprovals(t *testing.T) {
 	}
 
 	// The approver runs the change as themselves; a decided one stays so.
-	approved := expect[agentApproval](t, consoleCall(t, minh, "POST", agentPath+"/approvals/"+held.Approval.ID+"/approve", nil), 200)
+	approved := expect[agentApproval](t, consoleCall(t, minh, "POST", agentPath+"/approvals/"+held.ApprovalID+"/approve", nil), 200)
 	if approved.Status != "approved" || approved.ResultStatus == nil || *approved.ResultStatus != 200 || approved.DecidedBy != minh.ID {
 		t.Fatalf("approved %+v", approved)
 	}
 	if s := read(spammer.Account.ID); s != "suspended" {
 		t.Fatalf("the approved change did not run: %s", s)
 	}
-	check(t, "approved twice", consoleCall(t, lan, "POST", agentPath+"/approvals/"+held.Approval.ID+"/approve", nil), 409,
+	check(t, "approved twice", consoleCall(t, lan, "POST", agentPath+"/approvals/"+held.ApprovalID+"/approve", nil), 409,
 		"agent_approval_decided")
-	check(t, "rejected once approved", consoleCall(t, lan, "POST", agentPath+"/approvals/"+held.Approval.ID+"/reject", nil), 409,
+	check(t, "rejected once approved", consoleCall(t, lan, "POST", agentPath+"/approvals/"+held.ApprovalID+"/reject", nil), 409,
 		"agent_approval_decided")
-	rejected := expect[agentApproval](t, consoleCall(t, lan, "POST", agentPath+"/approvals/"+heldOther.Approval.ID+"/reject", nil), 200)
+	rejected := expect[agentApproval](t, consoleCall(t, lan, "POST", agentPath+"/approvals/"+heldOther.ApprovalID+"/reject", nil), 200)
 	if rejected.Status != "rejected" || rejected.ResultStatus != nil || read(other.Account.ID) != "active" {
 		t.Fatalf("rejected %+v", rejected)
 	}
@@ -448,8 +466,8 @@ func TestConsoleAgentApprovals(t *testing.T) {
 	}
 	h := agentStub.ran(started.TurnID).History
 	if len(h) < 2 || h[len(h)-1].Role != "user" || h[len(h)-1].Content != "" ||
-		!strings.Contains(h[len(h)-1].Context, "approval "+held.Approval.ID+"): approved, the call answered 200") ||
-		!strings.Contains(h[len(h)-1].Context, "approval "+heldOther.Approval.ID+"): rejected") {
+		!strings.Contains(h[len(h)-1].Context, "suspendAccount "+accounts+spammer.Account.ID+"/suspend: approved\n") ||
+		!strings.Contains(h[len(h)-1].Context, "suspendAccount "+accounts+other.Account.ID+"/suspend: rejected\n") {
 		t.Fatalf("the resumed run's history %+v", h)
 	}
 	next := ask(t, lan, conversation.ID, "Xong chưa?")
@@ -458,11 +476,37 @@ func TestConsoleAgentApprovals(t *testing.T) {
 		t.Errorf("a decision told twice: %q", h[len(h)-1].Context)
 	}
 
+	// The AI settings count what the agent did: its calls by operation,
+	// its approvals by status and its turns by how they ended.
+	a := expect[agentActivity](t, consoleCall(t, minh, "GET", settings+"/agents/activity?range=30d", nil), 200)
+	calls := map[string][3]int{}
+	for _, c := range a.Calls {
+		if c.AgentID == mod.ID {
+			calls[c.Operation] = [3]int{c.Calls, c.Held, c.Errors}
+		}
+	}
+	approvals := map[string]int{}
+	for _, x := range a.Approvals {
+		if x.AgentID == mod.ID {
+			approvals[x.Status] = x.Approvals
+		}
+	}
+	turnsDone := 0
+	for _, x := range a.Turns {
+		if x.AgentID == mod.ID && x.Status == "succeeded" && x.Stop == "done" {
+			turnsDone = x.Turns
+		}
+	}
+	if a.Range != "30d" || calls["suspendAccount"] != [3]int{3, 2, 1} || calls["getAccount"][0] < 1 ||
+		approvals["approved"] != 1 || approvals["rejected"] != 1 || turnsDone != 1 {
+		t.Fatalf("activity %+v", a)
+	}
+
 	signedOut := consoleSession{}
 	expectStatus(t, consoleCall(t, signedOut, "GET", agentPath+"/operations", nil), 401)
 	expectStatus(t, consoleCall(t, signedOut, "GET", agentPath+"/approvals", nil), 401)
-	expectStatus(t, consoleCall(t, signedOut, "POST", agentPath+"/approvals/"+held.Approval.ID+"/approve", nil), 401)
-	expectStatus(t, consoleCall(t, signedOut, "POST", agentPath+"/approvals/"+held.Approval.ID+"/reject", nil), 401)
+	expectStatus(t, consoleCall(t, signedOut, "POST", agentPath+"/approvals/"+held.ApprovalID+"/approve", nil), 401)
+	expectStatus(t, consoleCall(t, signedOut, "POST", agentPath+"/approvals/"+held.ApprovalID+"/reject", nil), 401)
 }
 
 // Pause waits for the commands running, stop cuts the run, resume runs the
@@ -522,7 +566,9 @@ func TestConsoleAgentControls(t *testing.T) {
 	}
 }
 
-// A member asks at most 30 times a minute. UC-MOD-08 E5.
+// A member asks at most 30 times a minute; the AI settings count the
+// refusals.
+// UC-MOD-08 E5 · UC-MOD-12 A4.
 func TestConsoleAgentRateLimit(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
@@ -531,4 +577,33 @@ func TestConsoleAgentRateLimit(t *testing.T) {
 		expectStatus(t, consoleCall(t, lan, "POST", turns, map[string]string{"text": "\u200b"}), 422)
 	}
 	check(t, "the 31st", consoleCall(t, lan, "POST", turns, map[string]string{"text": "?"}), 429, "agent_rate_limited")
+	minh := signInMember(t, consoledomain.RoleAdmin)
+	if a := expect[agentActivity](t, consoleCall(t, minh, "GET", settings+"/agents/activity", nil), 200); a.RateLimited < 1 || a.Range != "7d" {
+		t.Fatalf("activity %+v", a)
+	}
+	check(t, "an unknown range", consoleCall(t, minh, "GET", settings+"/agents/activity?range=1y", nil), 400, "")
+}
+
+// agentActivity is what the AI settings read of the agents' activity.
+type agentActivity struct {
+	Range string `json:"range"`
+	Calls []struct {
+		AgentID   string `json:"agent_id"`
+		Operation string `json:"operation"`
+		Calls     int    `json:"calls"`
+		Held      int    `json:"held"`
+		Errors    int    `json:"errors"`
+	} `json:"calls"`
+	Turns []struct {
+		AgentID string `json:"agent_id"`
+		Status  string `json:"status"`
+		Stop    string `json:"stop"`
+		Turns   int    `json:"turns"`
+	} `json:"turns"`
+	Approvals []struct {
+		AgentID   string `json:"agent_id"`
+		Status    string `json:"status"`
+		Approvals int    `json:"approvals"`
+	} `json:"approvals"`
+	RateLimited int `json:"rate_limited"`
 }

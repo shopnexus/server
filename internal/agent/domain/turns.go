@@ -18,13 +18,14 @@ const (
 	StopDeadline = "deadline"
 	StopPaused   = "paused"
 	StopStopped  = "stopped"
+	StopBudget   = "budget" // the model gateway refused: the agent's budget is spent
 )
 
 // StatusOf is the status a run ends a turn in, from the runtime's stop
 // reason and error.
 func StatusOf(stop, err string) string {
 	switch {
-	case err != "":
+	case err != "", stop == StopBudget:
 		return TurnFailed
 	case stop == StopPaused:
 		return TurnPaused
