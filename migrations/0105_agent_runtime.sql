@@ -41,9 +41,11 @@ CREATE TABLE agent_turns (
     member_id       uuid NOT NULL REFERENCES console_members (id),
     agent_id        uuid NOT NULL,
     agent_name      text NOT NULL,
-    model           text NOT NULL,
+    model           text NOT NULL, -- noqa: RF04
     capabilities    text[] NOT NULL,
-    status          text NOT NULL CHECK (status IN ('running', 'paused', 'stopped', 'succeeded', 'failed', 'timed_out')),
+    status          text NOT NULL CHECK (
+        status IN ('running', 'paused', 'stopped', 'succeeded', 'failed', 'timed_out')
+    ),
     stop_reason     text,
     error_text      text,
     token_hash      bytea UNIQUE,
@@ -103,9 +105,9 @@ CREATE TABLE agent_approvals (
     conversation_id uuid NOT NULL REFERENCES agent_conversations (id) ON DELETE CASCADE,
     turn_id         uuid NOT NULL REFERENCES agent_turns (id) ON DELETE CASCADE,
     member_id       uuid NOT NULL REFERENCES console_members (id),
-    operation       text NOT NULL,
-    method          text NOT NULL,
-    path            text NOT NULL,
+    operation       text NOT NULL, -- noqa: RF04
+    method          text NOT NULL, -- noqa: RF04
+    path            text NOT NULL, -- noqa: RF04
     headers         jsonb NOT NULL,
     body            jsonb,
     status          text NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'failed')),
@@ -126,9 +128,9 @@ CREATE INDEX agent_approvals_turn ON agent_approvals (turn_id);
 CREATE TABLE agent_turn_calls (
     id        bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     turn_id   uuid NOT NULL REFERENCES agent_turns (id) ON DELETE CASCADE,
-    operation text NOT NULL,
-    method    text NOT NULL,
-    path      text NOT NULL,
+    operation text NOT NULL, -- noqa: RF04
+    method    text NOT NULL, -- noqa: RF04
+    path      text NOT NULL, -- noqa: RF04
     status    integer NOT NULL,
     took_ms   integer NOT NULL,
     called_at timestamptz NOT NULL
@@ -142,53 +144,72 @@ CREATE INDEX agent_turn_calls_called_at ON agent_turn_calls (called_at);
 INSERT INTO agent_messages (conversation_id, seq, turn_id, message, created_at)
 SELECT
     conversation_id,
-    row_number() OVER (PARTITION BY conversation_id ORDER BY ordinal, part)::integer,
-    NULL,
+    row_number() OVER (PARTITION BY conversation_id ORDER BY ordinal, part)::integer AS seq,
+    NULL AS turn_id,
     message,
-    at
+    said_at AS created_at
 FROM (
-    SELECT conversation_id, ordinal, 1 AS part, jsonb_build_object('role', 'user', 'content', question) AS message,
-        started_at AS at
+    SELECT
+        conversation_id,
+        ordinal,
+        1 AS part,
+        jsonb_build_object('role', 'user', 'content', question) AS message,
+        started_at AS said_at
     FROM legacy_agent_turns
     UNION ALL
-    SELECT conversation_id, ordinal, 2, jsonb_build_object('role', 'assistant', 'content', answer),
-        COALESCE(finished_at, started_at)
+    SELECT
+        conversation_id,
+        ordinal,
+        2 AS part,
+        jsonb_build_object('role', 'assistant', 'content', answer) AS message,
+        coalesce(finished_at, started_at) AS said_at
     FROM legacy_agent_turns
     WHERE answer IS NOT NULL AND answer <> ''
-) AS old;
+) AS legacy;
 
 -- A console agent holds capabilities instead of MCP tools: each old read
 -- tool becomes the capability that reads the same records. count, lookup
 -- and price_guide have none.
 ALTER TABLE ai_agents RENAME COLUMN tools TO capabilities;
-UPDATE ai_agents SET capabilities = ARRAY(
-    SELECT DISTINCT c FROM unnest(capabilities) AS t (tool)
-    CROSS JOIN LATERAL (VALUES (CASE
-        WHEN tool IN ('ticket_get', 'ticket_messages', 'tickets_list', 'tickets_of_account') THEN 'tickets.read'
-        WHEN tool IN ('account_get', 'accounts_list') THEN 'accounts.read'
-        WHEN tool IN ('order_get', 'orders_of_account') THEN 'orders.read'
-        WHEN tool IN ('listing_get', 'listings_of_account') THEN 'listings.read'
-        WHEN tool IN ('report_cases_list', 'report_case_get') THEN 'reports.read'
-        WHEN tool = 'console_actions' THEN 'audit.read'
-        WHEN tool = 'feedback_get' THEN 'feedback.read'
-    END)) AS m (c)
-    WHERE c IS NOT NULL ORDER BY c
-)
+UPDATE ai_agents SET
+    capabilities = array(
+        SELECT DISTINCT c FROM unnest(capabilities) AS t (tool)
+        CROSS JOIN
+            LATERAL (VALUES (CASE
+                WHEN tool IN ('ticket_get', 'ticket_messages', 'tickets_list', 'tickets_of_account') THEN 'tickets.read'
+                WHEN tool IN ('account_get', 'accounts_list') THEN 'accounts.read'
+                WHEN tool IN ('order_get', 'orders_of_account') THEN 'orders.read'
+                WHEN tool IN ('listing_get', 'listings_of_account') THEN 'listings.read'
+                WHEN tool IN ('report_cases_list', 'report_case_get') THEN 'reports.read'
+                WHEN tool = 'console_actions' THEN 'audit.read'
+                WHEN tool = 'feedback_get' THEN 'feedback.read'
+            END)) AS m (c)
+        WHERE c IS NOT NULL
+        ORDER BY c
+    )
 WHERE agent_kind = 'console';
 -- The Console assistant also reads feedback, which no MCP tool served.
-UPDATE ai_agents SET capabilities = ARRAY(SELECT DISTINCT c FROM unnest(capabilities || 'feedback.read'::text) AS t (c) ORDER BY c)
+UPDATE ai_agents SET
+    capabilities = array(
+        SELECT DISTINCT c FROM unnest(capabilities || 'feedback.read'::text) AS t (c)
+        ORDER BY c
+    )
 WHERE id = '0193e000-0000-7000-8000-00000000a101';
 
 -- The Console assistant's seeded instructions spoke of the MCP tools; they
 -- get a new version unless an admin changed them.
 INSERT INTO ai_agent_versions (agent_id, version_no, instructions, created_by, created_at)
-SELECT a.id, a.instructions_version + 1,
+SELECT
+    a.id,
+    a.instructions_version + 1 AS version_no,
     'You help ShopNexus console members with tickets, accounts, orders, listings and reports. Look records up '
-    || 'before you answer about them, and name the records you used.',
-    NULL, now()
+    || 'before you answer about them, and name the records you used.' AS instructions,
+    NULL AS created_by,
+    now() AS created_at
 FROM ai_agents AS a
-JOIN ai_agent_versions AS v ON v.agent_id = a.id AND v.version_no = a.instructions_version
-WHERE a.id = '0193e000-0000-7000-8000-00000000a101'
+INNER JOIN ai_agent_versions AS v ON a.id = v.agent_id AND a.instructions_version = v.version_no
+WHERE
+    a.id = '0193e000-0000-7000-8000-00000000a101'
     AND v.instructions = 'You help ShopNexus console members. Read records only through the tools, cite every record '
     || 'you use, and say so when the tools cannot answer.';
 UPDATE ai_agents SET instructions_version = instructions_version + 1
