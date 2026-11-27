@@ -21,12 +21,45 @@ const consoleConventions = "<console>\n" +
 	"Your answers show in the ShopNexus console, which renders Markdown: tables, diagrams in ```mermaid blocks, and charts as Vega-Lite JSON in ```vega-lite blocks, data inline and no styling: the console styles them.\n" +
 	"Write a record as a link, [its name](kind:id), kind being account, ticket, order, listing or report; the console draws it as a chip that opens the record.\n" +
 	"When the user has to choose between a few replies, end your answer with an ```options block, one reply per line; the console shows them as buttons, and the one picked comes back as the user's next message.\n" +
+	"The console shows the user the commands you ran, so your answer need not: say in plain words what you looked at or did, as a colleague would, without command names or ids. A record of another kind, such as a feedback, is named in words.\n" +
 	"</console>"
 
-// instructionsOf is the system prompt the server sends for agent a; the
-// runtime adds its harness after it.
-func instructionsOf(a repository.Agent) string {
-	return strings.TrimSpace(a.Instructions) + "\n\n" + consoleConventions
+// instructionsOf is the system prompt the server sends for agent a, whose
+// turn may call ops; the runtime adds its harness after it.
+func instructionsOf(a repository.Agent, ops []domain.Operation) string {
+	return strings.TrimSpace(a.Instructions) + "\n\n" + consoleConventions + "\n\n" + commandsText(ops)
+}
+
+// commandsText lists the shopnexus commands of a turn, so the model needs
+// no call to learn them. They follow the agent's capabilities, so the
+// list reads the same on each turn of an agent, for the prompt cache;
+// a parameter's values and a body's fields stay behind shopnexus help.
+func commandsText(ops []domain.Operation) string {
+	var b strings.Builder
+	b.WriteString("<commands>\n")
+	b.WriteString("These are all the shopnexus commands you have, so there is no need to run shopnexus to list them. " +
+		"Each shows its parameters, ? marking an optional one, and --body when it takes a JSON body; " +
+		"shopnexus help <command> shows their values and fields. [approval] marks a change that waits for a staff member's approval.\n")
+	for i := range ops {
+		op := &ops[i]
+		b.WriteString(op.Name)
+		for _, p := range op.Parameters {
+			b.WriteString(" " + p.Name)
+			if !p.Required {
+				b.WriteString("?")
+			}
+		}
+		if len(op.Body) > 0 {
+			b.WriteString(" --body")
+		}
+		b.WriteString(": ")
+		if op.Approval {
+			b.WriteString("[approval] ")
+		}
+		b.WriteString(strings.TrimSpace(op.Summary) + "\n")
+	}
+	b.WriteString("</commands>")
+	return b.String()
 }
 
 // member names a staff member to the model.

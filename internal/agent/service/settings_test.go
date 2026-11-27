@@ -328,18 +328,18 @@ func TestAgentRules(t *testing.T) {
 	}
 
 	got, err = s.UpdateAgent(ctx, admin, domain.ConsoleAssistant, service.AgentPatch{Instructions: new("Be brief.")})
-	// Version 2 is migration 0105's, for the agent runtime.
-	if err != nil || got.InstructionsVersion != 3 {
+	// Versions 2 and 3 are migrations 0105's, for the agent runtime, and 0109's.
+	if err != nil || got.InstructionsVersion != 4 {
 		t.Fatalf("new instructions %+v %v", got, err)
 	}
 	versions, err := s.AgentVersions(ctx, domain.ConsoleAssistant)
-	if err != nil || len(versions) != 3 || versions[0].Version != 3 || versions[0].Instructions != "Be brief." ||
+	if err != nil || len(versions) != 4 || versions[0].Version != 4 || versions[0].Instructions != "Be brief." ||
 		*versions[0].CreatedBy != admin.MemberID || versions[1].CreatedBy != nil {
 		t.Fatalf("versions %+v %v", versions, err)
 	}
 	// A version that exists with other text refuses the save.
 	if _, err = db.Exec(ctx, `INSERT INTO ai_agent_versions (agent_id, version_no, instructions, created_at)
-VALUES (@id, 4, 'Stray.', now())`, pgx.StrictNamedArgs{"id": domain.ConsoleAssistant}); err != nil {
+VALUES (@id, 5, 'Stray.', now())`, pgx.StrictNamedArgs{"id": domain.ConsoleAssistant}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.UpdateAgent(ctx, admin, domain.ConsoleAssistant, service.AgentPatch{Instructions: new("Be kind.")}); err == nil {

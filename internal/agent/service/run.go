@@ -92,7 +92,7 @@ func (s *Agent) start(ctx context.Context, r run) error {
 	}
 	history = append(history, r.first...)
 	body, err := json.Marshal(runtimeTurn{
-		ConversationID: r.conversation.ID.String(), TurnID: r.turn.ID.String(), Instructions: instructionsOf(r.agent),
+		ConversationID: r.conversation.ID.String(), TurnID: r.turn.ID.String(), Instructions: instructionsOf(r.agent, s.d.Ops.Operations(nonNil(r.turn.Capabilities))),
 		History: history, Token: r.token, Model: r.route.model, ModelKey: r.route.key, Deadline: r.turn.DeadlineAt,
 	})
 	if err != nil {

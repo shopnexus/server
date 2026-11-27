@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -45,8 +46,27 @@ func TestPromptText(t *testing.T) {
 	if got != want {
 		t.Errorf("decisions\n%s\nwant\n%s", got, want)
 	}
-	if s := instructionsOf(repository.Agent{Instructions: "Help.\n"}); !strings.HasPrefix(s, "Help.\n\n<console>\n") ||
-		!strings.HasSuffix(s, "</console>") {
+	if s := instructionsOf(repository.Agent{Instructions: "Help.\n"}, nil); !strings.HasPrefix(s, "Help.\n\n<console>\n") ||
+		!strings.Contains(s, "</console>\n\n<commands>\n") || !strings.HasSuffix(s, "</commands>") {
 		t.Errorf("instructions %q", s)
+	}
+}
+
+func TestCommandsText(t *testing.T) {
+	t.Parallel()
+	got := commandsText([]domain.Operation{
+		{Name: "getAccount", Summary: "One customer account. ", Parameters: []domain.Parameter{{Name: "id", In: "path", Required: true}}},
+		{Name: "listFeedback", Summary: "Feedback, newest first.", Parameters: []domain.Parameter{{Name: "kind", In: "query"}, {Name: "cursor", In: "query"}}},
+		{Name: "suspendAccount", Summary: "Suspend an account.", Approval: true, Parameters: []domain.Parameter{{Name: "id", In: "path", Required: true}}, Body: json.RawMessage(`{}`)},
+	})
+	lines := strings.Split(got, "\n")
+	want := []string{
+		"getAccount id: One customer account.",
+		"listFeedback kind? cursor?: Feedback, newest first.",
+		"suspendAccount id --body: [approval] Suspend an account.",
+		"</commands>",
+	}
+	if lines[0] != "<commands>" || !slices.Equal(lines[2:], want) {
+		t.Errorf("commands\n%s", got)
 	}
 }
