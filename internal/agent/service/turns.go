@@ -118,7 +118,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	token, hash := newToken()
 	t := repository.Turn{
 		ID: uuid.NewV7(), ConversationID: conversation, MemberID: caller.MemberID, AgentID: a.ID, AgentName: a.Name,
-		Model: route.model, Capabilities: nonNil(a.Capabilities), Status: domain.TurnRunning, TokenHash: hash,
+		Model: route.model, Capabilities: nonNil(a.Capabilities), Role: caller.Role, Status: domain.TurnRunning, TokenHash: hash,
 		RequestKey: in.Key, StartedAt: now, RunStartedAt: now,
 		DeadlineAt: now.Add(time.Duration(limits.DeadlineS) * time.Second),
 	}
@@ -192,8 +192,15 @@ func (s *Agent) Resume(ctx context.Context, caller authn.ConsoleMember, id uuid.
 	}
 	now := s.d.Now().UTC().Truncate(time.Microsecond)
 	token, hash := newToken()
+	// The run works for the turn's member, so it takes that member's role,
+	// which is the caller's when the member resumes it.
+	role := before.Role
+	if caller.MemberID == before.MemberID {
+		role = caller.Role
+	}
 	res := repository.Resume{
-		TurnID: id, TokenHash: hash, RunStartedAt: now, DeadlineAt: now.Add(time.Duration(limits.DeadlineS) * time.Second),
+		TurnID: id, TokenHash: hash, Capabilities: nonNil(a.Capabilities), Role: role, RunStartedAt: now,
+		DeadlineAt: now.Add(time.Duration(limits.DeadlineS) * time.Second),
 	}
 	switch err = s.d.Conversations.ResumeTurn(ctx, res, now); {
 	case errors.Is(err, repository.ErrNotFound):
@@ -204,7 +211,7 @@ func (s *Agent) Resume(ctx context.Context, caller authn.ConsoleMember, id uuid.
 		return TurnState{}, fmt.Errorf("resume the turn: %w", err)
 	}
 	t := before
-	t.Status, t.TokenHash, t.RunStartedAt, t.DeadlineAt, t.Capabilities = domain.TurnRunning, hash, now, res.DeadlineAt, nonNil(a.Capabilities)
+	t.Status, t.TokenHash, t.RunStartedAt, t.DeadlineAt, t.Capabilities, t.Role = domain.TurnRunning, hash, now, res.DeadlineAt, res.Capabilities, role
 	var first []json.RawMessage
 	decided, reported, err := s.decisions(ctx, c.ID)
 	if err == nil && decided != "" {

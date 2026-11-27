@@ -103,10 +103,10 @@ VALUES (@mod, 'lan@console.test', 'Lan', 'moderator', 'active', 'x', false, 1, 0
 		{`INSERT INTO agent_conversations (id, member_id, created_at, updated_at, last_activity_at)
 VALUES (@c, @mod, @at, @at, @at)`, pgx.StrictNamedArgs{"c": conversation, "mod": moderator, "at": at}},
 		{
-			`INSERT INTO agent_turns (id, conversation_id, member_id, agent_id, agent_name, model, capabilities, status,
-    started_at, run_started_at, deadline_at)
+			`INSERT INTO agent_turns (id, conversation_id, member_id, agent_id, agent_name, model, capabilities, member_role,
+    status, started_at, run_started_at, deadline_at)
 SELECT uuidv7(), @c, CASE WHEN n < 3 THEN @mod::uuid ELSE @admin::uuid END, @agent, 'Console assistant', 'm', '{}',
-    'succeeded', s.t AS started_at, s.t AS run_started_at, s.t AS deadline_at
+    CASE WHEN n < 3 THEN 'moderator' ELSE 'admin' END, 'succeeded', s.t AS started_at, s.t AS run_started_at, s.t AS deadline_at
 FROM generate_series(0, 3) AS n,
     LATERAL (SELECT CASE WHEN n < 3 THEN @at::timestamptz ELSE @at::timestamptz - interval '30 days' END + n * interval '1 ms') AS s (t)`,
 			pgx.StrictNamedArgs{"c": conversation, "mod": moderator, "admin": admin, "agent": domain.ConsoleAssistant, "at": at},

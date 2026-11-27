@@ -22,8 +22,8 @@ const turnTokenPrefix = "snt_"
 
 // Gate lets an agent's turn call the console API with its token, for the
 // member it works for (UC-MOD-08). A request with a turn token passes only
-// to an operation its agent's capabilities grant, route naming the route
-// pattern that serves it; the token is its only credential. A change gets
+// to an operation its agent's capabilities grant and the member's role
+// may call, route naming the route pattern that serves it; the token is its only credential. A change gets
 // the approval it would wait on as its Idempotency-Key, so its replay is
 // that one request. Every call is recorded with its status.
 //
@@ -43,7 +43,7 @@ func (h *Handler) Gate(route func(method, path string) string) func(http.Handler
 				return
 			}
 			op, ok := h.svc.Operation(r.Method, route(r.Method, r.URL.Path))
-			if !ok || !domain.Grants(turn.Capabilities, op) {
+			if !ok || !domain.Grants(turn.Capabilities, turn.Role, op) {
 				httpx.WriteError(w, r, h.log, domain.ErrOperationForbidden)
 				return
 			}

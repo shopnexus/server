@@ -82,6 +82,8 @@ type Turn struct {
 	MemberID       uuid.UUID
 	// Capabilities are what the turn's agent holds.
 	Capabilities []string
+	// Role is the member's console role when the turn's run started.
+	Role string
 	// Hold answers a change the agent asked for with the approval it now
 	// waits on.
 	Hold func(w http.ResponseWriter, r *http.Request)

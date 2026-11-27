@@ -146,6 +146,7 @@ members:
   get:
     operationId: listConsoleMembers
     x-capability: none
+    x-role: admin
     x-uc: [UC-MOD-04]
     summary: Console members, newest first. Admins only.
     tags: [console, internal]
@@ -168,6 +169,7 @@ members:
   post:
     operationId: createConsoleMember
     x-capability: none
+    x-role: admin
     x-uc: [UC-MOD-04]
     summary: Create a moderator with a temporary password. Admins only.
     tags: [console, internal]
@@ -198,6 +200,7 @@ member:
   patch:
     operationId: renameConsoleMember
     x-capability: none
+    x-role: admin
     x-uc: [UC-MOD-04]
     summary: Rename a moderator. Admins only.
     tags: [console, internal]
@@ -230,6 +233,7 @@ memberDisable:
   post:
     operationId: disableConsoleMember
     x-capability: none
+    x-role: admin
     x-uc: [UC-MOD-04]
     summary: Disable a moderator and end their sessions. Admins only.
     tags: [console, internal]
@@ -254,6 +258,7 @@ memberEnable:
   post:
     operationId: enableConsoleMember
     x-capability: none
+    x-role: admin
     x-uc: [UC-MOD-04]
     summary: Enable a disabled moderator. Admins only.
     tags: [console, internal]
@@ -278,6 +283,7 @@ memberUnlock:
   post:
     operationId: unlockConsoleMember
     x-capability: none
+    x-role: admin
     x-uc: [UC-MOD-04]
     summary: Clear the sign-in lock on a moderator's email. Admins only.
     tags: [console, internal]
@@ -302,6 +308,7 @@ memberResetPassword:
   post:
     operationId: resetConsoleMemberPassword
     x-capability: none
+    x-role: admin
     x-uc: [UC-MOD-04]
     summary: Give a moderator a temporary password and end their sessions. Admins only.
     tags: [console, internal]
@@ -326,6 +333,7 @@ memberResetTotp:
   post:
     operationId: resetConsoleMemberTotp
     x-capability: none
+    x-role: admin
     x-uc: [UC-MOD-04]
     summary: Remove a moderator's TOTP and end their sessions. Admins only.
     tags: [console, internal]
@@ -478,6 +486,7 @@ actions:
   get:
     operationId: listConsoleActions
     x-capability: audit.read
+    x-role: admin
     x-uc: [UC-MOD-05]
     summary: The audit log, newest first. Admins only.
     tags: [console, internal]

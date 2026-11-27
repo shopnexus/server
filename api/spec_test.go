@@ -3,6 +3,7 @@ package api_test
 import (
 	"encoding/json"
 	"log/slog"
+	"net/http"
 	"regexp"
 	"slices"
 	"strings"
@@ -234,6 +235,39 @@ func TestSpecCapabilities(t *testing.T) {
 	}
 	if granted == 0 {
 		t.Error("no operation is granted by a capability")
+	}
+}
+
+// x-role: admin marks a console operation only an admin may call, so an
+// agent's turn for a moderator leaves it out. It goes with "Admins only."
+// in the summary, which the agent reads, and with the 403 the guard
+// answers; no other role is named, since every member may call the rest.
+func TestSpecRoles(t *testing.T) {
+	t.Parallel()
+	doc, err := api.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	admins := 0
+	for path, item := range doc.Paths.Map() {
+		for method, op := range item.Operations() {
+			raw, ok := op.Extensions["x-role"]
+			says := strings.Contains(op.Summary, "Admins only")
+			switch {
+			case ok && (raw != "admin" || !strings.HasPrefix(path, "/v1/console/")):
+				t.Errorf("%s %s: x-role %v is not admin on a console operation", method, path, raw)
+			case ok != says:
+				t.Errorf("%s %s: x-role %v but the summary says Admins only: %v", method, path, raw, says)
+			case ok && op.Responses.Status(http.StatusForbidden) == nil:
+				t.Errorf("%s %s: x-role admin without a 403", method, path)
+			case ok:
+				admins++
+			default:
+			}
+		}
+	}
+	if admins == 0 {
+		t.Error("no operation is for admins only")
 	}
 }
 

@@ -168,7 +168,7 @@ WHERE conversation_id = @id ORDER BY seq`, pgx.StrictNamedArgs{"id": conversatio
 	return out, nil
 }
 
-const turnColumns = `t.id, t.conversation_id, t.member_id, t.agent_id, t.agent_name, t.model, t.capabilities, t.status,
+const turnColumns = `t.id, t.conversation_id, t.member_id, t.agent_id, t.agent_name, t.model, t.capabilities, t.member_role, t.status,
     COALESCE(t.stop_reason, ''), COALESCE(t.error_text, ''), t.token_hash, t.input_tokens, t.output_tokens,
     t.cached_tokens, t.event_seq, t.request_key, t.started_at, t.run_started_at, t.deadline_at, t.finished_at,
     NOT EXISTS (SELECT 1 FROM agent_turns AS n WHERE n.conversation_id = t.conversation_id AND n.started_at > t.started_at),
@@ -178,7 +178,7 @@ const turnFrom = ` FROM agent_turns AS t JOIN agent_conversations AS c ON c.id =
 
 func scanTurn(r pgx.CollectableRow) (Turn, error) {
 	var t Turn
-	if err := r.Scan(&t.ID, &t.ConversationID, &t.MemberID, &t.AgentID, &t.AgentName, &t.Model, &t.Capabilities, &t.Status,
+	if err := r.Scan(&t.ID, &t.ConversationID, &t.MemberID, &t.AgentID, &t.AgentName, &t.Model, &t.Capabilities, &t.Role, &t.Status,
 		&t.Stop, &t.Error, &t.TokenHash, &t.Usage.InputTokens, &t.Usage.OutputTokens, &t.Usage.CachedTokens, &t.EventSeq,
 		&t.RequestKey, &t.StartedAt, &t.RunStartedAt, &t.DeadlineAt, &t.FinishedAt, &t.Latest, &t.Owner, &t.SubjectKind,
 		&t.SubjectID); err != nil {
@@ -248,11 +248,11 @@ func (s pgConversations) OpenTurn(ctx context.Context, t Turn, title string, at 
 			return fmt.Errorf("lock agent conversation: %w", err)
 		}
 		_, err := tx.Exec(ctx, `INSERT INTO agent_turns (id, conversation_id, member_id, agent_id, agent_name, model,
-    capabilities, status, token_hash, request_key, started_at, run_started_at, deadline_at)
-VALUES (@id, @conversation, @member, @agent, @agent_name, @model, @capabilities, 'running', @hash, @key, @at, @at,
-    @deadline)`, pgx.StrictNamedArgs{
+    capabilities, member_role, status, token_hash, request_key, started_at, run_started_at, deadline_at)
+VALUES (@id, @conversation, @member, @agent, @agent_name, @model, @capabilities, @role, 'running', @hash, @key, @at,
+    @at, @deadline)`, pgx.StrictNamedArgs{
 			"id": t.ID, "conversation": t.ConversationID, "member": t.MemberID, "agent": t.AgentID,
-			"agent_name": t.AgentName, "model": t.Model, "capabilities": t.Capabilities, "hash": t.TokenHash,
+			"agent_name": t.AgentName, "model": t.Model, "capabilities": t.Capabilities, "role": t.Role, "hash": t.TokenHash,
 			"key": t.RequestKey, "at": t.StartedAt, "deadline": t.DeadlineAt,
 		})
 		switch uniqueOn(err) {
@@ -285,8 +285,12 @@ func (s pgConversations) ResumeTurn(ctx context.Context, res Resume, at time.Tim
 			return ErrState
 		}
 		_, err = tx.Exec(ctx, `UPDATE agent_turns SET status = 'running', stop_reason = NULL, error_text = NULL,
-    token_hash = @hash, run_started_at = @run, deadline_at = @deadline, finished_at = NULL
-WHERE id = @id`, pgx.StrictNamedArgs{"id": res.TurnID, "hash": res.TokenHash, "run": res.RunStartedAt, "deadline": res.DeadlineAt})
+    token_hash = @hash, capabilities = @capabilities, member_role = @role, run_started_at = @run, deadline_at = @deadline,
+    finished_at = NULL
+WHERE id = @id`, pgx.StrictNamedArgs{
+			"id": res.TurnID, "hash": res.TokenHash, "capabilities": res.Capabilities, "role": res.Role,
+			"run": res.RunStartedAt, "deadline": res.DeadlineAt,
+		})
 		if uniqueOn(err) == "agent_turns_running" {
 			return ErrBusy
 		}

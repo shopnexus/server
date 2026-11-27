@@ -337,6 +337,10 @@ AgentOperation:
     capability:
       type: string
       description: The capability that grants it, its x-capability.
+    role:
+      type: string
+      enum: [admin]
+      description: Only an admin may call it, its x-role; a moderator's turn leaves it out.
     approval:
       type: boolean
       description: It changes something, so an agent's call waits for a member's approval.

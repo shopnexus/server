@@ -607,3 +607,75 @@ type agentActivity struct {
 	} `json:"approvals"`
 	RateLimited int `json:"rate_limited"`
 }
+
+// An admin's command is in an admin's turn only: a moderator's prompt and
+// command list leave it out and the gate refuses it, though the agent
+// holds its capability. A resumed turn takes the agent's capabilities as
+// they are then. UC-MOD-13 E3 · UC-MOD-08 A4.
+func TestConsoleAgentRoles(t *testing.T) {
+	t.Parallel()
+	lan := signInMember(t, consoledomain.RoleModerator)
+	minh := signInMember(t, consoledomain.RoleAdmin)
+	suffix := strings.ToLower(newID()[:8])
+	watcher := expect[aiAgent](t, consoleCall(t, minh, "POST", settings+"/agents", map[string]any{
+		"name": "Watcher " + suffix, "slug": "watcher-" + suffix, "model": haiku, "instructions": "Watch.",
+		"capabilities": []string{"monitoring.read", "tickets.read"},
+	}), 201)
+	health := "/v1/console/monitoring/health"
+	listed := func(token string) map[string]bool {
+		t.Helper()
+		var ops struct {
+			Operations []struct {
+				Name string `json:"name"`
+			} `json:"operations"`
+		}
+		status, body := turnCall(t, token, "GET", agentPath+"/operations", nil)
+		if err := json.Unmarshal(body, &ops); err != nil || status != 200 {
+			t.Fatalf("the operations: %d %s", status, body)
+		}
+		names := map[string]bool{}
+		for _, op := range ops.Operations {
+			names[op.Name] = true
+		}
+		return names
+	}
+
+	modTurn, modToken := hold(t, lan, newConversation(t, lan).ID, watcher.ID)
+	if ins := agentStub.ran(modTurn.TurnID).Instructions; strings.Contains(ins, "getSystemHealth") || !strings.Contains(ins, "listTickets") {
+		t.Errorf("a moderator's prompt: %s", ins)
+	}
+	if names := listed(modToken); names["getSystemHealth"] || names["queryLogs"] || !names["listTickets"] {
+		t.Errorf("a moderator's commands: %v", names)
+	}
+	if status, body := turnCall(t, modToken, "GET", health, nil); status != 403 || !strings.Contains(string(body), "agent_operation_forbidden") {
+		t.Errorf("a moderator's turn reads the health: %d %s", status, body)
+	}
+
+	adminTurn, adminToken := hold(t, minh, newConversation(t, minh).ID, watcher.ID)
+	if ins := agentStub.ran(adminTurn.TurnID).Instructions; !strings.Contains(ins, "getSystemHealth") {
+		t.Errorf("an admin's prompt: %s", ins)
+	}
+	if names := listed(adminToken); !names["getSystemHealth"] || !names["listTickets"] {
+		t.Errorf("an admin's commands: %v", names)
+	}
+	if status, body := turnCall(t, adminToken, "GET", health, nil); status != 200 {
+		t.Errorf("an admin's turn reads the health: %d %s", status, body)
+	}
+
+	// The agent loses tickets.read while the turn is paused; its resumed
+	// run has the capabilities the agent holds then.
+	expect[agentTurnState](t, control(t, minh, adminTurn.TurnID, "pause", nil), 202)
+	waitTurn(t, minh, adminTurn.TurnID)
+	expect[aiAgent](t, consoleCall(t, minh, "PATCH", settings+"/agents/"+watcher.ID,
+		map[string]any{"capabilities": []string{"monitoring.read"}}), 200)
+	expect[agentTurnState](t, control(t, minh, adminTurn.TurnID, "resume", nil), 202)
+	waitTurn(t, minh, adminTurn.TurnID)
+	var caps []string
+	var role string
+	if err := db.QueryRow(t.Context(), `SELECT capabilities, member_role FROM agent_turns WHERE id = $1`, adminTurn.TurnID).
+		Scan(&caps, &role); err != nil || strings.Join(caps, ",") != "monitoring.read" || role != "admin" {
+		t.Errorf("the resumed turn: %v %s %v", caps, role, err)
+	}
+	expect[agentTurnState](t, control(t, lan, modTurn.TurnID, "stop", nil), 202)
+	waitTurn(t, lan, modTurn.TurnID)
+}

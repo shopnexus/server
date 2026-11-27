@@ -93,9 +93,11 @@ type Turn struct {
 	AgentName      string
 	Model          string
 	Capabilities   []string
-	Status         string
-	Stop           string
-	Error          string
+	// Role is the member's console role when the run started.
+	Role   string
+	Status string
+	Stop   string
+	Error  string
 	// TokenHash is the SHA-256 of the running run's token.
 	TokenHash    []byte
 	Usage        Usage
@@ -116,6 +118,8 @@ type Turn struct {
 type Resume struct {
 	TurnID       uuid.UUID
 	TokenHash    []byte
+	Capabilities []string
+	Role         string
 	RunStartedAt time.Time
 	DeadlineAt   time.Time
 }

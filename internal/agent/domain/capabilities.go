@@ -19,6 +19,11 @@ const (
 	CapabilityTurn = "turn"
 )
 
+// RoleAdmin is the console role an operation marked x-role: admin needs;
+// any member may call the others. It is the role as module console names
+// it.
+const RoleAdmin = "admin"
+
 // OperationsName is the operation the shopnexus CLI lists its commands
 // with; it lists every other.
 const OperationsName = "listAgentOperations"
@@ -27,15 +32,18 @@ const OperationsName = "listAgentOperations"
 // spec describes it and the shopnexus CLI shows it.
 type Operation struct {
 	// Name is the operationId without Console, the CLI's command.
-	Name        string          `json:"name"`
-	Method      string          `json:"method"`
-	Path        string          `json:"path"`
-	Summary     string          `json:"summary"`
-	Description string          `json:"description,omitempty"`
-	Capability  string          `json:"capability"`
-	Approval    bool            `json:"approval"`
-	Parameters  []Parameter     `json:"parameters"`
-	Body        json.RawMessage `json:"body,omitempty"`
+	Name        string `json:"name"`
+	Method      string `json:"method"`
+	Path        string `json:"path"`
+	Summary     string `json:"summary"`
+	Description string `json:"description,omitempty"`
+	Capability  string `json:"capability"`
+	// Role is RoleAdmin for an operation only an admin may call, "" for
+	// one any member may.
+	Role       string          `json:"role,omitempty"`
+	Approval   bool            `json:"approval"`
+	Parameters []Parameter     `json:"parameters"`
+	Body       json.RawMessage `json:"body,omitempty"`
 }
 
 // Parameter is an operation's path or query parameter.
@@ -71,8 +79,14 @@ func NewCatalog(doc *openapi3.T) (Catalog, error) {
 			if !ok || capability == "" || capability == CapabilityNone {
 				continue
 			}
+			raw, marked := op.Extensions["x-role"]
+			role, isString := raw.(string)
+			if marked && (!isString || role != RoleAdmin) {
+				return Catalog{}, fmt.Errorf("agent catalog: %s: x-role %v is not %s", op.OperationID, raw, RoleAdmin)
+			}
 			method = strings.ToUpper(method)
 			o := Operation{
+				Role: role,
 				Name: strings.Replace(op.OperationID, "Console", "", 1), Method: method, Path: path,
 				Summary: op.Summary, Description: strings.TrimSpace(op.Description), Capability: capability,
 				Approval: method != http.MethodGet, Parameters: []Parameter{},
@@ -133,20 +147,38 @@ func (c Catalog) Known(capability string) bool {
 	return ok
 }
 
-// Operations lists the operations an agent holding caps may call, by name,
-// without the CLI's own listing; nil caps lists every one.
-func (c Catalog) Operations(caps []string) []Operation {
+// Operations lists every operation an agent may be given, by name, without
+// the CLI's own listing.
+func (c Catalog) Operations() []Operation {
 	out := []Operation{}
 	for i := range c.granted {
-		if o := &c.granted[i]; o.Name != OperationsName && (caps == nil || Grants(caps, *o)) {
+		if o := &c.granted[i]; o.Name != OperationsName {
 			out = append(out, *o)
 		}
 	}
 	return out
 }
 
-// Grants says whether an agent holding caps may call o.
-func Grants(caps []string, o Operation) bool {
+// Granted lists the operations a turn of an agent holding caps, for a
+// member of role, may call: Operations that Grants.
+func (c Catalog) Granted(caps []string, role string) []Operation {
+	all := c.Operations()
+	out := make([]Operation, 0, len(all))
+	for i := range all {
+		if Grants(caps, role, all[i]) {
+			out = append(out, all[i])
+		}
+	}
+	return out
+}
+
+// Grants says whether a turn of an agent holding caps, for a member of
+// role, may call o. An admin's operation is left out of a moderator's turn,
+// so its prompt does not offer what the console would refuse.
+func Grants(caps []string, role string, o Operation) bool {
+	if o.Role != "" && o.Role != role {
+		return false
+	}
 	return o.Capability == CapabilityTurn || slices.Contains(caps, o.Capability)
 }
 

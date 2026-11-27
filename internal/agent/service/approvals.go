@@ -30,7 +30,7 @@ func (s *Agent) TurnOfToken(ctx context.Context, token string) (authn.Turn, erro
 	if err != nil {
 		return authn.Turn{}, fmt.Errorf("read the token's turn: %w", err)
 	}
-	return authn.Turn{ID: t.ID, ConversationID: t.ConversationID, MemberID: t.MemberID, Capabilities: t.Capabilities}, nil
+	return authn.Turn{ID: t.ID, ConversationID: t.ConversationID, MemberID: t.MemberID, Capabilities: t.Capabilities, Role: t.Role}, nil
 }
 
 // Operation is the operation a route pattern serves, when an agent may be
@@ -40,12 +40,12 @@ func (s *Agent) Operation(method, pattern string) (domain.Operation, bool) {
 }
 
 // Operations lists every operation an agent may be given, for the AI
-// settings, or those turn's agent holds, the commands of its CLI.
+// settings, or those turn may call, the commands of its CLI.
 func (s *Agent) Operations(_ context.Context, _ authn.ConsoleMember, turn *authn.Turn) ([]domain.Operation, error) {
 	if turn == nil {
-		return s.d.Ops.Operations(nil), nil
+		return s.d.Ops.Operations(), nil
 	}
-	return s.d.Ops.Operations(nonNil(turn.Capabilities)), nil
+	return s.d.Ops.Granted(nonNil(turn.Capabilities), turn.Role), nil
 }
 
 // Hold is UC-MOD-08's change by the agent: the request op would make

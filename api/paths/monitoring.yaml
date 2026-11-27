@@ -4,6 +4,7 @@ health:
   get:
     operationId: getConsoleSystemHealth
     x-capability: monitoring.read
+    x-role: admin
     x-uc: [UC-MOD-13]
     summary: "The system's health over a window against the same window a week before. Admins only."
     description: |
@@ -40,6 +41,7 @@ metrics:
   get:
     operationId: listConsoleMetrics
     x-capability: monitoring.read
+    x-role: admin
     x-uc: [UC-MOD-13]
     summary: "The metrics the system records, with their type, help and labels. Admins only."
     description: |
@@ -81,6 +83,7 @@ metricsQuery:
   get:
     operationId: queryConsoleMetrics
     x-capability: monitoring.read
+    x-role: admin
     x-uc: [UC-MOD-13]
     summary: "Run a PromQL query, at one time or over a range. Admins only."
     description: |
@@ -125,6 +128,7 @@ logs:
   get:
     operationId: queryConsoleLogs
     x-capability: monitoring.read
+    x-role: admin
     x-uc: [UC-MOD-13]
     summary: "Run a LogQL query over a range of the system's logs. Admins only."
     description: |
