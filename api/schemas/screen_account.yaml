@@ -107,7 +107,7 @@ BuyerFigures:
     failed:
       type: integer
       minimum: 0
-      description: Of those, the orders whose delivery failed, but parcels the carrier lost.
+      description: Of those, the orders whose delivery failed, not counting parcels the carrier lost.
 ReputationCaps:
   type: object
   additionalProperties: false
