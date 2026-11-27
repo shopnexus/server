@@ -158,3 +158,32 @@ AIAgentID:
   schema:
     type: string
     format: uuid
+MonitoringWindow:
+  name: window
+  in: query
+  description: How far back the health reaches from now.
+  schema:
+    type: string
+    enum: [5m, 15m, 1h, 6h, 24h]
+    default: 15m
+MonitoringQuery:
+  name: query
+  in: query
+  required: true
+  schema:
+    type: string
+    minLength: 1
+    maxLength: 4000
+MonitoringRange:
+  name: range
+  in: query
+  description: How far back from end the query reaches, at most 24h.
+  schema:
+    $ref: "../schemas/monitoring.yaml#/Duration"
+MonitoringEnd:
+  name: end
+  in: query
+  description: Where the query ends; now when left out.
+  schema:
+    type: string
+    format: date-time

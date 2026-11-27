@@ -1,0 +1,174 @@
+health:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getConsoleSystemHealth
+    x-capability: monitoring.read
+    x-uc: [UC-MOD-13]
+    summary: "The system's health over a window against the same window a week before. Admins only."
+    description: |
+      The server's traffic, error ratio and p95 latency, its slowest routes,
+      requests refused for the rate limit, database connections, calls to
+      other services, Restate handlers, each instance's memory and CPU, and
+      the visitors who sent the most requests. Each figure has the same
+      window a week before beside it, and queries holds the PromQL or LogQL
+      behind each part, to dig further with queryMetrics and queryLogs. A
+      part whose source did not answer is null and named in missing.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/MonitoringWindow"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/monitoring.yaml#/SystemHealth"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/MonitoringUnavailable"
+metrics:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listConsoleMetrics
+    x-capability: monitoring.read
+    x-uc: [UC-MOD-13]
+    summary: "The metrics the system records, with their type, help and labels. Admins only."
+    description: |
+      Metrics whose name contains match, or all of them, at most 100. Read
+      it before writing a PromQL query, so the query names metrics and
+      labels that exist. An OpenTelemetry histogram such as
+      http.server.request.duration is http_server_request_duration_seconds
+      with _bucket, _count and _sum.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: match
+        in: query
+        description: Part of a metric's name, such as http_server.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: "^[A-Za-z0-9_:]+$"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/monitoring.yaml#/MetricList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/MonitoringUnavailable"
+metricsQuery:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: queryConsoleMetrics
+    x-capability: monitoring.read
+    x-uc: [UC-MOD-13]
+    summary: "Run a PromQL query, at one time or over a range. Admins only."
+    description: |
+      Without range, the query runs at end. With range, it runs from
+      end - range to end, a point each step. A range is at most 24h; the
+      step is at least 15s and at least range/250, and a smaller one is
+      raised to it. The query stops after 15 seconds, and at most 100
+      series come back, truncated saying when there were more. Compare
+      with the week before by adding offset 1w.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/MonitoringQuery"
+      - $ref: "../parameters/common.yaml#/MonitoringRange"
+      - $ref: "../parameters/common.yaml#/MonitoringEnd"
+      - name: step
+        in: query
+        description: The time between two points of a range, such as 1m.
+        schema:
+          $ref: "../schemas/monitoring.yaml#/Duration"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/monitoring.yaml#/MetricsResult"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "422":
+        $ref: "../responses/common.yaml#/MonitoringQueryInvalid"
+      "503":
+        $ref: "../responses/common.yaml#/MonitoringUnavailable"
+logs:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: queryConsoleLogs
+    x-capability: monitoring.read
+    x-uc: [UC-MOD-13]
+    summary: "Run a LogQL query over a range of the system's logs. Admins only."
+    description: |
+      The server's logs are the stream {service_name="server"}. Each
+      request writes one line "request" with the fields method, route,
+      status, duration_ms, client (android, website, console, bot or
+      other), visitor (a:<account>, m:<member>, or g: and b: with a hash of
+      the address and the day, never the address), country and trace_id;
+      filter on them with | route="/v1/listings" or | status >= 500. A log
+      query returns at most limit lines, newest first; a metric query such
+      as topk(5, sum by (visitor) (count_over_time({service_name="server"}
+      | visitor != "" [5m]))) returns series. range is 1h when left out and
+      at most 24h, the query stops after 15 seconds, and at most 100 series
+      come back. Emails, phone numbers and tokens are masked, and a line is
+      cut at 2000 characters.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/MonitoringQuery"
+      - $ref: "../parameters/common.yaml#/MonitoringRange"
+      - $ref: "../parameters/common.yaml#/MonitoringEnd"
+      - name: limit
+        in: query
+        description: The most lines a log query returns.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/monitoring.yaml#/LogsResult"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "422":
+        $ref: "../responses/common.yaml#/MonitoringQueryInvalid"
+      "503":
+        $ref: "../responses/common.yaml#/MonitoringUnavailable"

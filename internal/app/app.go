@@ -46,6 +46,7 @@ import (
 	"github.com/shopnexus/server/internal/erasure"
 	"github.com/shopnexus/server/internal/feedback"
 	"github.com/shopnexus/server/internal/media"
+	"github.com/shopnexus/server/internal/monitoring"
 	"github.com/shopnexus/server/internal/notification"
 	paymentmodule "github.com/shopnexus/server/internal/payment"
 	"github.com/shopnexus/server/internal/platform/config"
@@ -526,6 +527,7 @@ func mountModules(router *httpx.Router, doc *openapi3.T, pool *pgxpool.Pool, in 
 	if agentErr != nil {
 		return nil, nil, fmt.Errorf("agent: %w", agentErr)
 	}
+	monitoring.Mount(d, cfg.Monitoring, consolem.Admin)
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
 		chatm.Services, supportm.Services, feedbackm.Services, trustm.Services, notificationm.Services, assistm.Services, chototm.Services, aiServices,
 		paymentm.Services, boostm.Services,

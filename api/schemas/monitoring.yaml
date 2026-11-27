@@ -1,0 +1,280 @@
+Duration:
+  type: string
+  description: A length of time, a number and a unit of s, m, h or d, such as 15m.
+  pattern: "^[1-9][0-9]{0,4}[smhd]$"
+  example: 15m
+Figure:
+  type: object
+  additionalProperties: false
+  required: [now, week_before]
+  description: A figure over the window and over the same window a week before; null when its source has no data.
+  properties:
+    now:
+      type: [number, "null"]
+    week_before:
+      type: [number, "null"]
+SystemHealth:
+  type: object
+  additionalProperties: false
+  required: [window, at, api, slow_routes, rate_limited_per_s, database, outbound, restate, instances, visitors, queries, missing]
+  properties:
+    window:
+      $ref: "#/Duration"
+    at:
+      type: string
+      format: date-time
+      description: The end of the window.
+    api:
+      type: [object, "null"]
+      additionalProperties: false
+      required: [requests_per_s, error_ratio, p95_seconds]
+      properties:
+        requests_per_s:
+          $ref: "#/Figure"
+        error_ratio:
+          $ref: "#/Figure"
+          description: The share of requests answered 5xx.
+        p95_seconds:
+          $ref: "#/Figure"
+    slow_routes:
+      type: array
+      maxItems: 5
+      description: The routes with the highest p95 latency, slowest first.
+      items:
+        $ref: "#/RouteFigures"
+    rate_limited_per_s:
+      $ref: "#/Figure"
+      description: Requests refused 429 rate_limited each second.
+    database:
+      type: [object, "null"]
+      additionalProperties: false
+      required: [connections_in_use, connections_max, wait_seconds_per_s]
+      properties:
+        connections_in_use:
+          $ref: "#/Figure"
+          description: The most connections in use at once over the window.
+        connections_max:
+          type: [number, "null"]
+        wait_seconds_per_s:
+          $ref: "#/Figure"
+          description: Time spent waiting for a free connection, each second.
+    outbound:
+      type: array
+      maxItems: 5
+      description: The services the server calls (carriers, the AI gateway, the payment gateway), slowest first.
+      items:
+        $ref: "#/OutboundFigures"
+    restate:
+      type: array
+      maxItems: 5
+      description: The Restate handlers with the highest p95 duration, slowest first.
+      items:
+        $ref: "#/HandlerFigures"
+    instances:
+      type: array
+      maxItems: 20
+      items:
+        $ref: "#/InstanceFigures"
+    visitors:
+      type: [object, "null"]
+      additionalProperties: false
+      required: [requests, top]
+      properties:
+        requests:
+          type: integer
+          description: The requests the access log counts in the window.
+        top:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/VisitorFigures"
+    queries:
+      type: object
+      description: The PromQL or LogQL behind each part, by the part's name.
+      additionalProperties:
+        type: string
+    missing:
+      type: array
+      description: The parts whose source did not answer.
+      items:
+        type: string
+RouteFigures:
+  type: object
+  additionalProperties: false
+  required: [route, requests_per_s, error_ratio, p95_seconds]
+  properties:
+    route:
+      type: string
+    requests_per_s:
+      type: number
+    error_ratio:
+      type: number
+    p95_seconds:
+      type: [number, "null"]
+OutboundFigures:
+  type: object
+  additionalProperties: false
+  required: [host, requests_per_s, error_ratio, p95_seconds]
+  properties:
+    host:
+      type: string
+    requests_per_s:
+      type: number
+    error_ratio:
+      type: number
+      description: The share of calls that failed or were answered 5xx.
+    p95_seconds:
+      type: [number, "null"]
+HandlerFigures:
+  type: object
+  additionalProperties: false
+  required: [handler, invocations_per_s, p95_seconds]
+  properties:
+    handler:
+      type: string
+    invocations_per_s:
+      type: number
+    p95_seconds:
+      type: [number, "null"]
+InstanceFigures:
+  type: object
+  additionalProperties: false
+  required: [instance, cpu_cores, memory_bytes, memory_limit_bytes]
+  properties:
+    instance:
+      type: string
+    cpu_cores:
+      type: [number, "null"]
+      description: The cores the process used, on average over the window.
+    memory_bytes:
+      type: [number, "null"]
+    memory_limit_bytes:
+      type: [number, "null"]
+VisitorFigures:
+  type: object
+  additionalProperties: false
+  required: [visitor, client, country, requests, share]
+  properties:
+    visitor:
+      type: string
+      description: "a:<account>, m:<member>, or g: and b: with a hash of the address and the day."
+    client:
+      type: string
+    country:
+      type: string
+    requests:
+      type: integer
+    share:
+      type: number
+      description: Its part of every request in the window.
+MetricList:
+  type: object
+  additionalProperties: false
+  required: [metrics, truncated]
+  properties:
+    metrics:
+      type: array
+      maxItems: 100
+      items:
+        $ref: "#/Metric"
+    truncated:
+      type: boolean
+      description: More metrics matched than came back.
+Metric:
+  type: object
+  additionalProperties: false
+  required: [name, type, help, labels]
+  properties:
+    name:
+      type: string
+    type:
+      type: string
+      description: counter, gauge, histogram, summary or unknown.
+    help:
+      type: string
+    labels:
+      type: array
+      items:
+        type: string
+Series:
+  type: object
+  additionalProperties: false
+  required: [labels, points]
+  properties:
+    labels:
+      type: object
+      additionalProperties:
+        type: string
+    points:
+      type: array
+      description: Each point's time and value, oldest first; one point for a query at one time.
+      items:
+        $ref: "#/Point"
+Point:
+  type: object
+  additionalProperties: false
+  required: [at, value]
+  properties:
+    at:
+      type: string
+      format: date-time
+    value:
+      type: [number, "null"]
+      description: Null for NaN or an infinity.
+MetricsResult:
+  type: object
+  additionalProperties: false
+  required: [query, step, series, truncated]
+  properties:
+    query:
+      type: string
+    step:
+      description: The step the query ran with, or null at one time.
+      oneOf:
+        - $ref: "#/Duration"
+        - type: "null"
+    series:
+      type: array
+      maxItems: 100
+      items:
+        $ref: "#/Series"
+    truncated:
+      type: boolean
+      description: More series matched than came back.
+LogsResult:
+  type: object
+  additionalProperties: false
+  required: [query, lines, series, truncated]
+  properties:
+    query:
+      type: string
+    lines:
+      type: array
+      maxItems: 500
+      description: A log query's lines, newest first; empty for a metric query.
+      items:
+        $ref: "#/LogLine"
+    series:
+      type: array
+      maxItems: 100
+      description: A metric query's series; empty for a log query.
+      items:
+        $ref: "#/Series"
+    truncated:
+      type: boolean
+      description: More lines or series matched than came back.
+LogLine:
+  type: object
+  additionalProperties: false
+  required: [at, fields, line]
+  properties:
+    at:
+      type: string
+      format: date-time
+    fields:
+      type: object
+      description: The line's labels and fields, masked like the line.
+      additionalProperties:
+        type: string
+    line:
+      type: string

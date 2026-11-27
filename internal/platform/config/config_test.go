@@ -116,6 +116,8 @@ func required() map[string]string {
 		"TRUST_CALL_TIMEOUT":           "20s",
 		"TRUST_SCAM_CHECKS":            "on",
 		"AGENT_URL":                    "http://agent.example.test:8080",
+		"MONITORING_METRICS_URL":       "http://lgtm.example.test:9090",
+		"MONITORING_LOGS_URL":          "",
 		"AGENT_KEY":                    "agent-key-of-at-least-32-characters",
 		"FCM_CREDENTIALS":              "",
 		"FIREBASE_PROJECT_ID":          "shopnexus-test",
@@ -226,7 +228,8 @@ func TestLoadAllSet(t *testing.T) {
 		},
 		Agent: AgentConfig{
 			RuntimeURL: "http://agent.example.test:8080", RuntimeKey: "agent-key-of-at-least-32-characters",
-		},
+		}, Monitoring: MonitoringConfig{MetricsURL: "http://lgtm.example.test:9090", LogsURL: ""},
+
 		Firebase: FirebaseConfig{
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
 			AuthJWKSURL: "https://keys.example.test/auth", PNVJWKSURL: "https://keys.example.test/pnv", TestNumbers: true,

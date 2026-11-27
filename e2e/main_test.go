@@ -52,6 +52,7 @@ var (
 	scamStub   = newScam()          // the scam-check model
 	chototStub = newChotot()        // Chợ Tốt's gateway and CDN
 	agentStub  = newAgent()         // the agent runtime
+	monitor    = newMonitoring()    // the stack's Prometheus and Loki
 	gateway    = newGateway()       // Bifrost, whose callers reach the stubs above
 	phones     = newPhones()        // every push the server sends
 	mails      = newInbox()         // every mail the server sends
@@ -167,11 +168,12 @@ func setup(closers *[]func()) error {
 		Agent: config.AgentConfig{
 			RuntimeURL: agentStub.url(), RuntimeKey: agentKey,
 		},
-		Firebase: issuer.Config(false),
-		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
-		Google:   google.Config(),
-		Carrier:  config.CarrierConfig{GHTKMode: "fake", GHNMode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
-		Boost:    config.BoostConfig{Packages: []config.BoostPackage{{Days: 3, Price: 15_000}, {Days: 7, Price: 29_000}}},
+		Monitoring: config.MonitoringConfig{MetricsURL: monitor.metricsURL(), LogsURL: monitor.logsURL()},
+		Firebase:   issuer.Config(false),
+		Email:      config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
+		Google:     google.Config(),
+		Carrier:    config.CarrierConfig{GHTKMode: "fake", GHNMode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
+		Boost:      config.BoostConfig{Packages: []config.BoostPackage{{Days: 3, Price: 15_000}, {Days: 7, Price: 29_000}}},
 		// The website's origin is http, so no listing change is submitted.
 		IndexNowKey: indexNowKey,
 		// Tests may set X-Forwarded-For.

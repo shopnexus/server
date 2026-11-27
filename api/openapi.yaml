@@ -461,6 +461,14 @@ paths:
     $ref: "paths/console.yaml#/feedbackGroups"
   /v1/console/feedback/summary:
     $ref: "paths/console.yaml#/feedbackSummary"
+  /v1/console/monitoring/health:
+    $ref: "paths/monitoring.yaml#/health"
+  /v1/console/monitoring/metrics:
+    $ref: "paths/monitoring.yaml#/metrics"
+  /v1/console/monitoring/metrics/query:
+    $ref: "paths/monitoring.yaml#/metricsQuery"
+  /v1/console/monitoring/logs:
+    $ref: "paths/monitoring.yaml#/logs"
   /v1/console/feedback/{id}:
     $ref: "paths/console.yaml#/feedbackDetail"
   /v1/console/feedback/{id}/status:

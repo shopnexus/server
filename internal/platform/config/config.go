@@ -94,6 +94,7 @@ type Config struct {
 	AI          AIConfig //exhaustruct:optional
 	Trust       TrustConfig
 	Agent       AgentConfig
+	Monitoring  MonitoringConfig
 	Push        PushConfig
 	Firebase    FirebaseConfig
 	Email       EmailConfig
@@ -295,6 +296,16 @@ type AgentConfig struct {
 	// RuntimeKey is AGENT_KEY, the bearer key the server sends the
 	// runtime (its AGENT_KEY); at least 32 characters.
 	RuntimeKey string
+}
+
+// MonitoringConfig says where module monitoring reads the stack's
+// metrics and logs: the query APIs of the stack's Prometheus and Loki.
+// An empty address has none, and its questions answer 503.
+type MonitoringConfig struct {
+	// MetricsURL is MONITORING_METRICS_URL, such as http://lgtm:9090.
+	MetricsURL string
+	// LogsURL is MONITORING_LOGS_URL, such as http://lgtm:3100.
+	LogsURL string
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -708,6 +719,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		},
 		Agent: AgentConfig{
 			RuntimeURL: need("AGENT_URL"), RuntimeKey: token("AGENT_KEY"),
+		},
+		Monitoring: MonitoringConfig{
+			MetricsURL: set("MONITORING_METRICS_URL"), LogsURL: set("MONITORING_LOGS_URL"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),

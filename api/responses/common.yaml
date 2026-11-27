@@ -94,6 +94,18 @@ AgentApprovalDecided:
     application/json:
       schema:
         $ref: "../schemas/error.yaml#/Error"
+MonitoringUnavailable:
+  description: "The metrics or the logs cannot be reached, or the server has none set up (monitoring_unavailable)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+MonitoringQueryInvalid:
+  description: "The query does not parse, or goes past a limit: a range over 24h, or too many points (monitoring_query_invalid). The message says why, in the words of Prometheus or Loki."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
 AIGatewayUnavailable:
   description: "Bifrost cannot be reached (ai_gateway_unavailable). A change is saved and goes to Bifrost when it is back, within 5 minutes."
   content:
