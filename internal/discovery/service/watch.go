@@ -73,16 +73,16 @@ type WatchFacts struct {
 	Query   string    `json:"query"`
 }
 
-// Watch is UC-DSC-03 A1: it resolves the place to a commune, reads the
+// Watch is UC-DSC-06, steps 1 and 2: it resolves the place to a commune, reads the
 // query's phrases through the model, schedules the sweep of a new ID and
 // stores the watch.
 func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput) (WatchView, bool, error) {
 	q := strings.TrimSpace(in.Query)
-	// E6
+	// E2
 	if in.PriceMin > 0 && in.PriceMax > 0 && in.PriceMin > in.PriceMax {
 		return WatchView{}, false, domain.ErrInvalidPriceRange
 	}
-	// E8. The search's rules check the place; a GPS point then becomes its
+	// E4. The search's rules check the place; a GPS point then becomes its
 	// nearest commune, since a watch keeps a commune and no point.
 	origin, err := d.d.Catalog.Origin(ctx, in.Near)
 	if err != nil {
@@ -99,7 +99,7 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 		}
 		commune = loc.Commune.Code
 	}
-	// E7
+	// E3
 	if in.RadiusKm > 0 && commune == "" {
 		return WatchView{}, false, domain.ErrPositionRequired
 	}
@@ -123,7 +123,7 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 	if err = d.d.Sweeps.Schedule(ctx, id); err != nil {
 		return WatchView{}, false, fmt.Errorf("start the sweeps: %w", err)
 	}
-	// E5 past domain.MaxWatches; the same folded words update their watch.
+	// E1 past domain.MaxWatches; A1 the same folded words update their watch.
 	w, created, err := d.d.Watches.Put(ctx, repository.Watch{
 		ID: id, Account: account, Query: q, Phrases: phrases, Category: in.Category, PriceMin: in.PriceMin,
 		PriceMax: in.PriceMax, Conditions: append([]catalogdomain.Condition{}, in.Conditions...), OffersOnly: in.OffersOnly, Commune: commune,
@@ -139,7 +139,7 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 	return views[0], created, nil
 }
 
-// Watches is UC-DSC-03: the account's watches with their new counts.
+// Watches is UC-DSC-06, step 4: the account's watches with their new counts.
 func (d *Discovery) Watches(ctx context.Context, account uuid.UUID) (WatchList, error) {
 	ws, err := d.d.Watches.List(ctx, account)
 	if err != nil {
@@ -152,20 +152,20 @@ func (d *Discovery) Watches(ctx context.Context, account uuid.UUID) (WatchList, 
 	return WatchList{Items: views}, nil
 }
 
-// SetWatchAlert is UC-DSC-03 A4.
+// SetWatchAlert is UC-DSC-06 A3.
 func (d *Discovery) SetWatchAlert(ctx context.Context, account, id uuid.UUID, on bool) error {
 	found, err := d.d.Watches.SetAlert(ctx, account, id, on)
 	if err != nil {
 		return fmt.Errorf("set watch alert: %w", err)
 	}
-	// E9
+	// E5
 	if !found {
 		return domain.ErrWatchNotFound
 	}
 	return nil
 }
 
-// Unwatch is UC-DSC-03 A5.
+// Unwatch is UC-DSC-06 A4.
 func (d *Discovery) Unwatch(ctx context.Context, account, id uuid.UUID) error {
 	if err := d.d.Watches.Delete(ctx, account, id); err != nil {
 		return fmt.Errorf("unwatch: %w", err)
@@ -173,7 +173,7 @@ func (d *Discovery) Unwatch(ctx context.Context, account, id uuid.UUID) error {
 	return nil
 }
 
-// ListingArrived is UC-DSC-03 A2: the arrivals the sweeps read.
+// ListingArrived is UC-DSC-06, step 3: the arrivals the sweeps read.
 func (d *Discovery) ListingArrived(ctx context.Context, listing uuid.UUID) error {
 	if err := d.d.Watches.Arrive(ctx, listing); err != nil {
 		return fmt.Errorf("record the arrival: %w", err)
@@ -192,7 +192,7 @@ func (d *Discovery) WatchFacts(ctx context.Context, id uuid.UUID) (WatchFacts, b
 	return WatchFacts{ID: w.ID, Account: w.Account, Query: w.Query}, true, nil
 }
 
-// Sweep is UC-DSC-03 A2. It reads the arrivals after the watch's mark, keeps
+// Sweep is UC-DSC-06, step 3. It reads the arrivals after the watch's mark, keeps
 // those that match its filters and every word of one of its phrases, less
 // the watcher's own, hidden and blocked listings, and moves the mark. A
 // retried sweep after the move reads the next arrivals; one before it finds
@@ -251,6 +251,7 @@ func (d *Discovery) Sweep(ctx context.Context, id uuid.UUID) (Swept, error) {
 	if _, err = d.d.Watches.Swept(ctx, id, w.LastArrival, arrivals[len(arrivals)-1].Seq, len(cards), d.d.Now()); err != nil {
 		return Swept{}, fmt.Errorf("move the watch: %w", err)
 	}
+	// A2: a full batch sweeps again at once.
 	return Swept{Found: true, Full: len(arrivals) == d.d.SweepBatch}, nil
 }
 

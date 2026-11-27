@@ -3,20 +3,17 @@ listingReads:
     operationId: createListingRead
     x-rate-limit: costly
     x-uc: [UC-LST-01]
-    summary: Read a video, a photo or the seller's Chợ Tốt listing into a listing draft.
+    summary: Read a video or a photo into a listing draft.
     description: |
       Starts reading what the body names: a video the caller uploaded with
-      POST /v1/uploads, one photo upload of the caller's, or the link to the
-      seller's own listing on Chợ Tốt.
+      POST /v1/uploads, or one photo upload of the caller's.
       A video may carry the phone's transcript; then the server runs no
       speech recognition.
       The answer comes at once with status reading. Each step that finishes
       adds its fields and sends a listing_read update on /v1/ws; the app
-      then reads the read with GET. Checks, in order: for a link not_a_link
-      and unsupported_source; then account_suspended, phone_required,
-      read_limit_reached (30 video reads, 60 photo reads or 30 link reads in
-      24 hours); then invalid_upload for a video or a photo. A link is not
-      fetched until the read runs.
+      then reads the read with GET. Checks, in order: account_suspended,
+      phone_required, read_limit_reached (30 video reads or 60 photo reads
+      in 24 hours), then invalid_upload.
     tags: [assist]
     security:
       - bearerAuth: []
@@ -48,8 +45,7 @@ listingReads:
       "422":
         description: |
           The video is not the caller's, not a video, not uploaded yet, expired or already read (invalid_upload); the
-          photo is not the caller's, not a photo, not uploaded yet, already in a listing or expired (invalid_upload); the
-          text is not an http or https link (not_a_link), or not a link to a listing on chotot.com (unsupported_source).
+          photo is not the caller's, not a photo, not uploaded yet, already in a listing or expired (invalid_upload).
         content:
           application/json:
             schema:

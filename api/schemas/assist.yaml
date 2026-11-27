@@ -1,11 +1,10 @@
 ListingReadRequest:
   type: object
   additionalProperties: false
-  description: What to read, exactly one of video, photo or link, with transcript only beside video.
+  description: What to read, exactly one of video and photo, with transcript only beside video.
   oneOf:
     - required: [video]
     - required: [photo]
-    - required: [link]
   dependentRequired:
     transcript: [video]
   properties:
@@ -26,18 +25,14 @@ ListingReadRequest:
       description: |
         A photo upload of the caller's, uploaded and not yet in a listing:
         the cover. The read does not take it; post it in the listing.
-    link:
-      type: string
-      maxLength: 2048
-      description: The link the seller pasted to their own listing on Chợ Tốt.
 ListingRead:
   type: object
   additionalProperties: false
   required: [id, source, status, expires_at]
   description: |
-    A read of a seller's video, photo or listing on Chợ Tốt into a listing
-    draft. Fields fill in as its steps finish: photos after the frames step
-    of a video or the copy step of a link, draft when the read is done. A
+    A read of a seller's video or photo into a listing draft. Fields fill
+    in as its steps finish: photos after the frames step of a video, draft
+    when the read is done. A
     field not reached yet is absent, and so is a field of another source. A
     video is deleted when its read ends; the read is kept 24 hours. GET
     /v1/listing-reads/{id}/events streams the title and description while
@@ -48,19 +43,18 @@ ListingRead:
       format: uuid
     source:
       type: string
-      enum: [video, photo, link]
+      enum: [video, photo]
     status:
       type: string
       enum: [reading, done, failed]
     failure:
       type: string
-      enum: [unreadable, video_too_short, video_too_long, listing_not_found, no_item, unavailable]
+      enum: [unreadable, video_too_short, video_too_long, no_item, unavailable]
       description: |
         Only when status is failed. unreadable: no picture could be read;
         video_too_short and video_too_long: under 3 s or over 35 s;
-        listing_not_found: Chợ Tốt has no such listing on sale, or none of
-        its photos could be copied; no_item: no single item for sale;
-        unavailable: the models or Chợ Tốt did not answer in time, try again.
+        no_item: no single item for sale; unavailable: the models did not
+        answer in time, try again.
     failure_reason:
       type: string
       maxLength: 300
@@ -69,21 +63,16 @@ ListingRead:
         Vietnamese sentence for the seller. For no_item it is the model's
         own reason; for unavailable, the error the model gave or what went
         wrong asking it. Show it under the failure's own words.
-    link:
-      $ref: "#/LinkSource"
     photos:
       type: array
-      maxItems: 10
+      maxItems: 8
       description: |
-        A video's clearest frames in time order (at most 8), a link's
-        copies in the old listing's order, or the photo read.
+        A video's clearest frames in time order (at most 8), or the photo
+        read.
       items:
         $ref: "#/ReadPhoto"
     draft:
       $ref: "#/ReadDraft"
-    contact_removed:
-      type: boolean
-      description: A link read's; true when a phone number, Zalo or other contact was taken out of the description.
     expires_at:
       type: string
       format: date-time
@@ -136,18 +125,18 @@ ReadDraft:
     price:
       type: [integer, "null"]
       format: int64
-      description: A link read's price on Chợ Tốt; null for the others.
+      description: Always null; the seller adds the price.
     allow_offers:
       type: boolean
       description: Always false; the seller sets it.
     photos:
       type: array
       minItems: 1
-      maxItems: 10
+      maxItems: 6
       description: |
         Upload IDs of the draft's photos, the cover first: a video read's
-        sharpest frame then the others in time order (at most 6), a photo
-        read's photo, or a link read's copies (at most 10).
+        sharpest frame then the others in time order (at most 6), or a
+        photo read's photo.
       items:
         type: string
         format: uuid
@@ -306,23 +295,6 @@ Watcher:
       format: int64
     offers_only:
       type: boolean
-LinkSource:
-  type: object
-  description: A link read's listing.
-  additionalProperties: false
-  required: [site, url]
-  properties:
-    site:
-      type: string
-      enum: [chotot.com]
-    url:
-      type: string
-      format: uri
-      description: The old listing, for the seller's "Từ tin Chợ Tốt của bạn" line; only the seller sees it.
-    photo_count:
-      type: integer
-      minimum: 1
-      description: Photos on the old listing; set after the read step.
 ReadText:
   type: object
   additionalProperties: false

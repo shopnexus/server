@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"uuid"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/repository"
+	"github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -48,5 +52,32 @@ func TestSetAlertSavesAndTells(t *testing.T) {
 	}
 	if err = e.discovery.SetAlert(ctx, seller, l, 1_000_000); !errors.Is(err, domain.ErrOwnListing) {
 		t.Fatalf("own: %v", err)
+	}
+}
+
+// unsavedMeanwhile is a store whose save goes just before SetAlert writes
+// the level, as an unsave racing the alert does.
+type unsavedMeanwhile struct {
+	repository.Saves
+}
+
+func (s unsavedMeanwhile) SetAlert(ctx context.Context, account, listing uuid.UUID, below *int64) (bool, error) {
+	if err := s.Remove(ctx, account, listing); err != nil {
+		return false, err
+	}
+	return s.Saves.SetAlert(ctx, account, listing, below)
+}
+
+// UC-DSC-03 E11 · NFR-CONC-01.
+func TestSetAlertLosesToAnUnsave(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, func(d *service.Deps) { d.Saves = unsavedMeanwhile{Saves: d.Saves} })
+	ctx := context.Background()
+	l := catalogtest.Listing(t, e.db, accounttest.New(t, e.db))
+	if err := e.discovery.SetAlert(ctx, e.me, l, 1_000_000); !errors.Is(err, apperr.ErrTryAgain) {
+		t.Fatalf("%v", err)
+	}
+	if p, err := e.discovery.Saved(ctx, e.me, page.Request{}); err != nil || len(p.Items) != 0 {
+		t.Fatalf("the unsave stands: %+v %v", p, err)
 	}
 }

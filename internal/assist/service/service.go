@@ -37,11 +37,6 @@ type Service interface {
 	//
 	// UC-LST-01
 	StartPhotoRead(ctx context.Context, account, key, photo uuid.UUID) (ListingReadView, error)
-	// StartLinkRead parses the link and starts a read of it, once per
-	// account and key, and returns the read as it is then.
-	//
-	// UC-LST-01 A2
-	StartLinkRead(ctx context.Context, account, key uuid.UUID, link string) (ListingReadView, error)
 	// GetRead returns one of account's reads of any source. Another
 	// account's, an unknown one and one past its expiry are
 	// domain.ErrNotFound.
@@ -72,17 +67,9 @@ type Service interface {
 	DeleteAccount(ctx context.Context, account uuid.UUID) error
 }
 
-// ListingSource reads a seller's listing on another site: Chợ Tốt.
-type ListingSource interface {
-	Ad(ctx context.Context, listID int64) (chotot.Ad, error)
-	Image(ctx context.Context, url string) ([]byte, string, error)
-}
-
 // Deps is what New builds Assist from.
 type Deps struct {
-	Reads repository.ListingReads
-	// Source is Chợ Tốt, for link reads.
-	Source   ListingSource
+	Reads    repository.ListingReads
 	Accounts accountsvc.Service
 	Media    mediasvc.Service
 	Catalog  catalogsvc.Service
@@ -111,7 +98,6 @@ type Deps struct {
 type Assist struct {
 	d          Deps
 	startVideo restatex.Caller[StartInput, StartResult]
-	startLink  restatex.Caller[StartLinkInput, StartResult]
 	startPhoto restatex.Caller[StartPhotoInput, StartResult]
 }
 
@@ -121,12 +107,11 @@ func New(d Deps) *Assist {
 	return &Assist{
 		d:          d,
 		startVideo: restatex.Caller[StartInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + videoRead, Handler: startHandler},
-		startLink:  restatex.Caller[StartLinkInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + linkRead, Handler: startHandler},
 		startPhoto: restatex.Caller[StartPhotoInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + photoRead, Handler: startHandler},
 	}
 }
 
 // Durable returns module assist's Restate services, for Mount to bind.
 func (a *Assist) Durable() []restate.ServiceDefinition {
-	return []restate.ServiceDefinition{restate.Reflect(VideoRead{a.d}), restate.Reflect(PhotoRead{a.d}), restate.Reflect(LinkRead{a.d})}
+	return []restate.ServiceDefinition{restate.Reflect(VideoRead{a.d}), restate.Reflect(PhotoRead{a.d})}
 }

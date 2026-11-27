@@ -10,7 +10,7 @@ import (
 	"github.com/shopnexus/server/internal/provider/chotot"
 )
 
-// FillAd writes a link read's draft and adds the condition and the specs
+// FillAd writes the listing's draft and adds the condition and the specs
 // the listing states, keyed for its category; a condition it does not
 // state is used and guessed.
 //
@@ -19,7 +19,7 @@ func TestFillAd(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	ad := e.source.ad
+	ad := iphoneAd()
 	got, err := e.assist.FillAd(ctx, ad)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestFillAd(t *testing.T) {
 	}
 
 	e.model.mu.Lock()
-	e.model.link = noItemReply
+	e.model.text = noItemReply
 	e.model.mu.Unlock()
 	if got, err = e.assist.FillAd(ctx, ad); err != nil || got.NoItem == "" || got.Draft.Title != "" {
 		t.Fatalf("no item: %+v %v", got, err)

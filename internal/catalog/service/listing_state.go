@@ -127,6 +127,18 @@ func (c *Catalog) Release(ctx context.Context, listingID, orderID uuid.UUID) err
 	return c.save(ctx, l, events.ListingReleased, now, uuid.NewV7())
 }
 
+func (c *Catalog) ReleaseHidden(ctx context.Context, listingID, orderID uuid.UUID) error {
+	l, err := c.listing(ctx, listingID)
+	if err != nil {
+		return err
+	}
+	now := c.d.Now()
+	if !l.ReleaseHidden(orderID, now) {
+		return nil
+	}
+	return c.save(ctx, l, events.ListingHidden, now, uuid.NewV7())
+}
+
 func (c *Catalog) SellTo(ctx context.Context, listingID, orderID, writeID uuid.UUID) error {
 	l, err := c.listing(ctx, listingID)
 	if err != nil {

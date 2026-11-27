@@ -15,7 +15,7 @@ import (
 )
 
 // An account that never saved settings reads the defaults and gets no row;
-// a put replaces the whole document, and Forget deletes it.
+// a put replaces the whole document, and Forget deletes it. UC-SHR-03 A8.
 func TestSettings(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -54,6 +54,7 @@ func TestSettings(t *testing.T) {
 }
 
 // A put for an account deleted since the caller's checks writes nothing.
+// UC-SHR-03 E4.
 func TestSettingsOfADeletedAccount(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

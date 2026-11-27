@@ -16,14 +16,14 @@ import (
 )
 
 // FillAd is UC-LST-04, step 5: it writes the draft of a seller's Chợ Tốt
-// listing as a link read's fill does, with the condition and the specs the
-// listing states. It keeps no read and relays nothing.
+// listing, with the condition and the specs the listing states. It keeps
+// no read and relays nothing.
 func (a *Assist) FillAd(ctx context.Context, ad chotot.Ad) (AdFill, error) {
 	started := time.Now()
 	modelCtx, cancel := context.WithTimeout(ctx, a.d.CallTimeout)
 	defer cancel()
 	raw, err := a.d.Model.Stream(modelCtx, llm.Request{
-		System: linkSystemPrompt, User: linkUserPrompt(ad), SchemaName: domain.ReplySchemaName, Schema: domain.ReplySchema,
+		System: adSystemPrompt, User: adUserPrompt(ad), SchemaName: domain.ReplySchemaName, Schema: domain.ReplySchema,
 	}, func(string) {})
 	if err != nil {
 		return AdFill{}, fmt.Errorf("ask the model: %w", err)
@@ -32,7 +32,7 @@ func (a *Assist) FillAd(ctx context.Context, ad chotot.Ad) (AdFill, error) {
 	if err != nil {
 		return AdFill{}, fmt.Errorf("read the model's answer: %w", err)
 	}
-	d, removed, err := domain.LinkDraft(rep, ad.Price)
+	d, removed, err := domain.AdDraft(rep, ad.Price)
 	if noItem, ok := errors.AsType[domain.NoItemError](err); ok {
 		a.d.Log.InfoContext(ctx, "ad fill found no item", "list_id", ad.ListID, "chotot_category", ad.CategoryName)
 		return AdFill{NoItem: noItem.Reason, Guessed: []string{}}, nil
@@ -59,7 +59,7 @@ func (a *Assist) FillAd(ctx context.Context, ad chotot.Ad) (AdFill, error) {
 		d.Specs = slices.DeleteFunc(keyed, func(s catalogdomain.Spec) bool { return s.Key == "" })
 	}
 	// No word of the seller's: no subject, body, title or description.
-	a.d.Log.InfoContext(ctx, "ad filled", "prompt_version", LinkPromptVersion, "list_id", ad.ListID,
+	a.d.Log.InfoContext(ctx, "ad filled", "prompt_version", AdPromptVersion, "list_id", ad.ListID,
 		"body_chars", utf8.RuneCountInString(ad.Body), "chotot_category", ad.CategoryName, "category", d.CategoryCode,
 		"specs", len(d.Specs), "guessed", guessed, "contact_removed", removed, "ms", time.Since(started).Milliseconds())
 	return AdFill{Draft: d, ContactRemoved: removed, Guessed: guessed}, nil

@@ -21,12 +21,7 @@ type listingRead struct {
 	Status        string `json:"status"`
 	Failure       string `json:"failure"`
 	FailureReason string `json:"failure_reason"`
-	Link          *struct {
-		Site       string `json:"site"`
-		URL        string `json:"url"`
-		PhotoCount int    `json:"photo_count"`
-	} `json:"link"`
-	Photos []struct {
+	Photos        []struct {
 		UploadID  string   `json:"upload_id"`
 		URL       string   `json:"url"`
 		AtSeconds *float64 `json:"at_seconds"`
@@ -41,7 +36,6 @@ type listingRead struct {
 		AllowOffers  bool                `json:"allow_offers"`
 		Photos       []string            `json:"photos"`
 	} `json:"draft"`
-	ContactRemoved *bool `json:"contact_removed"`
 }
 
 // The specs a seller fills for a bicycle and an iPhone, the categories'
@@ -98,7 +92,7 @@ func TestVideoReadToListing(t *testing.T) {
 		t.Fatalf("started: %+v", started)
 	}
 	r := readEnd(t, seller.AccessToken, started.ID)
-	if r.Status != "done" || r.Source != "video" || r.Link != nil || len(r.Photos) != 3 || r.Draft == nil {
+	if r.Status != "done" || r.Source != "video" || len(r.Photos) != 3 || r.Draft == nil {
 		t.Fatalf("%+v", r)
 	}
 	d := r.Draft
@@ -189,7 +183,7 @@ func TestCreateListingReadRefusals(t *testing.T) {
 		map[string]any{"video": uploadVideo(t, me.AccessToken, "a video"), "transcript": strings.Repeat("a", 1001)},
 		bearer(me.AccessToken), newKey()), 400, "invalid_request")
 	check(t, "two sources", call(t, "POST", "/v1/listing-reads",
-		map[string]any{"video": uuid.NewV7().String(), "link": iphoneURL(iphoneListing)}, bearer(me.AccessToken), newKey()), 400, "invalid_request")
+		map[string]any{"video": uuid.NewV7().String(), "photo": uuid.NewV7().String()}, bearer(me.AccessToken), newKey()), 400, "invalid_request")
 	check(t, "a photo", post(me.AccessToken, upload(t, me.AccessToken, photoWithGPS(t)), newKey()), 422, "invalid_upload")
 	check(t, "someone else's video", post(me.AccessToken, uploadVideo(t, other.AccessToken, "their video"), newKey()),
 		422, "invalid_upload")

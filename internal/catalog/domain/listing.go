@@ -492,6 +492,17 @@ func (l *Listing) Release(order uuid.UUID, now time.Time) bool {
 	return true
 }
 
+// ReleaseHidden takes a listing held for order off its hold as hidden by
+// its seller, who lacks the item now that the carrier lost it, and reports
+// whether it did; the seller shows it again with Unhide.
+func (l *Listing) ReleaseHidden(order uuid.UUID, now time.Time) bool {
+	if l.s.Status != StatusReserved || l.s.ReservedFor != order {
+		return false
+	}
+	l.s.Status, l.s.ReservedFor, l.s.UpdatedAt = StatusHidden, uuid.UUID{}, now
+	return true
+}
+
 // SellTo marks a listing held for order sold, recording the order, and
 // reports whether it did.
 func (l *Listing) SellTo(order uuid.UUID, now time.Time) bool {

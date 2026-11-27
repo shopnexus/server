@@ -179,9 +179,9 @@ chototImports:
     summary: Bring the chosen Chợ Tốt listings over as listings.
     description: |
       Starts one import per listing and answers at once. An import reads
-      the listing from Chợ Tốt, checks it is the linked profile's, fills the
-      title, description, category, condition and specs as a link read
-      does, copies its photos (copied: true), takes the commune of the
+      the listing from Chợ Tốt, checks it is the linked profile's, has the
+      model write the title and description, takes the category, condition
+      and specs, copies its photos (copied: true), takes the commune of the
       caller's default address (or of their newest listing), and posts it
       like POST /v1/listings. Each listing is imported once per account:
       a listing already listed, a draft or one still importing answers as

@@ -270,8 +270,13 @@ ShipmentDraft:
           description: An address of the caller's from GET /v1/addresses.
 ShipmentStatus:
   type: string
-  enum: [pending_pickup, in_transit, delivered, failed]
-  description: Where the parcel is, as its carrier reports it.
+  enum: [pending_pickup, in_transit, delivered, failed, lost]
+  description: |
+    Where the parcel is, as its carrier reports it. failed is a parcel
+    refused at the door and on its way back; lost is a parcel the carrier
+    lost after the pickup, or no longer knew 30 days after it. Either ends
+    the order failed; a lost one counts against neither side, takes no
+    review, and leaves the listing hidden for its seller.
 Recipient:
   type: object
   additionalProperties: false
@@ -340,10 +345,12 @@ OrderStatus:
     pending: the buyer asked for COD; either side may cancel. shipped: the
     seller created the shipment; the listing is reserved. completed: the
     buyer confirmed receipt, or 3 days passed after the carrier reported
-    the parcel delivered. failed: the carrier returned the parcel,
-    or lost or cancelled it after the pickup, or knew it no more 30 days
-    into transit; the deal negotiates again. cancelled: before the shipment, or
-    by the pickup timeout.
+    the parcel delivered. failed: the carrier returned the parcel, and
+    the listing is back on sale; or it lost or cancelled it after the
+    pickup, or knew it no more 30 days into transit, which leaves the
+    shipment lost and the listing hidden for its seller. Either way the deal
+    negotiates again. cancelled: before the shipment, or by the pickup
+    timeout.
 Order:
   type: object
   additionalProperties: false

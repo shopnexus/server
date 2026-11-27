@@ -59,6 +59,7 @@ func (e *mailEnv) moved(t *testing.T, moves ...uuid.UUID) events.Event {
 
 // An order notice is mailed once, even at night with its push switched
 // off; an offer is not mailed, and a buyer without an address gets none.
+// UC-SHR-03 A12 · BR-SHR-01.
 func TestOrderNoticesAreMailed(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -83,6 +84,7 @@ func TestOrderNoticesAreMailed(t *testing.T) {
 }
 
 // order_emails off stops order mail only: an account notice still goes.
+// UC-SHR-03 A8 · BR-SHR-01.
 func TestOrderEmailsOff(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -104,6 +106,7 @@ func TestOrderEmailsOff(t *testing.T) {
 }
 
 // A mail the provider refuses is dropped; the notice stays listed.
+// UC-SHR-03 A12.
 func TestRefusedMailIsDropped(t *testing.T) {
 	t.Parallel()
 	e := newMailEnv(t)
@@ -116,6 +119,7 @@ func TestRefusedMailIsDropped(t *testing.T) {
 }
 
 // A recipient who reads English gets the push and the mail in English.
+// UC-SHR-03.
 func TestEnglishRecipient(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

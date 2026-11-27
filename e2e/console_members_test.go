@@ -43,6 +43,15 @@ func TestConsoleManagesModerators(t *testing.T) {
 	if got := consoleLogin(t, map[string]string{"email": mod.Email, "password": memberPassword}); errorOf(t, got).Code != "totp_required" {
 		t.Fatalf("after unlock: %d %s", got.Status, got.Body)
 	}
+	renamed := expect[struct {
+		DisplayName string `json:"display_name"`
+	}](t, consoleCall(t, admin, "PATCH", "/v1/console/members/"+mod.ID, map[string]string{"display_name": "  Lan Nguyễn "}), 200)
+	if renamed.DisplayName != "Lan Nguyễn" {
+		t.Fatalf("rename: %q", renamed.DisplayName)
+	}
+	for _, name := range []string{"", "   "} {
+		expectStatus(t, consoleCall(t, admin, "PATCH", "/v1/console/members/"+mod.ID, map[string]string{"display_name": name}), 400)
+	}
 	res = consoleCall(t, admin, "POST", path+"reset-password", nil)
 	if res.Status != 200 || len(decode[struct {
 		Temporary string `json:"temporary_password"`
@@ -79,4 +88,8 @@ func TestConsoleMemberOpsForbidden(t *testing.T) {
 			t.Errorf("%s on an unknown id: %d %s", op, got.Status, got.Body)
 		}
 	}
+	rename := map[string]string{"display_name": "Boss"}
+	check(t, "rename by a moderator", consoleCall(t, mod, "PATCH", "/v1/console/members/"+otherAdmin, rename), 403, "console_forbidden")
+	check(t, "rename an admin", consoleCall(t, admin, "PATCH", "/v1/console/members/"+otherAdmin, rename), 403, "admin_managed_by_cli")
+	check(t, "rename an unknown id", consoleCall(t, admin, "PATCH", "/v1/console/members/"+uuid.NewV7().String(), rename), 404, "member_not_found")
 }

@@ -24,6 +24,8 @@ func notice(to uuid.UUID, key string, amount int64, at time.Time) domain.Notice 
 	return domain.Notice{Recipient: to, Type: domain.TypeOffer, CollapseKey: key, Params: domain.Params{Amount: amount}, At: at}
 }
 
+// An unread notice collapses, a late event keeps the newer content, and a
+// read notice starts a new one. UC-SHR-03 A6 · BR-SHR-02.
 func TestCollapse(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -69,7 +71,7 @@ func TestCollapse(t *testing.T) {
 }
 
 // A redelivered event adds nothing; a new notice deletes the expired ones,
-// the recipient's and a silent account's.
+// the recipient's and a silent account's. UC-SHR-03 A1 · BR-SHR-02.
 func TestAddOnceAndPrune(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -102,6 +104,8 @@ func TestAddOnceAndPrune(t *testing.T) {
 	}
 }
 
+// The list pages newest first; someone else's notice is not found.
+// UC-SHR-03 E1, A13.
 func TestReadAndList(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -164,6 +168,7 @@ func TestTokens(t *testing.T) {
 
 // A phone signed in to a second account keeps its token, which moves to
 // the new session, so the first account's pushes stop reaching it.
+// UC-SHR-03 A7.
 func TestTokenMovesToTheNewSession(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -214,7 +219,7 @@ func TestForget(t *testing.T) {
 	}
 }
 
-// ReadAll returns exactly the notices it marked read.
+// ReadAll returns exactly the notices it marked read. UC-SHR-03 A13.
 func TestReadAllReturnsItsIDs(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -243,7 +248,7 @@ func TestReadAllReturnsItsIDs(t *testing.T) {
 }
 
 // MarkUnread makes the caller's read notices unread, one per collapse key:
-// the newest, and none for a key that has an unread notice.
+// the newest, and none for a key that has an unread notice. UC-SHR-03 A14.
 func TestMarkUnreadCollapse(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -298,7 +303,7 @@ func TestMarkUnreadCollapse(t *testing.T) {
 
 // When a newer unread notice with the key commits while Add waits on it,
 // Add keeps it, reports late, and logs no update for the recipient, since
-// nothing changed.
+// nothing changed. UC-SHR-03 A6.
 func TestAddLosingTheRaceLogsNoUpdate(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -353,6 +358,7 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'`).Scan(&waiting)
 }
 
 // A notice first made before the retention but bumped since stays.
+// UC-SHR-03 · BR-SHR-02.
 func TestPruneByBump(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -392,6 +398,7 @@ func TestAddTakesTheCallersID(t *testing.T) {
 }
 
 // A token put for an account deleted since the caller's checks writes nothing.
+// UC-SHR-03 E4.
 func TestTokenOfADeletedAccount(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

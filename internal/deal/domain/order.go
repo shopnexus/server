@@ -77,8 +77,9 @@ const (
 	ShipmentInTransit     ShipmentStatus = "in_transit"
 	ShipmentDelivered     ShipmentStatus = "delivered"
 	ShipmentFailed        ShipmentStatus = "failed"
-	// ShipmentLost is a report only, never stored: the carrier cancelled
-	// or lost the parcel. It fails an order picked up and moves no other.
+	// ShipmentLost is the carrier cancelling or losing the parcel. It
+	// fails an order picked up and stays on it, the carrier's fault that
+	// counts against neither side; before the pickup it moves nothing.
 	ShipmentLost ShipmentStatus = "lost"
 )
 
@@ -266,8 +267,15 @@ var OpenStatuses = []OrderStatus{OrderPending, OrderShipped}
 // Open reports whether the order is in an OpenStatuses status.
 func (o Order) Open() bool { return slices.Contains(OpenStatuses, o.Status) }
 
+// Lost reports whether the order failed because the carrier lost its
+// parcel.
+func (o Order) Lost() bool {
+	return o.Status == OrderFailed && o.Shipment != nil && o.Shipment.Status == ShipmentLost
+}
+
 // BuyerOrders counts a buyer's orders: Placed and Failed over BuyerPeriod,
-// Open now, against MaxOpenOrders.
+// Open now, against MaxOpenOrders. Failed leaves out parcels the carrier
+// lost.
 type BuyerOrders struct {
 	Placed, Failed, Open int
 }

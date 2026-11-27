@@ -38,7 +38,7 @@ func (r reviews) ReviewFacts(_ context.Context, id uuid.UUID) (trustsvc.ReviewFa
 
 // A hidden review tells its subject once it shows. The second side's
 // review tells both subjects, and the first, waking, tells no one again.
-// A reply tells the reviewer.
+// A reply tells the reviewer. UC-SHR-03 A5.
 func TestReviewNotices(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, nil, nil)

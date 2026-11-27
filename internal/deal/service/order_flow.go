@@ -161,6 +161,17 @@ func releaseStep(ctx restate.Context, catalog catalogsvc.Service, listing, order
 	return nil
 }
 
+// hideStep takes the listing held for the order off its hold as hidden by
+// its seller in one journaled step: the carrier lost the parcel.
+func hideStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uuid.UUID) error {
+	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
+		return catalog.ReleaseHidden(rc, listing, order)
+	}); err != nil {
+		return fmt.Errorf("hide the listing: %w", err)
+	}
+	return nil
+}
+
 // sellStep marks the listing held for the order sold in one journaled step,
 // under a write ID minted before it.
 func sellStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uuid.UUID, at time.Time) error {

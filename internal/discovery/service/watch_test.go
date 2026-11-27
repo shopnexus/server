@@ -13,6 +13,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 // sweeps records the watches Schedule was called with.
@@ -45,7 +46,7 @@ func (e env) matched(t *testing.T, watch uuid.UUID) int {
 	return n
 }
 
-// UC-DSC-03 A1, A2, A3, A4, A5.
+// UC-DSC-06 A3, A4.
 func TestWatchAndSweep(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -117,7 +118,7 @@ func TestWatchAndSweep(t *testing.T) {
 	}
 }
 
-// UC-DSC-03 A2.
+// UC-DSC-06 A2.
 func TestSweepFullBatch(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(d *service.Deps) { d.SweepBatch = 2 })
@@ -143,7 +144,7 @@ func TestSweepFullBatch(t *testing.T) {
 	}
 }
 
-// UC-DSC-03 E6, E7, E8, E9, E10.
+// UC-DSC-06 E2, E3, E4, E5, E6, E7.
 func TestWatchRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -183,5 +184,8 @@ func TestWatchRefusals(t *testing.T) {
 	}
 	if _, err = e.discovery.Search(ctx, &me, service.SearchInput{Watch: v.ID, Province: "01"}); !errors.Is(err, domain.ErrSearchConflict) {
 		t.Fatalf("?watch= with province: %v", err)
+	}
+	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Watch: v.ID}); !errors.Is(err, authn.ErrUnauthenticated) {
+		t.Fatalf("?watch= signed out: %v", err)
 	}
 }

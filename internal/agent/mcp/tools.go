@@ -184,7 +184,7 @@ type listings struct {
 
 type buyer struct {
 	Placed int `json:"placed" jsonschema:"orders placed in the last period"`
-	Failed int `json:"failed" jsonschema:"orders the buyer refused or failed in that period"`
+	Failed int `json:"failed" jsonschema:"orders the buyer refused or failed in that period, not parcels the carrier lost"`
 	Open   int `json:"open"   jsonschema:"orders open now"`
 }
 

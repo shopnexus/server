@@ -148,7 +148,8 @@ ShipmentStep:
     pending_pickup; picked, at_hub, transporting, out_for_delivery and
     delivery_failed are in_transit, since the carrier tries a failed
     delivery again; delivered is delivered; returning and returned are
-    failed. cancelled and lost move no order.
+    failed. cancelled and lost are lost once the parcel was picked up, and
+    move no order before.
 TrackingEvent:
   type: object
   additionalProperties: false

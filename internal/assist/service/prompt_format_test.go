@@ -9,7 +9,7 @@ import (
 // item, and is asked for nothing else.
 func TestPromptsAskForTheReply(t *testing.T) {
 	t.Parallel()
-	for name, p := range map[string]string{"video": systemPrompt, "photo": photoSystemPrompt, "link": linkSystemPrompt} {
+	for name, p := range map[string]string{"video": systemPrompt, "photo": photoSystemPrompt, "ad": adSystemPrompt} {
 		for _, want := range []string{`"subject"`, `"found"`, `"title" and "description"`, `"reason"`, "Never ask the seller for more details"} {
 			if !strings.Contains(p, want) {
 				t.Errorf("%s: no %q", name, want)

@@ -14,7 +14,7 @@ import (
 )
 
 // Quiet hours that start when they end are refused and change nothing; a
-// put is read back.
+// put is read back. UC-SHR-03 A8, E3.
 func TestPutSettings(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

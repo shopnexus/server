@@ -16,7 +16,7 @@ func (s pgDeals) BuyerOrders(ctx context.Context, buyer uuid.UUID, since time.Ti
 	var out domain.BuyerOrders
 	if err := s.db.QueryRow(ctx, `SELECT
     count(*) FILTER (WHERE requested_at >= @since),
-    count(*) FILTER (WHERE requested_at >= @since AND status = 'failed'),
+    count(*) FILTER (WHERE requested_at >= @since AND status = 'failed' AND shipment_status IS DISTINCT FROM 'lost'),
     count(*) FILTER (WHERE status = ANY(@open))
 FROM orders WHERE buyer_id = @buyer`, pgx.StrictNamedArgs{"buyer": buyer, "since": since, "open": domain.OpenStatuses}).Scan(
 		&out.Placed, &out.Failed, &out.Open); err != nil {

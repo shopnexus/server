@@ -1,7 +1,7 @@
 // Package assist is AI that helps a person do something in the app. It
-// reads a seller's video, photo or Chợ Tốt listing into a listing draft
-// (photos, the fields and a price range), and prices a draft against
-// similar listings and the buyers watching for one.
+// reads a seller's video or photo into a listing draft (photos, the fields
+// and a price range), drafts a Chợ Tốt listing for module chotot, and
+// prices a draft against similar listings and the buyers watching for one.
 package assist
 
 import (
@@ -35,8 +35,6 @@ type Settings struct {
 	Text, Image       embed.Model
 	TextMin, PhotoMin float64
 	CallTimeout       time.Duration
-	// Source is Chợ Tốt, for link reads.
-	Source service.ListingSource
 }
 
 // Mount registers the assist endpoints, subscribes the account watch to
@@ -45,7 +43,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasv
 	discovery discoverysvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Reads: repository.NewListingReads(d.Pool), Source: s.Source, Accounts: accounts, Media: media, Catalog: catalog,
+		Reads: repository.NewListingReads(d.Pool), Accounts: accounts, Media: media, Catalog: catalog,
 		Discovery: discovery,
 		AI:        s.AI, Model: s.Model, Relay: s.Relay, Text: s.Text, Image: s.Image,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin, CallTimeout: s.CallTimeout,

@@ -118,7 +118,8 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 
 // TransitTimeout is UC-DEAL-05 E4: it fails a shipped order whose
 // carrier, Waits.Transit after the parcel went in transit, no longer knows
-// it or reports it cancelled or lost; it gives the listing back. A carrier
+// it or reports it cancelled or lost, with the shipment lost, and hides the
+// listing for its seller, who no longer has the item. A carrier
 // still moving the parcel moves the order as a report would, and the
 // timeout waits again. A read that tells nothing, such as a carrier to
 // link again, waits again too.
@@ -154,7 +155,7 @@ func (s OrderTimers) TransitTimeout(ctx restate.Context, ref OrderRef) error {
 	if err != nil || !moved {
 		return err
 	}
-	return releaseStep(ctx, s.Deals.d.Catalog, m.Listing.ID, ref.OrderID)
+	return hideStep(ctx, s.Deals.d.Catalog, m.Listing.ID, ref.OrderID)
 }
 
 // timeout reads the deal, moves ref's order with move and saves it, reading

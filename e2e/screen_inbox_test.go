@@ -22,6 +22,7 @@ type inboxRow struct {
 	LastMessage messageBody `json:"last_message"`
 	Unread      int         `json:"unread"`
 	Archived    bool        `json:"archived"`
+	Ignored     bool        `json:"ignored"`
 	Deal        *struct {
 		ID             string `json:"id"`
 		ConversationID string `json:"conversation_id"`

@@ -56,6 +56,9 @@ const (
 	// still on Chợ Tốt.
 	TypeChototImported Type = "chotot_imported"
 	TypeChototSoldHere Type = "chotot_sold_here"
+	// TypeParcelLost tells both sides of a failed order that the carrier
+	// lost the parcel, which counts against neither.
+	TypeParcelLost Type = "parcel_lost"
 )
 
 // Notice is one thing to tell one person. Params hold what its text is
@@ -137,6 +140,8 @@ type Move struct {
 	// Price and Fee are the order's price and the carrier's fee, 0 when
 	// the fee is not known yet.
 	Price, Fee int64
+	// Lost is a failed order whose parcel the carrier lost.
+	Lost bool
 }
 
 // DealFacts is what a deal's new moves tell. Carrier, TrackingCode and
@@ -163,7 +168,8 @@ type DealFacts struct {
 // bid to a side that ignores the bidder.
 func FromMoves(f DealFacts, at time.Time) []Notice {
 	out := make([]Notice, 0, len(f.Moves))
-	for _, m := range f.Moves {
+	for i := range f.Moves {
+		m := &f.Moves[i]
 		carrier, code, reason := m.Carrier, m.TrackingCode, m.CancelReason
 		if m.OrderID == (uuid.UUID{}) {
 			carrier, code, reason = f.Carrier, f.TrackingCode, f.CancelReason
@@ -211,8 +217,12 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at, Order: order})
 			}
 		case "failed":
-			// A failed delivery tells the seller too: the parcel comes back.
+			// A failed delivery tells the seller too: the parcel comes back,
+			// or, lost by the carrier, is the seller's to claim there.
 			t, p.Carrier, p.Code = TypeFailed, carrier, code
+			if m.Lost {
+				t = TypeParcelLost
+			}
 			sp := p
 			sp.Actor, sp.ToSeller = f.BuyerName, true
 			out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at, Order: order})
@@ -449,6 +459,12 @@ var types = map[Type]struct {
 		return w.say("notice.completed", p.Actor, p.Title)
 	}},
 	TypeFailed: {orders, func(p Params, w writer) string { return w.say("notice.failed", p.Title) }},
+	TypeParcelLost: {orders, func(p Params, w writer) string {
+		if p.ToSeller {
+			return w.say("notice.parcel_lost.seller", p.Title, carrierName(p.Carrier))
+		}
+		return w.say("notice.parcel_lost", p.Title, carrierName(p.Carrier))
+	}},
 	TypeOrderCancelled: {orders, func(p Params, w writer) string {
 		switch p.Reason {
 		case "shipped_to_another":

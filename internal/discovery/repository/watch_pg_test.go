@@ -25,6 +25,7 @@ func watch(account uuid.UUID, q string) repository.Watch {
 	}
 }
 
+// UC-DSC-06 A1.
 func TestWatchPutKeepsOnePerKey(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -66,7 +67,7 @@ func TestWatchPutKeepsOnePerKey(t *testing.T) {
 }
 
 // Twenty-one watches racing: twenty are stored.
-// UC-DSC-03 E5 · BR-DSC-03.
+// UC-DSC-06 E1 · BR-DSC-03 · NFR-CONC-01.
 func TestWatchLimit(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

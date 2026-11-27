@@ -253,8 +253,8 @@ func (r reading) Lookup(ctx context.Context, a carrier.Account, code string) (ca
 }
 
 // The transit timeout fails an order whose carrier no longer knows the
-// parcel, or reports it lost, and puts the listing back; a parcel still
-// moving moves the order and keeps it.
+// parcel, or reports it lost, as lost and hides the listing for its
+// seller; a parcel still moving moves the order and keeps it.
 //
 // UC-DEAL-05 E4.
 func TestTransitTimeout(t *testing.T) {
@@ -281,11 +281,11 @@ func TestTransitTimeout(t *testing.T) {
 		v, listing := inTransit()
 		fire("TransitTimeout", ref(v))
 		got := e.get(t, buyer, v.ID)
-		if got.Order.Status != domain.OrderFailed || got.Order.Shipment.Status != domain.ShipmentFailed ||
+		if got.Order.Status != domain.OrderFailed || got.Order.Shipment.Status != domain.ShipmentLost ||
 			got.Moves[len(got.Moves)-1].Kind != domain.MoveFailed {
 			t.Errorf("%s: %+v", name, got.Order)
 		}
-		if st, _ := e.summary(t, listing); st != catalogdomain.StatusActive {
+		if st, _ := e.summary(t, listing); st != catalogdomain.StatusHidden {
 			t.Errorf("%s: listing %s", name, st)
 		}
 	}

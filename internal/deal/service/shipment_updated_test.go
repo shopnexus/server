@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server/internal/deal/repository"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
@@ -199,8 +200,9 @@ func TestAnOlderReportChangesNothing(t *testing.T) {
 	}
 }
 
-// A parcel the carrier lost after the pickup fails the order and puts the
-// listing back on sale; one lost before it stays for the pickup timeout.
+// A parcel the carrier lost after the pickup fails the order with the
+// shipment lost and hides the listing for its seller, who shows it again
+// when they have the item; one lost before it stays for the pickup timeout.
 //
 // UC-DEAL-05 E4.
 func TestALostParcelFailsAnOrderPickedUp(t *testing.T) {
@@ -223,12 +225,15 @@ func TestALostParcelFailsAnOrderPickedUp(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := e.get(t, buyer, v.ID)
-	if got.Order.Status != domain.OrderFailed || got.Order.Shipment.Status != domain.ShipmentFailed || got.Status != domain.StatusNegotiating ||
+	if got.Order.Status != domain.OrderFailed || got.Order.Shipment.Status != domain.ShipmentLost || got.Status != domain.StatusNegotiating ||
 		got.Moves[len(got.Moves)-1].Kind != domain.MoveFailed {
 		t.Fatalf("lost after the pickup: %+v", got)
 	}
-	if st, _ := e.summary(t, listing); st != catalogdomain.StatusActive {
-		t.Fatalf("listing %s", st)
+	if st, held := e.summary(t, listing); st != catalogdomain.StatusHidden || held != (uuid.UUID{}) {
+		t.Fatalf("listing %s for %s", st, held)
+	}
+	if l, err := e.catalog.Unhide(ctx, seller, listing, locale.Vietnamese); err != nil || l.Status != catalogdomain.StatusActive {
+		t.Fatalf("the seller shows it again: %+v %v", l.Status, err)
 	}
 }
 

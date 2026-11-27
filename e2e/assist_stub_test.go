@@ -26,7 +26,7 @@ const (
 const (
 	bicycleText = `{"subject":"xe đạp","found":true,"title":"Xe đạp Asama xanh",` +
 		`"description":"Xe đi ít, có thương lượng.","reason":""}`
-	iphoneLinkText = `{"subject":"điện thoại","found":true,"title":"iPhone 11 64GB Trắng, pin 81%",` +
+	iphoneAdText = `{"subject":"điện thoại","found":true,"title":"iPhone 11 64GB Trắng, pin 81%",` +
 		`"description":"Máy dùng 3 năm, zin all. Liên hệ 0909 123 456.","reason":""}`
 	bicyclePhotoText = `{"subject":"xe đạp","found":true,"title":"Xe đạp Asama xanh",` +
 		`"description":"Xe đạp Asama màu xanh, có giỏ trước.","reason":""}`
@@ -55,8 +55,8 @@ func newAssist() *stubAssist {
 			}
 			var text string
 			if json.Unmarshal(req.Messages[1].Content, &text) == nil {
-				// A link read sends text only.
-				answer := iphoneLinkText
+				// A Chợ Tốt ad fill sends text only.
+				answer := iphoneAdText
 				if strings.Contains(text, "căn hộ") {
 					answer = noItemText
 				}

@@ -17,7 +17,8 @@ import (
 )
 
 // reviewable are the order statuses a first review may be given in: the
-// order closed with a delivery or a failed one.
+// order closed with a delivery or a failed one. A parcel the carrier lost
+// is neither side's doing, so its order takes no review.
 var reviewable = []dealdomain.OrderStatus{dealdomain.OrderCompleted, dealdomain.OrderFailed}
 
 // PutReview is UC-TRS-01 steps 1 to 3 and A1's edit. It checks that the
@@ -46,8 +47,9 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 	found := err == nil
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
-		// E5
-		if !slices.Contains(reviewable, o.Status) || o.ClosedAt == nil {
+		// E5: also a parcel the carrier lost.
+		lost := o.Shipment != nil && o.Shipment.Status == dealdomain.ShipmentLost
+		if !slices.Contains(reviewable, o.Status) || o.ClosedAt == nil || lost {
 			return ReviewView{}, domain.ErrNotDelivered
 		}
 	case err != nil:

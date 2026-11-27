@@ -300,6 +300,31 @@ func TestReserveReleaseSell(t *testing.T) {
 	}
 }
 
+// A listing whose parcel the carrier lost leaves its hold hidden, and its
+// seller shows it again.
+//
+// UC-DEAL-05 E4.
+func TestReleaseHidden(t *testing.T) {
+	t.Parallel()
+	l := published(t)
+	o := uuid.NewV7()
+	if _, err := l.Reserve(o, now); err != nil {
+		t.Fatal(err)
+	}
+	if l.ReleaseHidden(uuid.NewV7(), now) || l.Status() != domain.StatusReserved {
+		t.Fatal("released for another order")
+	}
+	if !l.ReleaseHidden(o, now) || l.Status() != domain.StatusHidden || l.ReservedFor() != (uuid.UUID{}) || l.HeldAt() != nil {
+		t.Fatalf("release hidden: %+v", l.State())
+	}
+	if l.ReleaseHidden(o, now) {
+		t.Fatal("released twice")
+	}
+	if err := l.Unhide(now); err != nil || l.Status() != domain.StatusActive {
+		t.Fatalf("unhide: %v %s", err, l.Status())
+	}
+}
+
 func TestReservedRefuses(t *testing.T) {
 	t.Parallel()
 	l := published(t)

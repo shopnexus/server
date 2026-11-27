@@ -19,7 +19,7 @@ import (
 // Adding a sign-in method, and mailing the code that adds one, need a
 // sign-in within 15 minutes and an account that may write. Both refuse
 // before Restate is called, so these tests run without it.
-// UC-ACC-08 E1 · BR-ACC-04.
+// UC-ACC-08 E1, E2 · BR-ACC-04.
 func TestAddingAnIdentityNeedsARecentSignInAndAWritableAccount(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -28,7 +28,12 @@ func TestAddingAnIdentityNeedsARecentSignInAndAWritableAccount(t *testing.T) {
 		Accounts: accounts, Credentials: repository.NewCredentials(db), Now: func() time.Time { return now }, Log: discard,
 	})
 	ctx := context.Background()
-	active, deleted := seed(t, accounts), seed(t, accounts)
+	active, deleted, suspended := seed(t, accounts), seed(t, accounts), seed(t, accounts)
+	a, _ := accounts.Get(ctx, suspended)
+	a.Suspend("spam", nil, now)
+	if err := accounts.Save(ctx, &a, uuid.NewV7(), nil); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(ctx, `UPDATE accounts SET status = 'deleted', deleted_at = now(), display_name = NULL WHERE id = @id`,
 		pgx.StrictNamedArgs{"id": deleted}); err != nil {
 		t.Fatal(err)
@@ -42,6 +47,7 @@ func TestAddingAnIdentityNeedsARecentSignInAndAWritableAccount(t *testing.T) {
 	}{
 		"a sign-in 16 minutes ago": {caller(active, 16*time.Minute), domain.ErrReauthRequired},
 		"a deleted account":        {caller(deleted, time.Minute), domain.ErrSessionRevoked},
+		"a suspended account":      {caller(suspended, time.Minute), domain.ErrSuspended},
 	} {
 		if _, err := svc.AddIdentity(ctx, service.AddIdentityInput{Key: uuid.NewV7(), Caller: c.caller, Proof: service.Proof{PhoneToken: "t"}}); !errors.Is(err, c.want) {
 			t.Errorf("add identity, %s: %v", name, err)

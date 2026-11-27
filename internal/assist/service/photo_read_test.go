@@ -33,7 +33,7 @@ func TestPhotoReadFillsADraft(t *testing.T) {
 	}
 	v := e.end(t, seller, started.ID)
 	if v.Status != domain.StatusDone || len(v.Photos) != 1 || v.Photos[0].UploadID != photo || v.Photos[0].URL == "" ||
-		v.Photos[0].AtSeconds != nil || v.Link != nil || v.ContactRemoved != nil {
+		v.Photos[0].AtSeconds != nil {
 		t.Fatalf("%+v", v)
 	}
 	d := v.Draft

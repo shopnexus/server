@@ -77,8 +77,11 @@ func (w Worker) ServiceName() string { return w.Prefix + "NotificationWorker" }
 // DealMoved tells the other side of each move the event carries. A move the
 // deal does not have, as when a replayed save minted other IDs than the
 // ones it committed, tells no one.
+//
+// UC-SHR-03 A4.
 func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 	ids := dealsvc.MovedIDs(e)
+	// 1. The moves, and whether each side ignores the other.
 	f, err := read(ctx, "moves", func(rc restate.RunContext) (domain.DealFacts, bool, error) {
 		facts, found, stepErr := w.Deals.Moves(rc, e.SubjectID, ids)
 		if stepErr != nil || !found {
@@ -102,6 +105,7 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 			if m.OrderID != nil {
 				mv.OrderID = *m.OrderID
 				mv.Carrier, mv.TrackingCode, mv.CancelReason, mv.Price, mv.Fee = orderFacts(facts.Orders[*m.OrderID])
+				mv.Lost = facts.Orders[*m.OrderID].Lost()
 			}
 			out.Moves = append(out.Moves, mv)
 		}
@@ -113,6 +117,7 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 	if f.DealID == (uuid.UUID{}) {
 		return nil
 	}
+	// 2. Who hears of which move.
 	return w.tell(ctx, e.ID, domain.FromMoves(f, e.OccurredAt))
 }
 
@@ -208,6 +213,8 @@ func (w Worker) listing(ctx restate.Context, e events.Event, live bool) (catalog
 
 // TellFollower tells one follower of a listing that first went on sale,
 // unless it is no longer on sale when this runs.
+//
+// UC-SHR-03 A5.
 func (w Worker) TellFollower(ctx restate.Context, in FollowerNotice) error {
 	l, err := read(ctx, "listing", func(rc restate.RunContext) (catalogsvc.Summary, bool, error) {
 		return w.Catalog.Summary(rc, in.ListingID)
@@ -215,6 +222,7 @@ func (w Worker) TellFollower(ctx restate.Context, in FollowerNotice) error {
 	if err != nil {
 		return err
 	}
+	// A5: a listing off sale by now tells the follower nothing.
 	if l.Status != catalogdomain.StatusActive {
 		return nil
 	}
@@ -226,12 +234,15 @@ func (w Worker) TellFollower(ctx restate.Context, in FollowerNotice) error {
 // ReviewPosted tells the subject of a review once it shows: at once, or
 // after a durable sleep while it is hidden. A review revealed by the other
 // side's is told by that review's handler, which tells both subjects.
+//
+// UC-SHR-03 A5.
 func (w Worker) ReviewPosted(ctx restate.Context, e events.Event) error {
 	f, err := w.reviewFacts(ctx, e.SubjectID)
 	if err != nil {
 		return err
 	}
 	at := e.OccurredAt
+	// A5: a hidden review is told once it shows.
 	if f.HiddenFor > 0 {
 		if err = restate.Sleep(ctx, f.HiddenFor); err != nil {
 			return fmt.Errorf("wait until the review shows: %w", err)
@@ -377,11 +388,13 @@ func (w Worker) AccountUnsuspended(ctx restate.Context, e events.Event) error {
 
 // MessageSent pushes a chat message to its recipient; the inbox lists it,
 // so no notice is written.
+//
+// UC-SHR-03 A3.
 func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 	f, err := read(ctx, "message", func(rc restate.RunContext) (chatsvc.MessageFacts, bool, error) {
 		return w.Chats.MessageFacts(rc, e.SubjectID)
 	})
-	// An ignored conversation pushes nothing; its sender is not told.
+	// A3: an ignored conversation pushes nothing; its sender is not told.
 	if err != nil || f.ID == (uuid.UUID{}) || f.Ignored {
 		return err
 	}
@@ -392,7 +405,7 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 		}
 	}
 	if f.Kind == chatdomain.KindSupport {
-		// A ticket's chat pushes only to the ticket's owner and opens the
+		// A3: a ticket's chat pushes only to the ticket's owner and opens the
 		// ticket. ShopNexus is the title, so the body is the reply alone.
 		// A message to ShopNexus pushes nothing: the console's queue shows it.
 		ticket, stepErr := read(ctx, "ticket", func(rc restate.RunContext) (uuid.UUID, bool, error) {
@@ -414,6 +427,8 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 
 // read runs get in one step and returns its facts, zero for a subject that
 // is gone (found false). what names the subject in a failure.
+//
+// UC-SHR-03, step 1.
 func read[T any](ctx restate.Context, what string, get func(restate.RunContext) (T, bool, error)) (T, error) {
 	v, err := restate.Run(ctx, func(rc restate.RunContext) (T, error) {
 		facts, found, stepErr := get(rc)
@@ -421,6 +436,7 @@ func read[T any](ctx restate.Context, what string, get func(restate.RunContext) 
 		switch {
 		case stepErr != nil:
 			return zero, fmt.Errorf("read %s: %w", what, stepErr)
+		// A2: a subject that is gone tells no one.
 		case !found:
 			return zero, nil
 		}
@@ -434,10 +450,12 @@ func read[T any](ctx restate.Context, what string, get func(restate.RunContext) 
 
 // tell writes each notice, then pushes and mails it to its recipient. A
 // notice a newer one with its key outran is neither written nor sent.
+//
+// UC-SHR-03, steps 3 to 5 · NFR-DUR-01.
 func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Notice) error {
 	for i := range notices {
 		n := &notices[i]
-		// Minted in a step of its own, from the wall clock so notices with
+		// 3. Minted in a step of its own, from the wall clock so notices with
 		// one bump time list in write order, and a retried write keeps it.
 		fresh, err := restate.Run(ctx, func(restate.RunContext) (uuid.UUID, error) { return uuid.NewV7(), nil })
 		if err != nil {
@@ -449,11 +467,12 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 		if err != nil {
 			return fmt.Errorf("write a notice: %w", err)
 		}
+		// A6: a newer notice with the key was there; nothing to send.
 		if rec.Late {
 			continue
 		}
 		id := rec.ID
-		// An unread notice keeps its id when a newer event with its
+		// 4. An unread notice keeps its id when a newer event with its
 		// collapse key rewrites it, so this tag replaces that notice's
 		// tray item, and the app removes the item by the notice's id when
 		// the notice is read.
@@ -469,7 +488,7 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 		}); pushErr != nil {
 			return pushErr
 		}
-		// A type that is never mailed takes no step. A mailed one reads the
+		// 5. A type that is never mailed takes no step. A mailed one reads the
 		// recipient's settings, address and language in one step and sends in
 		// another, keyed so a retried send mails once; an account without
 		// an address gets none, and a refused mail is dropped.
@@ -493,12 +512,14 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 		if err != nil {
 			return fmt.Errorf("read the mail address: %w", err)
 		}
+		// A12: no address, or the settings mail nothing.
 		if box.Address == "" {
 			continue
 		}
 		key := event.String() + "/" + n.Recipient.String() + "/" + strconv.Itoa(i)
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
 			sendErr := w.Mail.Send(rc, box.Address, key, domain.Mail(*n, box.Locale))
+			// A12: a refused mail is dropped.
 			if errors.Is(sendErr, email.ErrRefused) {
 				w.Log.WarnContext(rc, "mail refused", "type", n.Type, "err", sendErr)
 				return nil
@@ -526,12 +547,15 @@ type audience struct {
 // retried send repeats no other. A push the account's settings hold back,
 // by sw or quiet hours, is dropped. The tokens of ended sessions, and those
 // FCM reports dead, are deleted.
+//
+// UC-SHR-03, step 4 · BR-SHR-01.
 func (w Worker) deliver(ctx restate.Context, account uuid.UUID, sw domain.Switch, write func(locale.Tag) push.Message) error {
 	to, err := restate.Run(ctx, func(rc restate.RunContext) (audience, error) {
 		st, stepErr := w.Notices.Settings(rc, account)
 		if stepErr != nil {
 			return audience{}, fmt.Errorf("read settings: %w", stepErr)
 		}
+		// A9: the kind's switch is off or quiet hours hold.
 		if !st.Pushes(sw, w.Now()) {
 			return audience{}, nil
 		}
@@ -556,6 +580,7 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, sw domain.Switch
 				out.Tokens = append(out.Tokens, t)
 				continue
 			}
+			// A10: an ended session's token goes.
 			if stepErr = w.Notices.DeleteToken(rc, t.Session); stepErr != nil {
 				return audience{}, fmt.Errorf("delete an ended session's token: %w", stepErr)
 			}
@@ -577,11 +602,13 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, sw domain.Switch
 			switch {
 			case err == nil:
 				return nil
+			// A10: FCM no longer delivers to the token.
 			case errors.Is(err, push.ErrDeadToken):
 				if err = w.Notices.DeleteToken(rc, t.Session); err != nil {
 					return fmt.Errorf("delete a dead token: %w", err)
 				}
 				return nil
+			// A11: retried for up to an hour; any other failure is dropped.
 			case errors.Is(err, push.ErrRetry):
 				return fmt.Errorf("send: %w", err)
 			default:

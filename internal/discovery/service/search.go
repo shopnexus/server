@@ -78,7 +78,7 @@ type SearchView struct {
 }
 
 // Search is UC-DSC-01 (q and photo), UC-DSC-02 (browsing, filters and like),
-// UC-DSC-03 A3 (a watch) and UC-DSC-05 (the nearby feed). It reads the query
+// UC-DSC-06, step 5 (a watch) and UC-DSC-05 (the nearby feed). It reads the query
 // through the model, from the cache when it read the same query within
 // domain.CacheTTL, and searches catalog with the person's filters and the
 // boosts the model's answer resolves to. With vectors it fuses BM25, the
@@ -91,17 +91,18 @@ type SearchView struct {
 // failed write is logged and the search still answers. A search of one
 // seller's listings keeps no history and names no watch.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
-	// UC-DSC-03 A3, E10: a watch brings its query and filters alone.
+	// UC-DSC-06 E6: a watch brings its query and filters alone.
 	if in.Watch != uuid.Nil() {
 		if in.Query != "" || in.Category != "" || in.Province != "" || in.PriceMin != 0 || in.PriceMax != 0 || len(in.Conditions) > 0 ||
 			in.RadiusKm != 0 || in.OffersOnly || in.Near != (catalogdomain.Near{}) || in.Photo != uuid.Nil() || in.Like != uuid.Nil() ||
 			in.Seller != uuid.Nil() {
 			return SearchView{}, domain.ErrSearchConflict
 		}
+		// UC-DSC-06 E7
 		if viewer == nil {
 			return SearchView{}, authn.ErrUnauthenticated
 		}
-		// UC-DSC-03 E9
+		// UC-DSC-06 E5
 		w, found, err := d.d.Watches.Get(ctx, in.Watch)
 		if err != nil {
 			return SearchView{}, fmt.Errorf("read the watch: %w", err)
@@ -367,7 +368,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		default:
 		}
 	}
-	// UC-DSC-03 A3: the first page resets the new count.
+	// UC-DSC-06, step 5: the first page resets the new count.
 	if in.Watch != uuid.Nil() && in.Cursor == "" {
 		if err = d.d.Watches.Seen(ctx, *viewer, in.Watch); err != nil {
 			d.d.Log.WarnContext(ctx, "see the watch", "err", err)

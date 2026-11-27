@@ -18,6 +18,9 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
+// A notice lists with its text, target and unread count; someone else's
+// is not found; a bad token is refused and a good one stored and deleted.
+// UC-SHR-03 E1, E2, A7.
 func TestNotices(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

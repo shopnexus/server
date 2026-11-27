@@ -97,6 +97,18 @@ func Mail(n Notice, tag locale.Tag) mailview.Letter {
 		}
 		l.Action = viewOrder
 
+	case TypeParcelLost:
+		// The lead is the notice's own sentence; the seller claims with the code.
+		l.Art = mailview.ArtNotFound
+		l.Title = w.say("mail.parcel_lost.title")
+		l.Lead = Text(n.Type, p, w.tag) + "."
+		l.Subject = l.Lead
+		if p.ToSeller {
+			l.Rows = w.tracking(p)
+			l.Note = w.say("mail.parcel_lost.note.seller")
+		}
+		l.Action = viewOrder
+
 	case TypeOrderCancelled:
 		// The lead is the notice's own sentence, which names the reason.
 		l.Art = mailview.ArtSearch

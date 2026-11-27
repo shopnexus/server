@@ -35,7 +35,8 @@ type ReputationRating struct {
 }
 
 // BuyerFigures are the caller's COD orders over deal's
-// dealdomain.BuyerPeriod and the failed ones among them.
+// dealdomain.BuyerPeriod and the failed ones among them, but parcels the
+// carrier lost.
 type BuyerFigures struct {
 	CodOrders int `json:"cod_orders"`
 	Failed    int `json:"failed"`

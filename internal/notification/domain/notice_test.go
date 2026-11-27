@@ -405,10 +405,9 @@ func TestFeedbackNotices(t *testing.T) {
 }
 
 // A bid to a side that ignores the bidder tells them nothing; what moves
-// the order still does.
+// the order still does. UC-SHR-03 A4.
 func TestFromMovesIgnored(t *testing.T) {
 	t.Parallel()
-	at := time.Now()
 	f := facts(domain.Move{Kind: "offer", By: "buyer", Amount: 500_000}, domain.Move{Kind: "cod_requested", By: "buyer"})
 	f.SellerIgnores = true
 	got := domain.FromMoves(f, at)

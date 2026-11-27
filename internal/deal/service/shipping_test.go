@@ -401,6 +401,44 @@ func TestACarriersRefusalGivesTheListingBack(t *testing.T) {
 	}
 }
 
+// notFoundAt is a carrier that knows no waybill it is asked to make.
+type notFoundAt struct{ carrier.Fake }
+
+func (notFoundAt) Create(context.Context, carrier.Account, carrier.CreateInput) (carrier.Created, error) {
+	return carrier.Created{}, carrier.ErrNotFound
+}
+
+// A carrier that does not know the recipient's or the pickup's place makes
+// no shipment, and the listing goes back on sale.
+//
+// UC-DEAL-04 E4.
+func TestAnUnknownAddressGivesTheListingBack(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	for name, s := range map[string]service.Shipping{
+		"shipping's refusal":      refusing{shippingdomain.ErrAddressUnknown},
+		"the carrier's not found": linkedAt{notFoundAt{}},
+	} {
+		deps := e.deps
+		deps.Shipping = s
+		deals := start(t, deps)
+		seller, buyer := e.person(t), e.person(t)
+		listing := catalogtest.Listing(t, e.db, seller)
+		v := e.pending(t, buyer, listing)
+		_, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+		if !errors.Is(err, domain.ErrCarrierAddressUnknown) || apperr.From(err).Code != "carrier_address_unknown" {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if st, held := e.summary(t, listing); st != catalogdomain.StatusActive || held != (uuid.UUID{}) {
+			t.Fatalf("%s kept the listing: %s for %s", name, st, held)
+		}
+		if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderPending {
+			t.Fatalf("%s moved the order: %+v", name, got.Order)
+		}
+	}
+}
+
 // A retry with the same key answers from the order, though the saved
 // pickup it used is gone.
 //

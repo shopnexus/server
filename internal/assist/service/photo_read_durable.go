@@ -130,7 +130,7 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if err = r.SetPhotos([]domain.Photo{{UploadID: r.Media()}}); err != nil {
 		return fmt.Errorf("set photos: %w", err)
 	}
-	if err = r.SetDraft(fill.Draft, false); err != nil {
+	if err = r.SetDraft(fill.Draft); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
 	return run.finish(at)

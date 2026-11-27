@@ -36,11 +36,13 @@ type env struct {
 	chats    *chatsvc.Chat
 	media    *mediasvc.Media
 	scams    repository.ScamWarnings
+	deps     service.Deps
 	trust    *service.Trust
 }
 
 // newEnv builds trust and the modules it calls on a database, and serves
-// deal's flows so orders can be shipped.
+// deal's flows so orders can be shipped. deps lets a test build a second
+// trust with one dependency replaced.
 func newEnv(t *testing.T) env {
 	t.Helper()
 	db := pgtest.New(t)
@@ -57,11 +59,11 @@ func newEnv(t *testing.T) env {
 	})
 	restatetest.Start(t, slices.Concat(deals.Durable(), media.Durable(), chats.Durable())...)
 	scams := repository.NewScamWarnings(db)
-	trust := service.New(service.Deps{
+	deps := service.Deps{
 		Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Cases: repository.NewCases(db), Scams: scams, Accounts: accounts, Catalog: c,
 		Deals: deals, Chats: chats, Media: media, Log: slog.New(slog.DiscardHandler), Now: time.Now,
-	})
-	return env{db: db, accounts: accounts, deals: deals, chats: chats, media: media, scams: scams, trust: trust}
+	}
+	return env{db: db, accounts: accounts, deals: deals, chats: chats, media: media, scams: scams, deps: deps, trust: service.New(deps)}
 }
 
 // person creates an account with a verified phone number.

@@ -302,7 +302,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if fill.Failure != "" {
 		return run.fail(at, fill.Failure, fill.Reason)
 	}
-	if err = r.SetDraft(fill.Draft, false); err != nil {
+	if err = r.SetDraft(fill.Draft); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
 	return run.finish(at)

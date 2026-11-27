@@ -10,14 +10,6 @@ import (
 	"sync"
 )
 
-// The listings the Chợ Tốt stub tells apart, by list ID.
-const (
-	iphoneListing = 119482736 // the seller's iPhone, 3 photos
-	flatListing   = 119400001 // a flat for rent: no item
-	downListing   = 119400002 // the gateway answers 500
-	brokenListing = 119400003 // every photo is an HTML page
-)
-
 // stubChotot is Chợ Tốt's gateway and CDN on one server. Each profile a
 // test makes lists two listings, numbered from its account: an iPhone
 // (account×1000+1) and a flat for rent (account×1000+2).
@@ -138,36 +130,21 @@ func newChotot() *stubChotot {
 				http.NotFound(w, r)
 				return
 			}
-			subject, body := "iPhone 11 64GB trắng pin 81% zin all", "Máy dùng 3 năm, zin all. Có thương lượng. Liên hệ 0909 123 456."
-			photo, owner, category := "photo", "", 5010
-			if oid, p := c.owner(id); p != nil {
-				owner = oid
-				if id%1000 == 2 {
-					subject, body, category = "Cho thuê căn hộ 2 phòng ngủ", "Căn hộ Quận 7, có nội thất.", 1050
-				}
-				id = -id // served below as the iPhone or the flat
-			}
-			switch id {
-			case iphoneListing:
-			case flatListing:
-				subject, body = "Cho thuê căn hộ 2 phòng ngủ", "Căn hộ Quận 7, có nội thất."
-			case brokenListing:
-				photo = "page"
-			case downListing:
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			default:
-				if id < 0 {
-					id = -id
-					break
-				}
+			owner, p := c.owner(id)
+			if p == nil {
 				w.WriteHeader(http.StatusNotFound)
 				_, _ = w.Write([]byte(`{"message":"entity not found"}`))
 				return
 			}
+			// A profile's listings: the iPhone, then the flat.
+			subject, body := "iPhone 11 64GB trắng pin 81% zin all", "Máy dùng 3 năm, zin all. Có thương lượng. Liên hệ 0909 123 456."
+			category := 5010
+			if id%1000 == 2 {
+				subject, body, category = "Cho thuê căn hộ 2 phòng ngủ", "Căn hộ Quận 7, có nội thất.", 1050
+			}
 			images := make([]string, 3)
 			for i := range images {
-				images[i] = fmt.Sprintf("%s/%s/%d.jpg", c.srv.URL, photo, i)
+				images[i] = fmt.Sprintf("%s/photo/%d.jpg", c.srv.URL, i)
 			}
 			writeStubJSON(w, map[string]any{
 				"ad": map[string]any{
@@ -185,8 +162,6 @@ func newChotot() *stubChotot {
 			_, _ = fmt.Sscanf(r.URL.Path, "/photo/%d.jpg", &i)
 			w.Header().Set("Content-Type", "image/jpeg")
 			_, _ = w.Write(frameJPEG(i))
-		case strings.HasPrefix(r.URL.Path, "/page/"):
-			_, _ = w.Write([]byte("<html><body>Không tìm thấy</body></html>"))
 		default:
 			http.NotFound(w, r)
 		}

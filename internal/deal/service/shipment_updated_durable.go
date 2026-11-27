@@ -39,8 +39,9 @@ func (r ShipmentResult) Refusal() *apperr.Error { return r.Refused }
 // moves every shipped order whose shipment is that parcel, two items in
 // one parcel included, and changes nothing on a closed order or with a
 // step no newer than the order's; a signal's fee replaces the order's
-// without a move. A failure releases the listing, a delivery schedules
-// the completion and a pickup the transit timeout.
+// without a move. A failure releases the listing, or hides it for its
+// seller when the carrier lost the parcel; a delivery schedules the
+// completion and a pickup the transit timeout.
 type ShipmentUpdates struct{ Deals *Deals }
 
 func (s ShipmentUpdates) ServiceName() string { return s.Deals.d.Prefix + shipmentUpdates }
@@ -100,10 +101,16 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 			if refused != nil {
 				continue // the deal moved meanwhile: read it again
 			}
-			// E2 · BR-DEAL-08, and E4: a parcel refused at the door, or lost
-			// after the pickup, fails the order and puts the listing back on sale.
+			// E2 · BR-DEAL-08: a parcel refused at the door fails the order and
+			// puts the listing back on sale.
 			after := d.Order().Shipment
 			switch {
+			case d.Order().Lost():
+				// E4 · BR-DEAL-11: a parcel lost after the pickup leaves the
+				// seller without the item, so the listing goes hidden.
+				if err = hideStep(ctx, s.Deals.d.Catalog, m.Listing.ID, ref.OrderID); err != nil {
+					return ShipmentResult{}, err
+				}
 			case d.Order().Status == domain.OrderFailed:
 				if err = releaseStep(ctx, s.Deals.d.Catalog, m.Listing.ID, ref.OrderID); err != nil {
 					return ShipmentResult{}, err

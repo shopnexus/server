@@ -50,7 +50,7 @@ func TestReadFillsADraft(t *testing.T) {
 			t.Fatalf("frame %+v", f)
 		}
 	}
-	if v.Source != domain.SourceVideo || v.Link != nil || v.ContactRemoved != nil || v.Photos[0].AtSeconds == nil {
+	if v.Source != domain.SourceVideo || v.Photos[0].AtSeconds == nil {
 		t.Fatalf("video read view %+v", v)
 	}
 	d := v.Draft

@@ -62,6 +62,38 @@ func TestBuyerOrders(t *testing.T) {
 	}
 }
 
+// A parcel the carrier lost is the buyer's order but not one they failed.
+//
+// UC-DEAL-05 E4 · UC-TRS-04.
+func TestBuyerOrdersLeaveOutLostParcels(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	buyer, seller := accounttest.New(t, db), accounttest.New(t, db)
+	lost := pendingDeal(t, db, s, buyer, seller)
+	sent := domain.Shipment{Mode: domain.ModeManual, Carrier: domain.CarrierSPX, TrackingCode: "SPX3", Status: domain.ShipmentPendingPickup}
+	if err := lost.Ship(domain.Seller, lost.Order().ID, sent, onSale, now); err != nil {
+		t.Fatal(err)
+	}
+	for i, st := range []domain.ShipmentStatus{domain.ShipmentInTransit, domain.ShipmentLost} {
+		if _, err := lost.ShipmentUpdated(lost.Order().ID, st, now.Add(time.Duration(i+1)*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.Save(ctx, &lost, uuid.NewV7(), uuid.Nil()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.BuyerOrders(ctx, buyer, now.Add(-domain.BuyerPeriod))
+	if err != nil || got != (domain.BuyerOrders{Placed: 1}) {
+		t.Fatalf("buyer: %+v %v", got, err)
+	}
+	d, err := s.Get(ctx, lost.ID())
+	if o := d.Order(); err != nil || !o.Lost() {
+		t.Fatalf("read back: %+v %v", o, err)
+	}
+}
+
 func TestCountDeals(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

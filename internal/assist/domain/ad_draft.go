@@ -7,22 +7,9 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
-// MaxCopied is how many of a listing's photos a link read copies: as many
-// as a listing takes.
-const MaxCopied = catalogdomain.MaxPhotos
-
-// LinkText is a link read's text as the model writes it, with its phone numbers taken
-// out, and a number it may still be writing at its end too.
-func LinkText(raw string) Text {
-	t := PartialText(raw, catalogdomain.MaxDescription)
-	t.Description, _ = StripPhones(t.Description)
-	t.Description = strings.TrimRight(partialPhone.ReplaceAllString(t.Description, ""), " ")
-	return t
-}
-
-// LinkDraft is the draft of a link read's reply at the listing's price,
-// and whether a contact was taken out of its description.
-func LinkDraft(r Reply, price int64) (Draft, bool, error) {
+// AdDraft is the draft of the reply to a seller's Chợ Tốt listing at the
+// listing's price, and whether a contact was taken out of its description.
+func AdDraft(r Reply, price int64) (Draft, bool, error) {
 	d, err := textDraft(r, catalogdomain.MaxDescription)
 	if err != nil {
 		return Draft{}, false, err
@@ -39,9 +26,6 @@ func LinkDraft(r Reply, price int64) (Draft, bool, error) {
 // spaces, dots or dashes between them, standing alone. A price such as
 // 1.200.000.000 has 8 digits after its first 0 and stays.
 var phone = regexp.MustCompile(`(?:\+84|\b0)(?:[ .\-]?\d){9}\b`)
-
-// partialPhone is the start of a phone number at the end of a text.
-var partialPhone = regexp.MustCompile(`(?:\+|\b0)[\d .\-]*$`)
 
 var (
 	spaces      = regexp.MustCompile(` {2,}`)

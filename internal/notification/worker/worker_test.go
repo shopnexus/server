@@ -313,7 +313,7 @@ func (e *env) noticesOf(t *testing.T, account uuid.UUID, n int) []service.Item {
 }
 
 // A first publication tells the seller and every follower, across pages of
-// two, once even when the event comes again.
+// two, once even when the event comes again. UC-SHR-03 A1, A5.
 func TestListingPublishedTellsFollowers(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, nil, nil)
@@ -398,7 +398,7 @@ func TestTellFollowerTwiceWritesOneNotice(t *testing.T) {
 }
 
 // TellFollower tells no one of a listing gone off sale, and two listings of
-// one seller leave one unread notice, of the newer.
+// one seller leave one unread notice, of the newer. UC-SHR-03 A5.
 func TestTellFollower(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, nil, nil)
@@ -429,6 +429,8 @@ func TestTellFollower(t *testing.T) {
 	}
 }
 
+// Moves tell the other side, one unread notice per deal; a move the deal
+// lacks tells no one. UC-SHR-03 · BR-SHR-02.
 func TestDealMoved(t *testing.T) {
 	t.Parallel()
 	offer, raise := uuid.NewV7(), uuid.NewV7()
@@ -584,7 +586,7 @@ func TestMovesWithoutAnOrderTellOfTheLatest(t *testing.T) {
 }
 
 // A move delivered after a newer one on the same deal neither replaces the
-// newer notice nor pushes, read or unread.
+// newer notice nor pushes, read or unread. UC-SHR-03 A6.
 func TestLateMoveTellsNothing(t *testing.T) {
 	t.Parallel()
 	older, newer, oldest := uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
@@ -626,6 +628,8 @@ func TestLateMoveTellsNothing(t *testing.T) {
 	}
 }
 
+// A chat message pushes and lists nothing; a gone one pushes nothing.
+// UC-SHR-03 A2, A3.
 func TestMessageSentPushesOnly(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, nil, nil)
@@ -654,7 +658,7 @@ func TestMessageSentPushesOnly(t *testing.T) {
 	}
 }
 
-// A message to someone who ignores its sender pushes nothing.
+// A message to someone who ignores its sender pushes nothing. UC-SHR-03 A3.
 func TestAnIgnoredMessagePushesNothing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, nil, nil)
@@ -675,6 +679,7 @@ func TestAnIgnoredMessagePushesNothing(t *testing.T) {
 
 // A reply in a ticket's chat pushes to the ticket's owner under ShopNexus's
 // name and opens the ticket; the owner's message to ShopNexus pushes nothing.
+// UC-SHR-03 A3.
 func TestASupportReplyOpensItsTicket(t *testing.T) {
 	t.Parallel()
 	for _, toOwner := range []bool{true, false} {
@@ -711,6 +716,8 @@ func TestASupportReplyOpensItsTicket(t *testing.T) {
 	}
 }
 
+// Ended sessions' and dead tokens go; a throttled send is retried.
+// UC-SHR-03 A10, A11.
 func TestDeliverDropsEndedAndDeadTokens(t *testing.T) {
 	t.Parallel()
 	revoked, dead, retried := uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
@@ -768,7 +775,7 @@ func TestAccountDeletedForgetsTheAccount(t *testing.T) {
 }
 
 // A watch's sweeps leave one unread notice with the latest count, and a
-// price drop tells the saver; facts gone tell no one.
+// price drop tells the saver; facts gone tell no one. UC-SHR-03 A2.
 func TestWatchAndPriceNotices(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, nil, nil)

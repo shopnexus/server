@@ -132,3 +132,56 @@ func TestReviews(t *testing.T) {
 	check(t, "put suspended", put(suspended.AccessToken, path, map[string]any{"stars": 5}), 403, "account_suspended")
 	check(t, "reply suspended", reply(suspended.AccessToken, first.ID, map[string]any{"text": "a"}), 403, "account_suspended")
 }
+
+// UC-TRS-05 A1, E1, E2, E3.
+func TestReviewHelpful(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	reader, _ := newAccount(t)
+	done := completedOrder(t, seller.AccessToken, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
+	r := expect[reviewView](t, call(t, "PUT", "/v1/orders/"+done.Order.ID+"/review", map[string]any{"stars": 5}, bearer(buyer.AccessToken)), http.StatusOK)
+	path := "/v1/reviews/" + r.ID + "/helpful"
+	helpful := func(token string) (count int, marked *bool) {
+		t.Helper()
+		got := expect[page[struct {
+			ID      string `json:"id"`
+			Helpful struct {
+				Count  int   `json:"count"`
+				Marked *bool `json:"marked"`
+			} `json:"helpful"`
+		}]](t, call(t, "GET", "/v1/sellers/"+seller.Account.ID+"/reviews", nil, bearer(token)), http.StatusOK)
+		if len(got.Items) != 1 || got.Items[0].ID != r.ID {
+			t.Fatalf("seller reviews: %+v", got)
+		}
+		return got.Items[0].Helpful.Count, got.Items[0].Helpful.Marked
+	}
+
+	check(t, "mark while hidden", call(t, "PUT", path, nil, bearer(reader.AccessToken)), 404, "review_not_found")
+	revealReviews(t, done.Order.ID)
+	check(t, "mark", call(t, "PUT", path, nil, bearer(reader.AccessToken)), 204, "")
+	check(t, "mark again", call(t, "PUT", path, nil, bearer(reader.AccessToken)), 204, "")
+	if count, marked := helpful(reader.AccessToken); count != 1 || marked == nil || !*marked {
+		t.Fatalf("after the mark: %d %v", count, marked)
+	}
+	if count, marked := helpful(buyer.AccessToken); count != 1 || marked != nil { // its reviewer may not mark it
+		t.Fatalf("the reviewer reads: %d %v", count, marked)
+	}
+	check(t, "mark own review", call(t, "PUT", path, nil, bearer(buyer.AccessToken)), 409, "own_review")
+	check(t, "mark a review about me", call(t, "PUT", path, nil, bearer(seller.AccessToken)), 409, "own_review")
+	check(t, "unmark", call(t, "DELETE", path, nil, bearer(reader.AccessToken)), 204, "")
+	check(t, "unmark again", call(t, "DELETE", path, nil, bearer(reader.AccessToken)), 204, "")
+	if count, marked := helpful(reader.AccessToken); count != 0 || marked == nil || *marked {
+		t.Fatalf("after the unmark: %d %v", count, marked)
+	}
+
+	check(t, "mark an unknown review", call(t, "PUT", "/v1/reviews/"+uuid.NewV7().String()+"/helpful", nil, bearer(reader.AccessToken)), 404, "review_not_found")
+	for _, method := range []string{"PUT", "DELETE"} {
+		check(t, method+" signed out", call(t, method, path, nil), 401, "unauthenticated")
+		check(t, method+" a bad id", call(t, method, "/v1/reviews/x/helpful", nil, bearer(reader.AccessToken)), 400, "")
+	}
+	suspend(t, reader.Account.ID)
+	for _, method := range []string{"PUT", "DELETE"} {
+		check(t, method+" suspended", call(t, method, path, nil, bearer(reader.AccessToken)), 403, "account_suspended")
+	}
+}

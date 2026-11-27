@@ -140,7 +140,7 @@ func TestChatRefusals(t *testing.T) {
 	check(t, "send as a stranger", send(stranger.AccessToken, c.ID, hi), 404, "conversation_not_found")
 	check(t, "send nothing", send(buyer.AccessToken, c.ID, map[string]any{"text": ""}), 422, "invalid_message")
 
-	for _, action := range []string{"archive", "unarchive"} {
+	for _, action := range []string{"archive", "unarchive", "ignore", "unignore"} {
 		check(t, action+" signed out", call(t, "POST", "/v1/conversations/"+c.ID+"/"+action, nil), 401, "unauthenticated")
 		check(t, action+" a bad id", call(t, "POST", "/v1/conversations/x/"+action, nil, bearer(buyer.AccessToken)), 400, "")
 		check(t, action+" as a stranger", call(t, "POST", "/v1/conversations/"+c.ID+"/"+action, nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")
@@ -179,6 +179,43 @@ func TestMarkConversationUnread(t *testing.T) {
 	check(t, "mark a bad id", call(t, "POST", "/v1/conversations/x/unread", nil, bearer(buyer.AccessToken)), 400, "")
 	stranger, _ := newAccount(t)
 	check(t, "mark someone else's", call(t, "POST", path, nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")
+}
+
+// UC-DEAL-01 A3.
+func TestIgnoreConversation(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	c := openChat(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, "Còn không bạn?")
+	path := "/v1/conversations/" + c.ID + "/"
+	unread := func() int {
+		t.Helper()
+		return expect[map[string]int](t, call(t, "GET", "/v1/me/unread", nil, bearer(seller.AccessToken)), http.StatusOK)["unread"]
+	}
+	listed := func(query string) bool {
+		t.Helper()
+		items := inboxView(t, seller.AccessToken, query).Items
+		return len(items) == 1 && items[0].ID == c.ID
+	}
+
+	expectStatus(t, call(t, "POST", path+"ignore", nil, bearer(seller.AccessToken)), http.StatusNoContent)
+	if !listed("ignored=true") || listed("") || unread() != 0 {
+		t.Fatalf("ignored: under ignored %v, in the inbox %v, unread %d", listed("ignored=true"), listed(""), unread())
+	}
+	if row := inboxRows(t, buyer.AccessToken)[seller.Account.ID]; row.ID != c.ID || row.Ignored { // the other member is not told
+		t.Fatalf("the buyer's row: %+v", row)
+	}
+	expectStatus(t, call(t, "POST", path+"unignore", nil, bearer(seller.AccessToken)), http.StatusNoContent)
+	if listed("ignored=true") || !listed("") || unread() != 1 {
+		t.Fatalf("heard again: under ignored %v, in the inbox %v, unread %d", listed("ignored=true"), listed(""), unread())
+	}
+
+	// Writing to an ignored conversation ends the ignore.
+	expectStatus(t, call(t, "POST", path+"ignore", nil, bearer(seller.AccessToken)), http.StatusNoContent)
+	sendChat(t, seller.AccessToken, c.ID, map[string]any{"text": "Còn bạn ơi"})
+	if listed("ignored=true") || !listed("") {
+		t.Fatalf("after writing: under ignored %v, in the inbox %v", listed("ignored=true"), listed(""))
+	}
 }
 
 // A link to a listing on the website comes back as its card, and the

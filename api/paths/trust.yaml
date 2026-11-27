@@ -5,7 +5,8 @@ review:
     summary: Review the other party to an order, or edit the review.
     description: |
       The buyer reviews the seller (role seller) and the seller the buyer
-      (role buyer). A first review needs the order completed or failed. It
+      (role buyer). A first review needs the order completed or failed,
+      but not with a parcel the carrier lost. It
       stays hidden from the other party and the public until they review
       too or 7 days after the order closed. A review changes, and a deleted
       one is posted again, only while it is hidden, within 7 days of its
@@ -50,7 +51,7 @@ review:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not completed or failed yet (order_not_delivered), the review shows or 7 days have passed since the first submission (review_locked), the other party replied (review_closed), or another write of the review came first (try_again)."
+        description: "The order is not completed or failed yet, or the carrier lost its parcel (order_not_delivered), the review shows or 7 days have passed since the first submission (review_locked), the other party replied (review_closed), or another write of the review came first (try_again)."
         content:
           application/json:
             schema:
@@ -291,6 +292,12 @@ reviewHelpful:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 reports:
   get:
     operationId: listMyReports

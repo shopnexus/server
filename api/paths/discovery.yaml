@@ -83,7 +83,7 @@ savedListing:
 search:
   get:
     operationId: search
-    x-uc: [UC-DSC-01, UC-DSC-02, UC-DSC-03, UC-DSC-05]
+    x-uc: [UC-DSC-01, UC-DSC-02, UC-DSC-05, UC-DSC-06]
     summary: Search active listings; without q, browse them.
     description: |
       Three ways to search, all under the person's filters and sorts. With q
@@ -470,7 +470,7 @@ savedAlert:
 searchWatches:
   post:
     operationId: createSearchWatch
-    x-uc: [UC-DSC-03]
+    x-uc: [UC-DSC-06]
     summary: Follow a text search with its filters; the same words again replace the filters.
     description: |
       One watch per query, folded as the search history folds it. A GPS
@@ -516,7 +516,7 @@ searchWatches:
               $ref: "../schemas/error.yaml#/Error"
   get:
     operationId: listSearchWatches
-    x-uc: [UC-DSC-03]
+    x-uc: [UC-DSC-06]
     summary: The caller's watches, newest first.
     tags: [discovery]
     security:
@@ -533,7 +533,7 @@ searchWatches:
 searchWatch:
   delete:
     operationId: deleteSearchWatch
-    x-uc: [UC-DSC-03]
+    x-uc: [UC-DSC-06]
     summary: Stop following a search; an unknown watch is fine.
     tags: [discovery]
     security:
@@ -550,7 +550,7 @@ searchWatch:
 searchWatchMute:
   post:
     operationId: muteSearchWatch
-    x-uc: [UC-DSC-03]
+    x-uc: [UC-DSC-06]
     summary: Keep counting the watch's new listings without telling the caller.
     tags: [discovery]
     security:
@@ -573,7 +573,7 @@ searchWatchMute:
 searchWatchUnmute:
   post:
     operationId: unmuteSearchWatch
-    x-uc: [UC-DSC-03]
+    x-uc: [UC-DSC-06]
     summary: Tell the caller of the watch's new listings again.
     tags: [discovery]
     security:

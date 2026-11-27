@@ -20,8 +20,6 @@ import (
 
 var now = time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
 
-var link = domain.Link{Site: domain.SiteChotot, ListID: 119482736, URL: "https://www.chotot.com/119482736.htm"}
-
 func transcriptOf(t *testing.T, db *pgxpool.Pool, id uuid.UUID) *string {
 	t.Helper()
 	var s *string
@@ -51,7 +49,6 @@ func TestListingReadInsertGetAndNotify(t *testing.T) {
 	for _, r := range []domain.ListingRead{
 		domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now),
 		domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now),
-		domain.NewLinkRead(uuid.NewV7(), me, link, now),
 	} {
 		if _, err := reads.Insert(ctx, r, uuid.Nil()); err != nil {
 			t.Fatal(err)
@@ -60,13 +57,13 @@ func TestListingReadInsertGetAndNotify(t *testing.T) {
 			t.Fatalf("second insert: %v", err)
 		}
 		got, err := reads.Get(ctx, r.ID())
-		if err != nil || got.Source() != r.Source() || got.Media() != r.Media() || got.Link() != r.Link() ||
+		if err != nil || got.Source() != r.Source() || got.Media() != r.Media() ||
 			got.Status() != domain.StatusReading || got.Photos() != nil || got.Draft() != nil || !got.ExpiresAt().Equal(now.Add(24*time.Hour)) {
 			t.Fatalf("%+v %v", got.State(), err)
 		}
 	}
 	p, err := stream.PGLog{DB: db}.Since(ctx, me, 0, 10)
-	if err != nil || len(p.Updates) != 3 || p.Updates[0].Kind != stream.KindListingRead || p.Updates[0].ListingReadID == nil {
+	if err != nil || len(p.Updates) != 2 || p.Updates[0].Kind != stream.KindListingRead || p.Updates[0].ListingReadID == nil {
 		t.Fatalf("one update a read: %+v %v", p, err)
 	}
 	if _, err = reads.Get(ctx, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
@@ -204,12 +201,13 @@ func TestSaveUnderTheWriteID(t *testing.T) {
 	ctx := context.Background()
 	reads := repository.NewListingReads(db)
 	me := accounttest.New(t, db)
-	r := domain.NewLinkRead(uuid.NewV7(), me, link, now)
+	photo := uuid.NewV7()
+	r := domain.NewPhotoRead(uuid.NewV7(), me, photo, now)
 	if _, err := reads.Insert(ctx, r, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	stale := r
-	if err := r.SetLinkPhotos(3); err != nil {
+	if err := r.SetPhotos([]domain.Photo{{UploadID: photo}}); err != nil {
 		t.Fatal(err)
 	}
 	w := uuid.NewV7()
@@ -226,14 +224,14 @@ func TestSaveUnderTheWriteID(t *testing.T) {
 	if err := reads.Save(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a save from an old copy: %v", err)
 	}
-	if err := r.SetDraft(domain.Draft{Title: "iPhone 11", Photos: []uuid.UUID{uuid.NewV7()}}, true); err != nil {
+	if err := r.SetDraft(domain.Draft{Title: "iPhone 11", Photos: []uuid.UUID{photo}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := reads.Save(ctx, &r, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := reads.Get(ctx, r.ID())
-	if err != nil || got.LinkPhotos() != 3 || !got.ContactRemoved() || got.Draft().Title != "iPhone 11" {
+	if err != nil || len(got.Photos()) != 1 || got.Draft().Title != "iPhone 11" {
 		t.Fatalf("%+v %v", got.State(), err)
 	}
 }

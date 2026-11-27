@@ -17,6 +17,7 @@ import (
 
 // A kind switched off still writes its notice and sends no push; a kind
 // whose switch is on pushes, and messages off pushes no chat message.
+// UC-SHR-03 A9 · BR-SHR-01.
 func TestSwitchedOffKindListsWithoutPush(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -56,6 +57,7 @@ func TestSwitchedOffKindListsWithoutPush(t *testing.T) {
 }
 
 // Every switch off leaves the notices that always push pushing by day.
+// UC-SHR-03 · BR-SHR-01.
 func TestAlwaysPushIgnoresSwitches(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -77,7 +79,7 @@ func TestAlwaysPushIgnoresSwitches(t *testing.T) {
 
 // Inside quiet hours nothing pushes, a notice that always pushes included,
 // and the notices are still listed; the same account with quiet hours off
-// gets the push.
+// gets the push. UC-SHR-03 A9 · BR-SHR-01.
 func TestQuietHoursHoldEveryPush(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

@@ -9,6 +9,7 @@ import (
 
 	"github.com/shopnexus/server/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 )
@@ -270,5 +271,35 @@ func TestFailedOrderIsReviewed(t *testing.T) {
 	}
 	if _, err := e.trust.PutReview(ctx, buyer, order, 3, "", nil, nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A parcel the carrier lost is neither side's doing: its order takes no
+// review from either.
+//
+// UC-DEAL-05 E4 · UC-TRS-01 E5.
+func TestLostOrderIsNotReviewed(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	_, order := e.shipped(t, buyer, seller)
+	f, _, err := e.deals.Order(ctx, order)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now()
+	for i, st := range []string{"in_transit", "lost"} {
+		if err = e.deals.ShipmentUpdated(ctx, string(f.Shipment.Carrier), f.Shipment.TrackingCode, st, at.Add(time.Duration(i)*time.Second), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if f, _, err = e.deals.Order(ctx, order); err != nil || f.Status != dealdomain.OrderFailed {
+		t.Fatalf("the order: %+v %v", f, err)
+	}
+	for name, who := range map[string]uuid.UUID{"the seller": seller, "the buyer": buyer} {
+		if _, err = e.trust.PutReview(ctx, who, order, 1, "", nil, nil); !errors.Is(err, domain.ErrNotDelivered) {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }

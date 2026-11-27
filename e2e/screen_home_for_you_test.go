@@ -119,13 +119,27 @@ func TestHomeForYou(t *testing.T) {
 	expectStatus(t, call(t, "GET", "/v1/screens/listing/"+tentOld, nil, auth), http.StatusOK)
 	expectStatus(t, call(t, "GET", "/v1/screens/listing/"+washer, nil, bearer(solo.AccessToken)), http.StatusOK)
 
+	weighed := []string{"baby.highchair", "home.washer", "sports.camping"}
+	ofWeighed := func(cards []searchCard, in bool) []string {
+		var out []string
+		for _, c := range cards {
+			if slices.Contains(weighed, c.CategoryCode) == in {
+				out = append(out, c.ID)
+			}
+		}
+		return out
+	}
 	v, res := home(t, me.AccessToken, "near_commune=00004")
 	got := cardIDsOf(v.ForYou)
-	if want := []string{chairNew, chairOld, washer, tentNew, tentOld}; len(got) < len(want) || !slices.Equal(got[:len(want)], want) {
-		t.Fatalf("the weighed subcategories first: %v, want %v first", got, want)
+	// The blend gives a stream's k-th listing the slot (k-½)/√points:
+	// chairs √3, the washer √2, tents 1.
+	if want := []string{chairNew, washer, tentNew, chairOld, tentOld}; !slices.Equal(ofWeighed(v.ForYou, true), want) {
+		t.Fatalf("the weighed subcategories: %v, want %v (page %v)", ofWeighed(v.ForYou, true), want, got)
 	}
-	if !v.ForYou[1].Saved || v.ForYou[0].Saved {
-		t.Fatalf("saved marks: %s", res.Body)
+	for _, c := range v.ForYou {
+		if c.Saved != (c.ID == chairOld) {
+			t.Fatalf("saved marks: %s", res.Body)
+		}
 	}
 	for _, c := range v.ForYou {
 		if c.DistanceKm == nil {
@@ -141,13 +155,10 @@ func TestHomeForYou(t *testing.T) {
 		!slices.Equal(cardIDsOf(v.Viewed.Items), []string{tentNew}) {
 		t.Fatalf("viewed: %s", res.Body)
 	}
-	weighed := []string{"baby.highchair", "home.washer", "sports.camping"}
+	// The rest of the page is the newest listings outside them.
 	newestFirst(t, me.AccessToken, 20-5, func() []string {
 		h, _ := home(t, me.AccessToken, "")
-		if len(h.ForYou) < 5 {
-			return cardIDsOf(h.ForYou)
-		}
-		return cardIDsOf(h.ForYou[5:])
+		return ofWeighed(h.ForYou, false)
 	}, func(c searchCard) bool {
 		return !slices.Contains(weighed, c.CategoryCode) && c.SellerID != me.Account.ID
 	})

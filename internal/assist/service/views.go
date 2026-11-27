@@ -18,13 +18,10 @@ type ListingReadView struct {
 	Status  domain.Status  `json:"status"`
 	Failure domain.Failure `json:"failure,omitempty"`
 	// FailureReason says why in a sentence, when the model or its error said.
-	FailureReason string          `json:"failure_reason,omitempty"`
-	Link          *LinkSourceView `json:"link,omitempty"`
-	Photos        []PhotoView     `json:"photos,omitempty"`
-	Draft         *domain.Draft   `json:"draft,omitempty"`
-	// ContactRemoved is set with a link read's draft.
-	ContactRemoved *bool     `json:"contact_removed,omitempty"`
-	ExpiresAt      time.Time `json:"expires_at"`
+	FailureReason string        `json:"failure_reason,omitempty"`
+	Photos        []PhotoView   `json:"photos,omitempty"`
+	Draft         *domain.Draft `json:"draft,omitempty"`
+	ExpiresAt     time.Time     `json:"expires_at"`
 }
 
 // PhotoView is a photo of the read with a URL the app reads it from for an
@@ -33,14 +30,6 @@ type PhotoView struct {
 	UploadID  uuid.UUID `json:"upload_id"`
 	URL       string    `json:"url"`
 	AtSeconds *float64  `json:"at_seconds,omitempty"`
-}
-
-// LinkSourceView is the listing the read copies from; PhotoCount is set
-// after the read step.
-type LinkSourceView struct {
-	Site       string `json:"site"`
-	URL        string `json:"url"`
-	PhotoCount int    `json:"photo_count,omitempty"`
 }
 
 // PriceGuideView is the PriceGuide schema.

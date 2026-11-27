@@ -1,6 +1,6 @@
-// Package domain holds module assist's rules: a read of a seller's video,
-// photo or listing elsewhere from its start to a draft listing, how the
-// model's answer is cleaned, and the price range.
+// Package domain holds module assist's rules: a read of a seller's video
+// or photo from its start to a draft listing, how the model's answer is
+// cleaned, and the price range.
 package domain
 
 import (
@@ -34,12 +34,11 @@ const (
 type Failure string
 
 const (
-	FailUnreadable      Failure = "unreadable"
-	FailTooShort        Failure = "video_too_short"
-	FailTooLong         Failure = "video_too_long"
-	FailListingNotFound Failure = "listing_not_found"
-	FailNoItem          Failure = "no_item"
-	FailUnavailable     Failure = "unavailable"
+	FailUnreadable  Failure = "unreadable"
+	FailTooShort    Failure = "video_too_short"
+	FailTooLong     Failure = "video_too_long"
+	FailNoItem      Failure = "no_item"
+	FailUnavailable Failure = "unavailable"
 )
 
 // Draft is the listing the read filled, in ListingInput's field names. A
@@ -50,7 +49,7 @@ type Draft struct {
 	Condition    catalogdomain.Condition `json:"condition"`
 	Specs        []catalogdomain.Spec    `json:"specs"`
 	Description  string                  `json:"description"`
-	// Price is the price the seller said, nil when they said none.
+	// Price is the Chợ Tốt listing's price in an ad fill; nil in a read.
 	Price       *int64      `json:"price"`
 	AllowOffers bool        `json:"allow_offers"`
 	Photos      []uuid.UUID `json:"photos"`

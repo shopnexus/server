@@ -70,7 +70,7 @@ tags:
     description: Listings and their drafts. A seller posts, edits, hides and marks sold; anyone reads a public listing.
   - name: assist
     x-displayName: Listing assist
-    description: Fill a listing draft from a video, photos or a Chợ Tốt link, and price it against similar listings.
+    description: Fill a listing draft from a video or a photo, and price it against similar listings.
   - name: chotot
     x-displayName: Chợ Tốt
     description: Link the caller's Chợ Tốt profile, bring its listings over, and keep the copies in step with Chợ Tốt.

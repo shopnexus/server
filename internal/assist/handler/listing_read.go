@@ -15,7 +15,6 @@ import (
 type startReadRequest struct {
 	Video      *uuid.UUID `json:"video"`
 	Photo      *uuid.UUID `json:"photo"`
-	Link       *string    `json:"link"`
 	Transcript string     `json:"transcript"`
 	Key        uuid.UUID  `header:"Idempotency-Key" json:"-"`
 }
@@ -28,8 +27,6 @@ func (h *Handler) StartRead(w http.ResponseWriter, r *http.Request) {
 			return h.svc.StartVideoRead(r.Context(), p.AccountID, in.Key, *in.Video, in.Transcript)
 		case in.Photo != nil:
 			return h.svc.StartPhotoRead(r.Context(), p.AccountID, in.Key, *in.Photo)
-		case in.Link != nil:
-			return h.svc.StartLinkRead(r.Context(), p.AccountID, in.Key, *in.Link)
 		default:
 			return service.ListingReadView{}, domain.ErrNoSource
 		}

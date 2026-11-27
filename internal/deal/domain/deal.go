@@ -384,9 +384,9 @@ func (d *Deal) ShipmentUpdated(order uuid.UUID, status ShipmentStatus, now time.
 // status at a newer time only moves StatusAt. The first status past
 // pending_pickup but failed sets PickedUpAt, and pending_pickup clears it;
 // delivered sets DeliveredAt and leaving it clears it. failed, or lost
-// after the pickup, fails the order at once: the deal negotiates again
-// without its agreed price. lost before the pickup moves nothing, so the
-// pickup timeout cancels the order. An order that is not the deal's
+// after the pickup, fails the order at once and stays on its shipment: the
+// deal negotiates again without its agreed price. lost before the pickup
+// moves nothing, so the pickup timeout cancels the order. An order that is not the deal's
 // shipped one, or one without a shipment, is ErrMoveNotAllowed: a late
 // report changes nothing.
 func (d *Deal) ShipmentReported(order uuid.UUID, status ShipmentStatus, at, now time.Time) (bool, error) {
@@ -397,11 +397,8 @@ func (d *Deal) ShipmentReported(order uuid.UUID, status ShipmentStatus, at, now 
 	if st := o.Shipment.StatusAt; st != nil && !at.After(*st) {
 		return false, nil
 	}
-	if status == ShipmentLost {
-		if o.Shipment.PickedUpAt == nil {
-			return false, nil
-		}
-		status = ShipmentFailed
+	if status == ShipmentLost && o.Shipment.PickedUpAt == nil {
+		return false, nil
 	}
 	s := *o.Shipment
 	s.StatusAt = &at
@@ -418,7 +415,7 @@ func (d *Deal) ShipmentReported(order uuid.UUID, status ShipmentStatus, at, now 
 	if status == ShipmentDelivered {
 		s.DeliveredAt = &now
 	}
-	if status == ShipmentFailed {
+	if status == ShipmentFailed || status == ShipmentLost {
 		d.failOrder(now)
 		return true, nil
 	}
@@ -454,9 +451,9 @@ func (d *Deal) failOrder(now time.Time) {
 	d.record(MoveFailed, System, 0, now)
 }
 
-// TransitTimeout fails order when it is shipped and its carrier no longer
-// knows the parcel Waits.Transit after the pickup; a delivered or closed
-// order is ErrMoveNotAllowed.
+// TransitTimeout fails order with its shipment lost when it is shipped
+// and its carrier no longer knows the parcel Waits.Transit after the
+// pickup; a delivered or closed order is ErrMoveNotAllowed.
 func (d *Deal) TransitTimeout(order uuid.UUID, now time.Time) error {
 	o := d.openOrder()
 	if o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil ||
@@ -464,7 +461,7 @@ func (d *Deal) TransitTimeout(order uuid.UUID, now time.Time) error {
 		return ErrMoveNotAllowed
 	}
 	s := *o.Shipment
-	s.Status, s.DeliveredAt = ShipmentFailed, nil
+	s.Status, s.DeliveredAt = ShipmentLost, nil
 	o.Shipment = &s
 	d.failOrder(now)
 	return nil

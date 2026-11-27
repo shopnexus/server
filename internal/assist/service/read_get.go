@@ -26,14 +26,6 @@ func (a *Assist) GetRead(ctx context.Context, account, id uuid.UUID) (ListingRea
 		ID: r.ID(), Source: r.Source(), Status: r.Status(), Failure: r.Failure(), FailureReason: r.FailureReason(),
 		Draft: r.Draft(), ExpiresAt: r.ExpiresAt(),
 	}
-	if r.Source() == domain.SourceLink {
-		l := r.Link()
-		v.Link = &LinkSourceView{Site: l.Site, URL: l.URL, PhotoCount: r.LinkPhotos()}
-		if v.Draft != nil {
-			removed := r.ContactRemoved()
-			v.ContactRemoved = &removed
-		}
-	}
 	for _, p := range r.Photos() {
 		url, signErr := a.d.Media.PresignPhoto(ctx, p.UploadID)
 		if signErr != nil {

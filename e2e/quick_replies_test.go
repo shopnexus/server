@@ -3,6 +3,7 @@ package e2e
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -29,4 +30,18 @@ func TestQuickReplies(t *testing.T) {
 	if got := expect[replies](t, call(t, "GET", "/v1/me/quick-replies", nil, bearer(me.AccessToken), english), http.StatusOK); !slices.Equal(got.Items, want) {
 		t.Fatalf("saved, read in English: %q", got.Items)
 	}
+}
+
+func TestQuickRepliesRefusals(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	put := func(token string, items []string) Response {
+		t.Helper()
+		return call(t, "PUT", "/v1/me/quick-replies", map[string]any{"items": items}, bearer(token))
+	}
+	check(t, "get signed out", call(t, "GET", "/v1/me/quick-replies", nil), 401, "unauthenticated")
+	check(t, "put signed out", put("", []string{"Còn"}), 401, "unauthenticated")
+	check(t, "put 21 answers", put(me.AccessToken, slices.Repeat([]string{"Còn"}, 21)), 400, "")
+	check(t, "put a blank answer", put(me.AccessToken, []string{"Còn", "   "}), 400, "")
+	check(t, "put a long answer", put(me.AccessToken, []string{strings.Repeat("a", 201)}), 400, "")
 }

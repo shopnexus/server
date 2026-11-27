@@ -53,7 +53,8 @@ type Deals interface {
 	// pending or shipped.
 	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)
 	// BuyerOrders counts buyer's orders requested at or after since and,
-	// of those, the failed ones, and buyer's orders pending or shipped now.
+	// of those, the failed ones but parcels the carrier lost, and buyer's
+	// orders pending or shipped now.
 	BuyerOrders(ctx context.Context, buyer uuid.UUID, since time.Time) (domain.BuyerOrders, error)
 	// AwaitingShipment counts seller's pending orders, which wait for the
 	// seller's shipment.

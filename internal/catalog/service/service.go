@@ -158,6 +158,10 @@ type Service interface {
 	// Release puts a listing held for the order back on sale; a listing held
 	// for another order, or not held, stays as it is.
 	Release(ctx context.Context, listingID, orderID uuid.UUID) error
+	// ReleaseHidden takes a listing held for the order off its hold as
+	// hidden by its seller, with listing.hidden; a listing held for another
+	// order, or not held, stays as it is.
+	ReleaseHidden(ctx context.Context, listingID, orderID uuid.UUID) error
 	// SellTo marks a listing held for the order sold under writeID, which
 	// the caller mints so a retry sends the same; a listing already sold
 	// for it stays as it is.

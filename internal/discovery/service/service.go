@@ -42,7 +42,7 @@ type Service interface {
 	// Search finds active listings; viewer, nil when signed out, sees which
 	// they saved.
 	//
-	// UC-DSC-01 · UC-DSC-02 · UC-DSC-03 · UC-DSC-05 · NFR-PERF-01
+	// UC-DSC-01 · UC-DSC-02 · UC-DSC-06 · UC-DSC-05 · NFR-PERF-01
 	Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error)
 	// SellerListings lists what anyone sees of a seller's listings as
 	// search items, newest first, with the cursor rules of a page.Request:
@@ -92,24 +92,24 @@ type Service interface {
 	// key is a new watch and starts its sweeps; a key the account watches
 	// takes the new filters. created reports a new watch.
 	//
-	// UC-DSC-03
+	// UC-DSC-06
 	Watch(ctx context.Context, account uuid.UUID, in WatchInput) (v WatchView, created bool, err error)
 	// Watches lists the account's watches, newest first.
 	//
-	// UC-DSC-03
+	// UC-DSC-06
 	Watches(ctx context.Context, account uuid.UUID) (WatchList, error)
 	// SetWatchAlert mutes or unmutes a watch of the account's.
 	//
-	// UC-DSC-03
+	// UC-DSC-06
 	SetWatchAlert(ctx context.Context, account, id uuid.UUID, on bool) error
 	// Unwatch forgets a watch; an unknown one is fine.
 	//
-	// UC-DSC-03
+	// UC-DSC-06
 	Unwatch(ctx context.Context, account, id uuid.UUID) error
 	// Sweep weighs the listings that arrived since the watch's last sweep;
 	// the worker calls it.
 	//
-	// UC-DSC-03 · NFR-DUR-01
+	// UC-DSC-06 · NFR-DUR-01
 	Sweep(ctx context.Context, id uuid.UUID) (Swept, error)
 	// ListingArrived records a listing's first publication for the sweeps.
 	ListingArrived(ctx context.Context, listing uuid.UUID) error

@@ -474,7 +474,6 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, LookMin: cfg.Embed.LookMinSimilarity,
 	}, catalogm.Service, mediam.Service, accounts)
-	chototClient := chotot.Client{GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: httpx.NewClient(0)}
 	assistm := assist.Mount(d, assist.Settings{
 		AI:      aiClient,
 		Model:   bifrost.Chat{Caller: caller("server-assist", 0), Effort: cfg.Assist.LLMEffort},
@@ -482,8 +481,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Text:    embedder("server-embed-search"),
 		Image:   photos,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, CallTimeout: cfg.Assist.CallTimeout,
-		Source: chototClient,
 	}, accounts, mediam.Service, catalogm.Service, discoverym.Service)
+	chototClient := chotot.Client{GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: httpx.NewClient(0)}
 	chototm := chototmodule.Mount(d, chototmodule.Settings{Source: chototClient, CallTimeout: cfg.Assist.CallTimeout},
 		accounts, catalogm.Service, mediam.Service, assistm.Service)
 	updates := stream.PGLog{DB: pool}

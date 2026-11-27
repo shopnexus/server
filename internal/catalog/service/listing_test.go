@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/shopnexus/server/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/service"
 	mediadomain "github.com/shopnexus/server/internal/media/domain"
 	"github.com/shopnexus/server/internal/media/mediatest"
+	mediarepo "github.com/shopnexus/server/internal/media/repository"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/locale"
@@ -600,5 +602,77 @@ func TestReprice(t *testing.T) {
 	}
 	if err = e.catalog.Reprice(ctx, e.seller(t), v.ID, 7_000_000); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another seller: %v", err)
+	}
+}
+
+// A suspended seller cannot edit a listing, but still hides, shows, marks
+// sold and deletes it.
+//
+// UC-LST-02 E4 · BR-LST-02.
+func TestASuspendedSellerOnlyMovesListings(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	v := e.active(t, seller)
+	accounttest.Suspend(t, e.accounts, seller)
+	d := draft(v.Photos[0].UploadID)
+	d.Title = "iPhone 13 zin"
+	if _, err := e.catalog.Edit(ctx, seller, v.ID, d, locale.Vietnamese); !errors.Is(err, accountdomain.ErrSuspended) {
+		t.Fatalf("edit: %v", err)
+	}
+	if got, err := e.catalog.Get(ctx, &seller, v.ID, locale.Vietnamese); err != nil || got.Title != v.Title {
+		t.Fatalf("the refused edit changed the listing: %+v %v", got, err)
+	}
+	steps := []struct {
+		name string
+		do   func(context.Context, uuid.UUID, uuid.UUID, locale.Tag) (service.ListingView, error)
+		want domain.Status
+	}{
+		{"hide", e.catalog.Hide, domain.StatusHidden},
+		{"unhide", e.catalog.Unhide, domain.StatusActive},
+		{"mark sold", e.catalog.MarkSold, domain.StatusSold},
+	}
+	for _, s := range steps {
+		if got, err := s.do(ctx, seller, v.ID, locale.Vietnamese); err != nil || got.Status != s.want {
+			t.Fatalf("%s: %+v %v", s.name, got, err)
+		}
+	}
+	if err := e.catalog.Delete(ctx, seller, v.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+}
+
+// An edit that adds another seller's photo, one never uploaded or one
+// another listing holds is refused, and the listing keeps its content.
+//
+// UC-LST-02 E7.
+func TestEditRefusesABadNewPhoto(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	v := e.active(t, seller)
+	ticket, err := e.media.CreateUpload(ctx, seller, "image/jpeg", 1_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, added := range map[string]uuid.UUID{
+		"another seller's": e.photo(t, e.seller(t)),
+		"never uploaded":   ticket.UploadID,
+		"already used":     e.post(t, seller).Photos[0].UploadID,
+	} {
+		d := draft(v.Photos[0].UploadID, added)
+		d.Title = "iPhone 13 zin"
+		if _, err = e.catalog.Edit(ctx, seller, v.ID, d, locale.Vietnamese); !errors.Is(err, mediadomain.ErrInvalidUpload) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	got, err := e.catalog.Get(ctx, &seller, v.ID, locale.Vietnamese)
+	if err != nil || got.Title != v.Title || got.Status != domain.StatusActive || len(got.Photos) != 1 {
+		t.Fatalf("the listing changed: %+v %v", got, err)
+	}
+	if u, _ := mediarepo.NewUploads(e.db).Get(ctx, ticket.UploadID); u.Status() != mediadomain.StatusWaiting {
+		t.Fatalf("the upload never put is %s", u.Status())
 	}
 }

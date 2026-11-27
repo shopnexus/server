@@ -489,8 +489,11 @@ func TestFeeReported(t *testing.T) {
 	}
 }
 
-// A parcel the carrier cancelled or lost fails an order it picked up; one
-// still waiting for pickup stays, for the pickup timeout to cancel.
+// A parcel the carrier cancelled or lost fails an order it picked up, with
+// the shipment lost; one still waiting for pickup stays, for the pickup
+// timeout to cancel.
+//
+// UC-DEAL-05 E4.
 func TestShipmentLost(t *testing.T) {
 	t.Parallel()
 	waiting := shipped(t)
@@ -501,18 +504,25 @@ func TestShipmentLost(t *testing.T) {
 	picked := reported(t, domain.ShipmentInTransit)
 	changed, err = picked.ShipmentReported(picked.Order().ID, domain.ShipmentLost, later, later)
 	o := picked.Order()
-	if err != nil || !changed || o.Status != domain.OrderFailed || o.Shipment.Status != domain.ShipmentFailed ||
+	if err != nil || !changed || o.Status != domain.OrderFailed || o.Shipment.Status != domain.ShipmentLost || !o.Lost() ||
 		picked.Status() != domain.StatusNegotiating || last(&picked).Kind != domain.MoveFailed {
 		t.Fatalf("after the pickup: %v %v %+v", changed, err, o)
 	}
+	refused := reported(t, domain.ShipmentFailed)
+	if o = refused.Order(); o.Lost() {
+		t.Fatalf("a parcel refused at the door reads as lost: %+v", o.Shipment)
+	}
 }
 
-// The transit timeout fails a shipped order that is not delivered.
+// The transit timeout fails a shipped order that is not delivered, as a
+// parcel the carrier lost.
+//
+// UC-DEAL-05 E4.
 func TestTransitTimeout(t *testing.T) {
 	t.Parallel()
 	d := reported(t, domain.ShipmentInTransit)
 	must(t, d.TransitTimeout(d.Order().ID, later))
-	if o := d.Order(); o.Status != domain.OrderFailed || o.Shipment.Status != domain.ShipmentFailed || !o.ClosedAt.Equal(later) ||
+	if o := d.Order(); o.Status != domain.OrderFailed || o.Shipment.Status != domain.ShipmentLost || !o.ClosedAt.Equal(later) ||
 		last(&d).Kind != domain.MoveFailed || d.Status() != domain.StatusNegotiating {
 		t.Fatalf("%+v", o)
 	}

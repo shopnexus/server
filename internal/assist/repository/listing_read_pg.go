@@ -24,18 +24,18 @@ func NewListingReads(db *pgxpool.Pool) ListingReads { return pgListingReads{db} 
 // insertRead takes in the transcript waiting under the read's account and
 // request key, for a video read only.
 const insertRead = `
-INSERT INTO listing_reads (id, account_id, source, media_id, link_site, link_list_id, link_url, link_photos, transcript,
-    status, failure, failure_reason, photos, draft, contact_removed, created_at, expires_at, write_id, request_key)
-VALUES (@id, @account_id, @source, @media_id, @link_site, @link_list_id, @link_url, @link_photos,
+INSERT INTO listing_reads (id, account_id, source, media_id, transcript,
+    status, failure, failure_reason, photos, draft, created_at, expires_at, write_id, request_key)
+VALUES (@id, @account_id, @source, @media_id,
     (SELECT text FROM listing_read_transcripts
      WHERE account_id = @account_id AND request_key = @transcript_key AND @source::text = 'video'),
-    @status, NULLIF(@failure, ''), NULLIF(@failure_reason, ''), @photos, @draft, @contact_removed, @created_at,
+    @status, NULLIF(@failure, ''), NULLIF(@failure_reason, ''), @photos, @draft, @created_at,
     @expires_at, @write_id, @request_key)`
 
 const saveRead = `
 UPDATE listing_reads SET status = @status, failure = NULLIF(@failure, ''),
-    failure_reason = NULLIF(@failure_reason, ''), link_photos = @link_photos, photos = @photos,
-    draft = @draft, contact_removed = @contact_removed, write_id = @write_id,
+    failure_reason = NULLIF(@failure_reason, ''), photos = @photos,
+    draft = @draft, write_id = @write_id,
     transcript = CASE WHEN @status::text = 'reading' THEN transcript END
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
 RETURNING old.write_id = @write_id`
@@ -44,28 +44,12 @@ RETURNING old.write_id = @write_id`
 var errSaved = errors.New("assist: saved already")
 
 // readArgs are a read's columns. A step not reached yet is NULL, which a
-// nil []byte or pointer encodes, and so is a column of another source.
+// nil []byte encodes.
 func readArgs(st domain.ListingReadState) (pgx.StrictNamedArgs, error) {
 	var (
 		photos, draft []byte
-		media         *uuid.UUID
-		site, url     *string
-		listID        *int64
-		linkPhotos    *int
-		removed       *bool
 		err           error
 	)
-	if st.Source != domain.SourceLink {
-		media = &st.Media
-	} else {
-		site, listID, url = &st.Link.Site, &st.Link.ListID, &st.Link.URL
-		if st.LinkPhotos > 0 {
-			linkPhotos = &st.LinkPhotos
-		}
-		if st.Draft != nil {
-			removed = &st.ContactRemoved
-		}
-	}
 	if st.Photos != nil {
 		if photos, err = json.Marshal(st.Photos); err != nil {
 			return nil, fmt.Errorf("encode photos: %w", err)
@@ -77,9 +61,8 @@ func readArgs(st domain.ListingReadState) (pgx.StrictNamedArgs, error) {
 		}
 	}
 	return pgx.StrictNamedArgs{
-		"id": st.ID, "account_id": st.AccountID, "source": st.Source, "media_id": media,
-		"link_site": site, "link_list_id": listID, "link_url": url, "link_photos": linkPhotos,
-		"status": st.Status, "failure": st.Failure, "failure_reason": st.FailureReason, "photos": photos, "draft": draft, "contact_removed": removed,
+		"id": st.ID, "account_id": st.AccountID, "source": st.Source, "media_id": st.Media,
+		"status": st.Status, "failure": st.Failure, "failure_reason": st.FailureReason, "photos": photos, "draft": draft,
 		"created_at": st.CreatedAt, "expires_at": st.ExpiresAt, "write_id": st.WriteID,
 	}, nil
 }
@@ -165,7 +148,7 @@ func (s pgListingReads) Save(ctx context.Context, r *domain.ListingRead, writeID
 	if err != nil {
 		return err
 	}
-	for _, k := range []string{"account_id", "source", "media_id", "link_site", "link_list_id", "link_url", "created_at", "expires_at"} {
+	for _, k := range []string{"account_id", "source", "media_id", "created_at", "expires_at"} {
 		delete(a, k)
 	}
 	a["read_write_id"], a["write_id"] = st.WriteID, writeID
@@ -201,27 +184,18 @@ func (s pgListingReads) Save(ctx context.Context, r *domain.ListingRead, writeID
 func (s pgListingReads) Get(ctx context.Context, id uuid.UUID) (domain.ListingRead, error) {
 	var (
 		st            domain.ListingReadState
-		media         *uuid.UUID
-		site, url     *string
-		listID        *int64
 		photos, draft []byte
 	)
-	err := s.db.QueryRow(ctx, `SELECT id, account_id, source, media_id, link_site, link_list_id, link_url, coalesce(link_photos, 0),
-       status, coalesce(failure, ''), coalesce(failure_reason, ''), photos, draft, coalesce(contact_removed, false), created_at, expires_at, write_id
+	err := s.db.QueryRow(ctx, `SELECT id, account_id, source, media_id,
+       status, coalesce(failure, ''), coalesce(failure_reason, ''), photos, draft, created_at, expires_at, write_id
 FROM listing_reads WHERE id = @id`, pgx.StrictNamedArgs{"id": id}).
-		Scan(&st.ID, &st.AccountID, &st.Source, &media, &site, &listID, &url, &st.LinkPhotos,
-			&st.Status, &st.Failure, &st.FailureReason, &photos, &draft, &st.ContactRemoved, &st.CreatedAt, &st.ExpiresAt, &st.WriteID)
+		Scan(&st.ID, &st.AccountID, &st.Source, &st.Media,
+			&st.Status, &st.Failure, &st.FailureReason, &photos, &draft, &st.CreatedAt, &st.ExpiresAt, &st.WriteID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ListingRead{}, domain.ErrNotFound
 	}
 	if err != nil {
 		return domain.ListingRead{}, fmt.Errorf("select listing read: %w", err)
-	}
-	if media != nil {
-		st.Media = *media
-	}
-	if site != nil {
-		st.Link = domain.Link{Site: *site, ListID: *listID, URL: *url}
 	}
 	for _, col := range []struct {
 		raw  []byte

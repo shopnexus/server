@@ -276,7 +276,7 @@ func TestSupportStatuses(t *testing.T) {
 		bearer(me.AccessToken), newKey()), 409, "ticket_not_allowed")
 
 	tk := openTicket(t, me.AccessToken, map[string]any{"kind": "other", "text": "Hỏi"}, http.StatusCreated)
-	for _, a := range []string{"unread", "unarchive"} {
+	for _, a := range []string{"unread", "unarchive", "ignore", "unignore"} {
 		check(t, a, call(t, "POST", "/v1/conversations/"+tk.ConversationID+"/"+a, nil, bearer(me.AccessToken)), 409, "conversation_is_support")
 	}
 	check(t, "report ShopNexus", call(t, "POST", "/v1/reports", map[string]any{"account_id": shopNexusID, "reason": "scam"},

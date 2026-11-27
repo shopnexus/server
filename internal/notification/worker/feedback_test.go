@@ -29,7 +29,7 @@ func (f feedback) Facts(_ context.Context, id uuid.UUID) (feedbacksvc.Facts, boo
 
 // A move to shipped and a first reply each tell the owner and push, with
 // no mail. A feedback gone, or back to seen by the time it is read, tells
-// no one.
+// no one. UC-SHR-03 A2.
 func TestFeedbackNotices(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
