@@ -155,7 +155,8 @@ func turnCall(t *testing.T, token, method, path string, body any) (status int, a
 
 // A record's conversation is shared by every member; one without a record
 // is the member's own. A question runs on the agent runtime over the
-// conversation's history, as the member who asked. UC-MOD-08.
+// conversation's history, as the member who asked.
+// UC-MOD-08 A5, A6, E2, E4, E6, E7.
 func TestConsoleAgentConversations(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
@@ -245,6 +246,15 @@ func TestConsoleAgentConversations(t *testing.T) {
 		t.Fatalf("a turn the runtime refused is kept: %+v", again.Turns)
 	}
 	check(t, "no text", consoleCall(t, lan, "POST", turns, map[string]string{}), 400, "")
+	check(t, "an unknown agent", consoleCall(t, lan, "POST", turns, map[string]string{"text": "?", "agent_id": newID()}), 404,
+		"ai_agent_not_found")
+	key := [2]string{"Idempotency-Key", newID()}
+	keyed := expect[agentTurnStarted](t, consoleCall(t, lan, "POST", turns, map[string]string{"text": "Một lần thôi"}, key), 202)
+	waitTurn(t, lan, keyed.TurnID)
+	if again := expect[agentTurnStarted](t, consoleCall(t, lan, "POST", turns, map[string]string{"text": "Một lần thôi"}, key),
+		202); again.TurnID != keyed.TurnID {
+		t.Errorf("the same key started turn %s, want %s", again.TurnID, keyed.TurnID)
+	}
 	check(t, "only a zero-width space", consoleCall(t, lan, "POST", turns, map[string]string{"text": "\u200b"}), 422, "agent_input_rejected")
 	check(t, "an unknown conversation", consoleCall(t, lan, "POST", path+"/"+newID()+"/turns", map[string]string{"text": "?"}),
 		404, "agent_conversation_not_found")
@@ -297,7 +307,7 @@ func TestConsoleAgentConversations(t *testing.T) {
 // A turn's token calls the console API as the member, within its agent's
 // capabilities; a change waits for a member's approval, which runs it as
 // the approver, and the agent hears of the decision in the next run.
-// UC-MOD-08.
+// UC-MOD-08 A2, A3, A4.
 func TestConsoleAgentApprovals(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
@@ -457,6 +467,7 @@ func TestConsoleAgentApprovals(t *testing.T) {
 
 // Pause waits for the commands running, stop cuts the run, resume runs the
 // conversation's last turn again; each takes a turn in the state it needs.
+// UC-MOD-08 A1, A2, E3.
 func TestConsoleAgentControls(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
@@ -511,7 +522,7 @@ func TestConsoleAgentControls(t *testing.T) {
 	}
 }
 
-// A member asks at most 30 times a minute.
+// A member asks at most 30 times a minute. UC-MOD-08 E5.
 func TestConsoleAgentRateLimit(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
