@@ -213,4 +213,13 @@ type MeView struct {
 	AccountView
 
 	Identities []Identity `json:"identities"`
+	// Suspension is set only while a suspension is in force.
+	Suspension *SuspensionView `json:"suspension,omitempty"`
+}
+
+// SuspensionView is the Suspension schema: why the account is suspended and
+// until when; Until is nil for a suspension without an end.
+type SuspensionView struct {
+	Reason string     `json:"reason"`
+	Until  *time.Time `json:"until,omitempty"`
 }

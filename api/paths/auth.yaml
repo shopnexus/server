@@ -38,8 +38,6 @@ signIn:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "403":
-        $ref: "../responses/common.yaml#/Forbidden"
       "409":
         $ref: "../responses/common.yaml#/Conflict"
       "422":
@@ -61,10 +59,8 @@ refresh:
     summary: Rotate the refresh token and get a new access token.
     description: |
       A refresh token works once. Presenting it again, or two refreshes
-      racing with one token, signs the session out. A refresh for a
-      suspended account signs the session out with account_suspended, and
-      the same token answers account_suspended again while the suspension
-      lasts; after it ends, session_revoked.
+      racing with one token, signs the session out. A suspended account
+      refreshes as any other; GET /v1/accounts/me tells it is suspended.
     tags: [auth]
     requestBody:
       required: true
@@ -83,8 +79,6 @@ refresh:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
-      "403":
-        $ref: "../responses/common.yaml#/Forbidden"
 sessions:
   get:
     operationId: listSessions

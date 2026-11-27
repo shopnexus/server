@@ -34,7 +34,8 @@ func (s *Account) GetMany(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]A
 }
 
 // Me reads the caller's account and its sign-in methods. A deleted account
-// has none, and its access token answers session_revoked.
+// has none, and its access token answers session_revoked. A suspended one
+// also reads why and until when (BR-MOD-02).
 //
 // Me is UC-ACC-06, step 1.
 func (s *Account) Me(ctx context.Context, id uuid.UUID) (MeView, error) {
@@ -49,7 +50,12 @@ func (s *Account) Me(ctx context.Context, id uuid.UUID) (MeView, error) {
 	if err != nil {
 		return MeView{}, err
 	}
-	return MeView{AccountView: s.view(a, s.d.Now()), Identities: ids}, nil
+	now := s.d.Now()
+	v := MeView{AccountView: s.view(a, now), Identities: ids}
+	if a.Suspended(now) {
+		v.Suspension = &SuspensionView{Reason: a.SuspendReason(), Until: a.SuspendedUntil()}
+	}
+	return v, nil
 }
 
 func (s *Account) Status(ctx context.Context, id uuid.UUID) (domain.Status, error) {

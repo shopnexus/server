@@ -23,7 +23,8 @@ const (
 	RevokedSignOut RevokeReason = "sign_out"
 	// RevokedReuse is a refresh token two parties presented.
 	RevokedReuse RevokeReason = "reuse"
-	// RevokedSuspended is a refresh that found the account suspended.
+	// RevokedSuspended is an older session a refresh revoked because the
+	// account was suspended; a suspension no longer ends a session.
 	RevokedSuspended RevokeReason = "suspended"
 	// RevokedDeleted is a session of a deleted account.
 	RevokedDeleted RevokeReason = "deleted"

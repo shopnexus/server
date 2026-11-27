@@ -13,8 +13,8 @@ import (
 
 // Refresh rotates a refresh token. A token presented after it was rotated, or
 // two refreshes racing with one token, means two parties hold it, so the
-// session is revoked. A suspended account's session is revoked too, and
-// its token answers account_suspended while the suspension lasts.
+// session is revoked. A suspended account refreshes as any other; a deleted
+// one's session is revoked.
 //
 // Refresh is UC-ACC-02 A3.
 func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, error) {
@@ -36,40 +36,23 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 	if err != nil {
 		return domain.Tokens{}, fmt.Errorf("find session by token: %w", err)
 	}
-	// E5, E6: signed out or expired; E7 revoked for a suspension.
+	// E5, E6: signed out or expired.
 	if err = sess.Usable(now); err != nil {
-		// A client that lost the answer to the refresh that revoked its
-		// session for a suspension retries with the same token. Only that
-		// token's holder learns of the suspension.
-		if sess.RevokeReason() == domain.RevokedSuspended {
-			a, loadErr := s.load(ctx, sess.AccountID())
-			if loadErr != nil {
-				return domain.Tokens{}, loadErr
-			}
-			if a.Suspended(now) {
-				return domain.Tokens{}, domain.ErrSuspended
-			}
-		}
 		return domain.Tokens{}, fmt.Errorf("refresh: %w", err)
 	}
 	a, err := s.load(ctx, sess.AccountID())
 	if err != nil {
 		return domain.Tokens{}, err
 	}
-	// E7, E5. A suspended account's session ends with account_suspended; a deleted
-	// one's, which a sign-in racing Erase may have issued, with
-	// session_revoked.
-	st := a.Status(now)
-	if r := st.Refusal(); r != nil {
-		reason := domain.RevokedDeleted
-		if st == domain.StatusSuspended {
-			reason = domain.RevokedSuspended
-		}
-		if err = s.revoke(ctx, sess.ID(), reason, now); err != nil {
+	// E5. A deleted account's session, which a sign-in racing Erase may have
+	// issued, ends with session_revoked.
+	if a.Status(now) == domain.StatusDeleted {
+		if err = s.revoke(ctx, sess.ID(), domain.RevokedDeleted, now); err != nil {
 			return domain.Tokens{}, err
 		}
-		return domain.Tokens{}, r
+		return domain.Tokens{}, domain.ErrSessionRevoked
 	}
+	// A4 · BR-MOD-02: a suspended account keeps its session, to ask support.
 	// A3. Rotate the refresh token.
 	next := sess.Rotate(now)
 	if err = s.d.Sessions.Save(ctx, &sess, uuid.NewV7()); err != nil {

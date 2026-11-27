@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"net/http"
 	"slices"
 	"sync"
 	"testing"
@@ -63,13 +64,38 @@ func TestSignInReplayAfterSignOutIsRefused(t *testing.T) {
 	}
 }
 
-func TestSignInSuspendedAccount(t *testing.T) {
+// A suspended account signs in, refreshes and reads why; it writes only in
+// its support tickets, and signs out.
+// UC-ACC-01 A4 · UC-ACC-02 A4 · UC-MOD-09 A4 · BR-MOD-02.
+func TestSuspendedAccountKeepsOnlySupport(t *testing.T) {
 	t.Parallel()
 	a, phone := newAccount(t)
+	other, _ := newAccount(t)
 	suspend(t, a.Account.ID)
-	if res := signInCall(t, issuer.SMSToken(phone)); res.Status != 403 || errorOf(t, res).Code != "account_suspended" {
-		t.Fatalf("%d %s", res.Status, res.Body)
+	in := expect[signIn](t, signInCall(t, issuer.SMSToken(phone)), http.StatusOK)
+	if in.Account.ID != a.Account.ID || in.Account.IsNew {
+		t.Fatalf("sign-in: %+v", in.Account)
 	}
+	next := expect[tokens](t, refresh(t, in.RefreshToken), http.StatusOK)
+	me := expect[struct {
+		Status     string `json:"status"`
+		Suspension *struct {
+			Reason string  `json:"reason"`
+			Until  *string `json:"until"`
+		} `json:"suspension"`
+	}](t, call(t, "GET", "/v1/accounts/me", nil, bearer(next.AccessToken)), http.StatusOK)
+	if me.Status != "suspended" || me.Suspension == nil || me.Suspension.Reason != "e2e" || me.Suspension.Until != nil {
+		t.Fatalf("me: %+v", me)
+	}
+	tk := openTicket(t, next.AccessToken, map[string]any{"kind": "other", "text": "Vì sao tôi bị khoá?"}, http.StatusCreated)
+	expectStatus(t, call(t, "POST", "/v1/conversations/"+tk.ConversationID+"/messages", map[string]any{"text": "Tôi chờ trả lời"},
+		bearer(next.AccessToken), newKey()), http.StatusCreated)
+	check(t, "edit the profile", call(t, "PATCH", "/v1/accounts/me", map[string]any{"bio": "x"}, bearer(next.AccessToken)),
+		403, "account_suspended")
+	check(t, "follow", call(t, "POST", "/v1/follows", map[string]any{"account_id": other.Account.ID}, bearer(next.AccessToken)),
+		403, "account_suspended")
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/current", nil, bearer(next.AccessToken)), http.StatusNoContent)
+	check(t, "refresh after sign-out", refresh(t, next.RefreshToken), 401, "session_revoked")
 }
 
 func TestSignInRefusals(t *testing.T) {

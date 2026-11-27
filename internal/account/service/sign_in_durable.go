@@ -110,8 +110,6 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 	}
 
 	if f.Found {
-		// Only a person who just proved they hold the identity gets here, so
-		// account_suspended is safe to reveal.
 		// A retry of the sign-up that made the account answers is_new as
 		// the first request did.
 		st, err := restate.Run(ctx, func(rc restate.RunContext) (accountStatus, error) {
@@ -130,8 +128,7 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 		}
 		switch st.Status {
 		case domain.StatusSuspended:
-			// E9
-			return SignInResult{Refused: domain.ErrSuspended}, nil
+			// A4 · BR-MOD-02: signed in, the person can read why and ask support.
 		case domain.StatusDeleted:
 			// E10
 			// The identity was found before Erase deleted it with the

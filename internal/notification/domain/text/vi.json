@@ -36,7 +36,7 @@
   "mail.steps.received": "Nhận hàng",
   "mail.steps.reviewed": "Đánh giá",
   "mail.suspended.action": "Gửi phiếu hỗ trợ",
-  "mail.suspended.lead": "Trong thời gian này bạn vẫn xem được tin đăng và đơn, nhưng chưa đăng tin, nhắn tin hay trả giá được.",
+  "mail.suspended.lead": "Trong thời gian này bạn vẫn đăng nhập được, nhưng chỉ xem được lý do và gửi phiếu hỗ trợ.",
   "mail.suspended.note": "Nếu bạn nghĩ đây là nhầm lẫn, hãy gửi phiếu hỗ trợ kèm lời giải thích.",
   "mail.unsuspended.action": "Mở ShopNexus",
   "mail.unsuspended.lead": "Bạn lại đăng tin, nhắn tin và trả giá được như trước.",

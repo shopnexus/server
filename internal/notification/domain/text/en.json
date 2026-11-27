@@ -36,7 +36,7 @@
   "mail.steps.received": "Received",
   "mail.steps.reviewed": "Reviewed",
   "mail.suspended.action": "Send a support request",
-  "mail.suspended.lead": "You can still see listings and orders, but you cannot post, message or make offers for now.",
+  "mail.suspended.lead": "You can still sign in, but for now you can only see why and send a support request.",
   "mail.suspended.note": "If you think this is a mistake, send a support request with your explanation.",
   "mail.unsuspended.action": "Open ShopNexus",
   "mail.unsuspended.lead": "You can post, message and make offers again.",

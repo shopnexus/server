@@ -131,9 +131,8 @@ func (s Status) Refusal() *apperr.Error {
 
 // CanWrite returns the refusal of the status in force: ErrSuspended while a
 // suspension is, ErrSessionRevoked once deleted. Every use case that writes
-// loads the account and calls it; access tokens stay valid for up to 15
-// minutes after a suspension or a deletion, so this is what stops writes
-// at once.
+// loads the account and calls it: a suspended account keeps its session, and
+// a deleted one's access token stays valid for up to 15 minutes.
 func (a *Account) CanWrite(now time.Time) error {
 	if r := a.Status(now).Refusal(); r != nil {
 		return r

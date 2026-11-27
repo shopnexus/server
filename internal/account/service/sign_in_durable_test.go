@@ -109,13 +109,15 @@ func TestSignInRetriedKey(t *testing.T) {
 	}
 }
 
-// UC-ACC-01 E9.
-func TestSignInRefusesASuspendedAccount(t *testing.T) {
+// UC-ACC-01 A4 · BR-MOD-02.
+func TestSignInLetsASuspendedAccountIn(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
 	first := e.signIn(t, "0901234567")
 	suspendAccount(t, e.db, first.AccountID)
-	refused(t, e.signIn(t, "0901234567"), "account_suspended")
+	if again := e.signIn(t, "0901234567"); again.Refused != nil || again.AccountID != first.AccountID || again.IsNew {
+		t.Fatalf("%+v", again)
+	}
 }
 
 // UC-ACC-01.

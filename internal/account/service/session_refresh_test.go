@@ -85,7 +85,7 @@ func TestRefreshReplayRevokes(t *testing.T) {
 	}
 }
 
-// UC-ACC-02 E4, E6, E7.
+// UC-ACC-02 E4, E6.
 func TestRefreshRefusals(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
@@ -95,49 +95,20 @@ func TestRefreshRefusals(t *testing.T) {
 	if _, err := e.refresh(e.token, now.Add(domain.SessionIdleLimit)); !errors.Is(err, domain.ErrSessionExpired) {
 		t.Fatalf("idle: %v", err)
 	}
-	suspendAccount(t, e.db, e.acc)
-	if _, err := e.refresh(e.token, now); !errors.Is(err, domain.ErrSuspended) || !e.revoked(t) {
-		t.Fatalf("suspended: %v", err)
-	}
 }
 
-// The refresh that revoked a suspended account's session may lose its
-// answer; the client's retry with the same token is still told of the
-// suspension, and only of it while the suspension lasts. A session that
-// ended for another reason keeps answering session_revoked.
-// UC-ACC-02 E7.
-func TestRefreshOfASuspendedAccountAnswersItsRetries(t *testing.T) {
+// A suspended account's session rotates as any other and stays live.
+// UC-ACC-02 A4 · BR-MOD-02.
+func TestRefreshKeepsASuspendedAccountsSession(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
-	signedOut, err := service.IssueSession(at(nil, e.sessions, now), context.Background(), uuid.NewV7(), e.acc, uuid.Nil(), "Pixel 8")
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := domain.NewVerifier(testKeys).Verify(signedOut.AccessToken, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = at(nil, e.sessions, now).DeleteCurrentSession(context.Background(), p); err != nil {
-		t.Fatal(err)
-	}
 	suspendAccount(t, e.db, e.acc)
-	for i := range 2 {
-		if _, err = e.refresh(e.token, now); !errors.Is(err, domain.ErrSuspended) || !e.revoked(t) {
-			t.Fatalf("refresh %d: %v", i+1, err)
-		}
+	next, err := e.refresh(e.token, now)
+	if err != nil || e.revoked(t) {
+		t.Fatalf("suspended: %v", err)
 	}
-	if s, _ := e.sessions.Get(context.Background(), e.sid); s.RevokeReason() != domain.RevokedSuspended {
-		t.Fatalf("reason %q", s.RevokeReason())
-	}
-	if _, err = e.refresh(signedOut.RefreshToken, now); !errors.Is(err, domain.ErrSessionRevoked) {
-		t.Fatalf("a session signed out before the suspension: %v", err)
-	}
-	if _, err = e.db.Exec(context.Background(), `UPDATE accounts SET status = 'active', suspend_reason = NULL WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": e.acc}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = e.refresh(e.token, now); !errors.Is(err, domain.ErrSessionRevoked) {
-		t.Fatalf("after the suspension: %v", err)
+	if _, err = e.refresh(next.RefreshToken, now); err != nil || e.revoked(t) {
+		t.Fatalf("again: %v", err)
 	}
 }
 

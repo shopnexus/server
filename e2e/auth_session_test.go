@@ -47,15 +47,6 @@ func TestRefreshRefusals(t *testing.T) {
 		t.Fatalf("unknown: %d %s", res.Status, res.Body)
 	}
 	expectStatus(t, call(t, "POST", "/v1/auth/refresh", map[string]string{}), 400)
-	acc, _ := newAccount(t)
-	suspend(t, acc.Account.ID)
-	// The first refresh signs the session out; a retry after its answer was
-	// lost still learns why.
-	for _, try := range []string{"suspended", "suspended, again"} {
-		if res := refresh(t, acc.RefreshToken); res.Status != 403 || errorOf(t, res).Code != "account_suspended" {
-			t.Fatalf("%s: %d %s", try, res.Status, res.Body)
-		}
-	}
 }
 
 type sessionView struct {

@@ -69,6 +69,23 @@ MyAccount:
       items:
         $ref: "#/Identity"
       description: How the account signs in. Posting, opening a deal and opening a chat need a phone.
+    suspension:
+      $ref: "#/Suspension"
+Suspension:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  description: |
+    Present only while the account is suspended. A suspended account stays
+    signed in but writes nothing new except in its support tickets.
+  properties:
+    reason:
+      type: string
+      description: Why staff suspended the account, as they wrote it.
+    until:
+      type: string
+      format: date-time
+      description: When the suspension ends; absent for one without an end.
 Identity:
   type: object
   additionalProperties: false
