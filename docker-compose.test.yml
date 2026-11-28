@@ -65,7 +65,7 @@ services:
     image: dxflrs/garage:v2.6.0
     command: ["/garage", "server", "--single-node"]
     environment:
-      GARAGE_RPC_SECRET: 0000000000000000000000000000000000000000000000000000000000000002
+      GARAGE_RPC_SECRET: "0000000000000000000000000000000000000000000000000000000000000002"
       GARAGE_ADMIN_TOKEN: server-garage-admin
     ports:
       - "127.0.0.1:56491:3900"
