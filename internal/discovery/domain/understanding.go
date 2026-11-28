@@ -15,8 +15,9 @@ import (
 // PromptVersion names the prompt and schema below; a change to either bumps
 // it, so cached answers of the old prompt are no longer read.
 // 2 added rewritten and visual (2026-11-09); 3 is the same prompt read by
-// Gemini 2.5 Flash in place of Claude Haiku (2026-11-23).
-const PromptVersion = 3
+// Gemini 2.5 Flash in place of Claude Haiku (2026-11-23); 4 says the
+// marketplace sells new and used items (2026-11-28).
+const PromptVersion = 4
 
 const (
 	// ModelTimeout bounds one model call, which a search waits for, and a
@@ -379,9 +380,9 @@ func Schema() json.RawMessage {
 // today's date.
 func SystemPrompt(categories []catalogdomain.Category, today time.Time) string {
 	var b strings.Builder
-	b.WriteString(`You read a search query typed on ShopNexus, a Vietnamese second-hand marketplace, and say what the
-search should prefer (boosts) and avoid (demotes). Each signal names an attribute and its values in priority order,
-at most three. Attributes:
+	b.WriteString(`You read a search query typed on ShopNexus, a Vietnamese marketplace where people buy and sell new and
+used items to each other, and say what the search should prefer (boosts) and avoid (demotes). Each signal names an
+attribute and its values in priority order, at most three. Attributes:
 - phrase: search words rewritten in correct Vietnamese with diacritics, abbreviations expanded ("dt" is "điện thoại",
   "xe dap" is "xe đạp"), brand and model names kept.
 - category: codes from the list below, and only those; a subcategory code when the query is specific.

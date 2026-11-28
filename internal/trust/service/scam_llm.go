@@ -15,10 +15,10 @@ import (
 
 // ScamPromptVersion is stored with each check the LLM makes; raise it with
 // every change of ScamSystemPrompt or scamSchema.
-const ScamPromptVersion = 1
+const ScamPromptVersion = 2
 
 // ScamSystemPrompt tells the model what each message code means.
-const ScamSystemPrompt = `You read a chat between two people, A and B, on ShopNexus, a Vietnamese marketplace for used goods. Buyers pay cash on delivery through the seller's own carrier account, or meet the seller in person. ShopNexus holds no money and never asks anyone to pay through a chat. Phone numbers, bank and card numbers, email addresses and links were replaced with <PHONE>, <BANK_NUMBER>, <EMAIL> and <URL:domain>.
+const ScamSystemPrompt = `You read a chat between two people, A and B, on ShopNexus, a Vietnamese marketplace where people buy and sell new and used items to each other. Buyers pay cash on delivery through the seller's own carrier account, or meet the seller in person. ShopNexus holds no money and never asks anyone to pay through a chat. Phone numbers, bank and card numbers, email addresses and links were replaced with <PHONE>, <BANK_NUMBER>, <EMAIL> and <URL:domain>.
 
 For each of A and B, list the codes that person's own messages show. Judge a person only by what they wrote. List nothing for an ordinary chat about an item, its price, a meeting or a delivery: haggling, asking for photos, asking where to meet and giving a phone number to call at the meeting are ordinary.
 

@@ -1,7 +1,7 @@
 package service
 
 // PhotoPromptVersion names the photo read's prompt; a change bumps it.
-const PhotoPromptVersion = 5
+const PhotoPromptVersion = 6
 
 // photoUserPrompt goes with the photo.
 const photoUserPrompt = "The seller's photo is attached below.\n"
@@ -9,9 +9,9 @@ const photoUserPrompt = "The seller's photo is attached below.\n"
 // photoSystemPrompt is the model's instructions. The model writes the title
 // and description only; catalog guesses the category from them and the
 // seller fills the rest.
-var photoSystemPrompt = `You read one photo a seller took to sell an item on ShopNexus, a Vietnamese second-hand marketplace, and
-write the title and description of their listing from it, in Vietnamese with diacritics. The photo is all you get:
-nothing the seller wrote or said comes with it.
+var photoSystemPrompt = `You read one photo a seller took to sell an item on ShopNexus, a Vietnamese marketplace where
+people buy and sell new and used items to each other, and write the title and description of their listing from it, in
+Vietnamese with diacritics. The photo is all you get: nothing the seller wrote or said comes with it.
 
 The title: at most 70 characters: the item, its brand and model when the photo shows them, then its colour, as in
 "iPhone 11 Trắng". Only what the photo shows: no capacity, battery health or size it cannot show, no price, no emoji,

@@ -183,7 +183,7 @@ def page(*, group, preheader, art_name, title, lead, blocks, cta=None, order_mai
         </td></tr>
         <tr><td align="center" style="padding:24px 16px 0;font:400 13px/20px {FONT};color:{MUTED}">
           {why}<br>{links}
-          <div style="margin-top:16px;font:500 12px/16px {FONT};color:{MUTED}">ShopNexus · Đồ cũ giá tốt, xem hàng rồi mới trả</div>
+          <div style="margin-top:16px;font:500 12px/16px {FONT};color:{MUTED}">ShopNexus · Mua bán dễ dàng, xem hàng rồi mới trả</div>
         </td></tr>
       </table>
     </td></tr>
