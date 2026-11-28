@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -139,6 +140,54 @@ func TestSearchGuestSkipsTheModel(t *testing.T) {
 	}
 	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "dap"}); err != nil || len(v.Items) != 0 {
 		t.Fatalf("signed in, as written: %+v %v", v, err)
+	}
+}
+
+// A guest's raw words sink the accessories of a device unless they name
+// one, and every page keeps that order.
+// UC-DSC-01 A1.
+func TestSearchRawSinksAccessories(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	put := func(title, description, category string) uuid.UUID {
+		t.Helper()
+		return catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.ListingInput, _ *catalogdomain.Refs) {
+			d.Title, d.Description, d.CategoryCode = title, description, category
+		})
+	}
+	phone := put("iPhone 12 64GB", "Máy zin nguyên bản, pin 87%, không lỗi.", "phones.iphone")
+	cover := put("Ốp lưng iPhone 12 Mini, 12, 12 Pro, 12 Pro Max chống sốc",
+		"Ốp lưng cho iPhone 12, iPhone 12 Mini, iPhone 12 Pro và iPhone 12 Pro Max.", "phones.accessories")
+	put("Xe đạp Asama", "Xe đạp đi học.", "vehicles.bicycle")
+	order := func(v service.SearchView) []uuid.UUID {
+		out := make([]uuid.UUID, len(v.Items))
+		for i, it := range v.Items {
+			out[i] = it.ID
+		}
+		return out
+	}
+	// Without the demote the case's title wins.
+	bare, err := e.catalog.Search(ctx, catalogdomain.Search{
+		Phrases: []catalogdomain.Phrase{{Text: "iphone 12", Weight: domain.RawWeight, Folded: true}}, Sort: catalogdomain.SortRelevance, Limit: 10,
+	})
+	if err != nil || len(bare) != 2 || bare[0].ID != cover {
+		t.Fatalf("the case should outrank the phone on words alone: %+v %v", bare, err)
+	}
+	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "iphone 12", Limit: 1})
+	if err != nil || !slices.Equal(order(v), []uuid.UUID{phone}) || v.NextCursor != "1r" {
+		t.Fatalf("page 1: %+v %v", v, err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "iphone 12", Limit: 1, Cursor: v.NextCursor}); err != nil ||
+		!slices.Equal(order(v), []uuid.UUID{cover}) || v.NextCursor != "" {
+		t.Fatalf("page 2: %+v %v", v, err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "ốp lưng iphone 12"}); err != nil ||
+		!slices.Equal(order(v), []uuid.UUID{cover, phone}) {
+		t.Fatalf("a query naming the case: %+v %v", v, err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "chong soc"}); err != nil || !slices.Equal(order(v), []uuid.UUID{cover}) {
+		t.Fatalf("a query only the case matches: %+v %v", v, err)
 	}
 }
 

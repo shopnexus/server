@@ -87,7 +87,7 @@ type SearchView struct {
 // distance and age. A guest's q, and a q the model errs on or outlasts the
 // timeout for, searches its raw words without the lists the model feeds, and
 // the cursor keeps the next pages on them; a guest's q embeds nothing
-// either. A signed-in viewer's first page with q is kept in the history; a
+// either. Raw words sink the device accessories q does not name. A signed-in viewer's first page with q is kept in the history; a
 // failed write is logged and the search still answers. A search of one
 // seller's listings keeps no history and names no watch.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
@@ -296,6 +296,12 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		}
 		search.Phrases = append(search.Phrases, c.Phrases...)
 		search.Boosts = append(search.Boosts, c.Boosts...)
+		// Raw words have no model to demote accessories, whose titles name
+		// every device they fit; the rule depends on q and the filters alone,
+		// so every page orders alike.
+		if !understood && !like {
+			search.Boosts = append(search.Boosts, domain.AccessoryDemotes(q, filters)...)
+		}
 		view.Chips = c.Chips
 		// A guest's words search through BM25 alone: their vector, typed
 		// without diacritics, brought listings that share no word.
