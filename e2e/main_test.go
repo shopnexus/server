@@ -25,7 +25,6 @@ import (
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
 	consolesvc "github.com/shopnexus/server/internal/console/service"
 	"github.com/shopnexus/server/internal/platform/config"
-	"github.com/shopnexus/server/internal/platform/objectstore"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
@@ -120,11 +119,7 @@ func setup(closers *[]func()) error {
 	if err != nil {
 		return err
 	}
-	store, err := objectstore.New(objectStoreCfg)
-	if err != nil {
-		return err
-	}
-	if err = store.Prepare(context.Background()); err != nil {
+	if err = objectstoretest.Prepare(); err != nil {
 		return err
 	}
 	signer, stopSigner, err := firebasetest.NewForMain()

@@ -42,22 +42,24 @@ services:
       - restate:/restate-data
       - ./.restate/identity.pem:/identity.pem:ro
 
-  # S3-compatible object store for uploads and media. make run creates the
-  # bucket and opens media/ for reading.
-  rustfs:
-    image: rustfs/rustfs:1.0.4
+  # Garage, the S3-compatible object store for uploads and media: the S3 API
+  # on 56490, its admin API on 56492. make run creates the bucket and the
+  # server's key. Here media/ is read through presigned URLs only; the
+  # stacks' media host serves it from Garage's web endpoint.
+  garage:
+    image: dxflrs/garage:v2.6.0
+    command: ["/garage", "server", "--single-node"]
     environment:
-      RUSTFS_ACCESS_KEY: server-rustfs
-      RUSTFS_SECRET_KEY: server-rustfs-secret
-      RUSTFS_VOLUMES: /data
-      RUSTFS_ADDRESS: 0.0.0.0:9000
-      RUSTFS_CONSOLE_ENABLE: "false"
+      GARAGE_RPC_SECRET: 0000000000000000000000000000000000000000000000000000000000000001
+      GARAGE_ADMIN_TOKEN: server-garage-admin
     ports:
-      - "127.0.0.1:56490:9000"
+      - "127.0.0.1:56490:3900"
+      - "127.0.0.1:56492:3903"
     volumes:
-      - rustfs:/data
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage:/var/lib/garage
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      test: ["CMD", "/garage", "status"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -77,5 +79,5 @@ services:
 volumes:
   postgres:
   restate:
-  rustfs:
+  garage:
   lgtm:

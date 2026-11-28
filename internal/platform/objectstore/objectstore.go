@@ -1,6 +1,7 @@
 // Package objectstore reads and writes objects in the S3-compatible store
-// (RustFS). Keys under uploads/ are private and written by clients through
-// presigned URLs; keys under media/ are public-read.
+// (Garage). Keys under uploads/ are private and written by clients through
+// presigned URLs; keys under media/ are public-read on the media host, which
+// serves them from Garage's web endpoint. package garage sets the bucket up.
 package objectstore
 
 import (
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/cors"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/shopnexus/server/internal/platform/config"
@@ -33,7 +33,6 @@ type Store struct {
 	bucket    string
 	region    string
 	publicURL string
-	origins   []string
 }
 
 func New(cfg config.ObjectStoreConfig) (*Store, error) {
@@ -47,7 +46,7 @@ func New(cfg config.ObjectStoreConfig) (*Store, error) {
 	}
 	return &Store{
 		client: client, presigner: presigner, bucket: cfg.Bucket, region: cfg.Region,
-		publicURL: strings.TrimRight(cfg.PublicURL, "/"), origins: cfg.UploadOrigins,
+		publicURL: strings.TrimRight(cfg.PublicURL, "/"),
 	}, nil
 }
 
@@ -71,34 +70,6 @@ func clientFor(endpoint string, cfg config.ObjectStoreConfig) (*minio.Client, er
 		return nil, fmt.Errorf("object store client: %w", err)
 	}
 	return client, nil
-}
-
-// Prepare creates the bucket when it is missing, lets anyone read media/,
-// and lets the website's origins PUT to presigned URLs.
-// cmd/objectstore-init and the test helpers run it.
-func (s *Store) Prepare(ctx context.Context) error {
-	exists, err := s.client.BucketExists(ctx, s.bucket)
-	if err != nil {
-		return fmt.Errorf("check bucket %s: %w", s.bucket, err)
-	}
-	if !exists {
-		if err := s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{Region: s.region}); err != nil {
-			return fmt.Errorf("create bucket %s: %w", s.bucket, err)
-		}
-	}
-	policy := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},` +
-		`"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::` + s.bucket + `/media/*"]}]}`
-	if err := s.client.SetBucketPolicy(ctx, s.bucket, policy); err != nil {
-		return fmt.Errorf("set bucket policy: %w", err)
-	}
-	if len(s.origins) == 0 {
-		return nil
-	}
-	rules := cors.NewConfig([]cors.Rule{{AllowedOrigin: s.origins, AllowedMethod: []string{http.MethodPut}, AllowedHeader: []string{"*"}, MaxAgeSeconds: 3600}})
-	if err := s.client.SetBucketCors(ctx, s.bucket, rules); err != nil {
-		return fmt.Errorf("set bucket cors: %w", err)
-	}
-	return nil
 }
 
 // PresignPut returns a URL and the headers a PUT of exactly size bytes of

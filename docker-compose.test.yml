@@ -59,22 +59,24 @@ services:
       - ./.restate/identity.pem:/identity.pem:ro
     mem_limit: 3072m
 
-  # Object store on tmpfs; each test writes under keys of its own.
-  rustfs:
-    image: rustfs/rustfs:1.0.4
+  # Garage on tmpfs: the S3 API on 56491, the admin API on 56493. Each test
+  # writes under keys of its own.
+  garage:
+    image: dxflrs/garage:v2.6.0
+    command: ["/garage", "server", "--single-node"]
     environment:
-      RUSTFS_ACCESS_KEY: server-rustfs
-      RUSTFS_SECRET_KEY: server-rustfs-secret
-      RUSTFS_VOLUMES: /data
-      RUSTFS_ADDRESS: 0.0.0.0:9000
-      RUSTFS_CONSOLE_ENABLE: "false"
+      GARAGE_RPC_SECRET: 0000000000000000000000000000000000000000000000000000000000000002
+      GARAGE_ADMIN_TOKEN: server-garage-admin
     ports:
-      - "127.0.0.1:56491:9000"
+      - "127.0.0.1:56491:3900"
+      - "127.0.0.1:56493:3903"
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
     tmpfs:
-      - /data:size=512m,uid=10001,gid=10001
-    mem_limit: 768m
+      - /var/lib/garage:size=512m
+    mem_limit: 256m
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      test: ["CMD", "/garage", "status"]
       interval: 2s
       timeout: 3s
       retries: 30

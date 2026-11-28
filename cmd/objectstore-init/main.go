@@ -1,15 +1,14 @@
-// Command objectstore-init creates the OBJECT_STORE_BUCKET bucket when it is
-// missing and lets anyone read its media/ keys. make run calls it.
+// Command objectstore-init readies one bucket on Garage through its admin
+// API: it creates the OBJECT_STORE_BUCKET bucket and the
+// OBJECT_STORE_ACCESS_KEY key when missing and lets that key read and write
+// that bucket only. make run and the stacks' init jobs call it.
 //
-// With RustFS's root keys in OBJECT_STORE_ROOT_ACCESS_KEY and
-// OBJECT_STORE_ROOT_SECRET_KEY it works as root and makes
-// OBJECT_STORE_ACCESS_KEY a user that may read and write this bucket only.
-// Without them OBJECT_STORE_ACCESS_KEY is the root key, as in make run and
-// the test stack.
-//
-// With OBJECT_STORE_EXPIRE_DAYS it also gives the bucket a lifecycle rule:
-// an object goes that many days after it was last written. Unset or empty,
-// the bucket keeps its objects.
+// OBJECT_STORE_ADMIN_ENDPOINT and OBJECT_STORE_ADMIN_TOKEN reach the admin
+// API. OBJECT_STORE_WEBSITE, true or false, opens the bucket on Garage's
+// web endpoint, which the media host's nginx serves media/ from. With
+// OBJECT_STORE_EXPIRE_DAYS an object goes that many days after its last
+// write; unset or empty, the bucket keeps its objects. WEBSITE_ORIGINS may
+// PUT to presigned URLs from a browser.
 package main
 
 import (
@@ -20,7 +19,7 @@ import (
 	"strconv"
 
 	"github.com/shopnexus/server/internal/platform/config"
-	"github.com/shopnexus/server/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/platform/objectstore/garage"
 )
 
 func main() {
@@ -35,45 +34,37 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	user := cfg.ObjectStore
-	root := user
-	rootKey, rootSecret := os.Getenv("OBJECT_STORE_ROOT_ACCESS_KEY"), os.Getenv("OBJECT_STORE_ROOT_SECRET_KEY")
-	switch {
-	case rootKey == "" && rootSecret == "":
-	case rootKey == "" || rootSecret == "":
-		return errors.New("set both OBJECT_STORE_ROOT_ACCESS_KEY and OBJECT_STORE_ROOT_SECRET_KEY, or neither")
-	case rootKey == user.AccessKey:
-		return errors.New("OBJECT_STORE_ACCESS_KEY is the root key: give it a key of its own")
-	default:
-		root.AccessKey, root.SecretKey = rootKey, rootSecret
+	var missing []error
+	need := func(name string) string {
+		v, ok := os.LookupEnv(name)
+		if !ok || v == "" {
+			missing = append(missing, fmt.Errorf("%s is not set", name))
+		}
+		return v
 	}
-	days := 0
+	endpoint, token, website := need("OBJECT_STORE_ADMIN_ENDPOINT"), need("OBJECT_STORE_ADMIN_TOKEN"), need("OBJECT_STORE_WEBSITE")
+	if err = errors.Join(missing...); err != nil {
+		return err
+	}
+	b := garage.Bucket{
+		Name: cfg.ObjectStore.Bucket, AccessKey: cfg.ObjectStore.AccessKey, SecretKey: cfg.ObjectStore.SecretKey,
+		UploadOrigins: cfg.ObjectStore.UploadOrigins,
+	}
+	if b.Website, err = strconv.ParseBool(website); err != nil {
+		return fmt.Errorf("OBJECT_STORE_WEBSITE %q: want true or false", website)
+	}
 	if v := os.Getenv("OBJECT_STORE_EXPIRE_DAYS"); v != "" {
-		if days, err = strconv.Atoi(v); err != nil || days < 1 {
+		if b.ExpireDays, err = strconv.Atoi(v); err != nil || b.ExpireDays < 1 {
 			return fmt.Errorf("OBJECT_STORE_EXPIRE_DAYS %q: want a number of days, 1 or more", v)
 		}
 	}
-	s, err := objectstore.New(root)
+	admin, err := garage.New(endpoint, token)
 	if err != nil {
+		return fmt.Errorf("object store admin: %w", err)
+	}
+	if err = admin.Ensure(context.Background(), b); err != nil {
 		return fmt.Errorf("object store: %w", err)
 	}
-	ctx := context.Background()
-	if err := s.Prepare(ctx); err != nil {
-		return fmt.Errorf("prepare the bucket: %w", err)
-	}
-	fmt.Println("bucket", user.Bucket, "ready")
-	if days > 0 {
-		if err := expire(ctx, root, days); err != nil {
-			return fmt.Errorf("lifecycle of %s: %w", user.Bucket, err)
-		}
-		fmt.Println("objects in", user.Bucket, "expire", days, "days after their last write")
-	}
-	if rootKey == "" {
-		return nil
-	}
-	if err := grant(ctx, root, user.AccessKey, user.SecretKey); err != nil {
-		return fmt.Errorf("user %s: %w", user.AccessKey, err)
-	}
-	fmt.Println("user", user.AccessKey, "may use bucket", user.Bucket)
+	fmt.Printf("bucket %s ready for key %s (website %t, expire days %d)\n", b.Name, b.AccessKey, b.Website, b.ExpireDays)
 	return nil
 }

@@ -338,7 +338,7 @@ type ConsoleConfig struct {
 // console gives each the role that opens it.
 var DashboardApps = []string{"grafana", "restate", "bifrost", "s3", "argocd", "db"}
 
-// ObjectStoreConfig says where the S3-compatible object store (RustFS) is
+// ObjectStoreConfig says where the S3-compatible object store (Garage) is
 // and where clients read public objects. The keys are never logged.
 type ObjectStoreConfig struct {
 	Endpoint string // OBJECT_STORE_ENDPOINT: its S3 API, http:// or https://

@@ -99,22 +99,21 @@ func TestPresignedPutFixesTheLength(t *testing.T) {
 	}
 }
 
-// media/ is readable without credentials; uploads/ is not.
-func TestOnlyMediaIsPublic(t *testing.T) {
+// Without credentials the S3 API reads nothing; the media host's nginx
+// serves media/ from Garage's web endpoint.
+func TestAnonymousReadsNothing(t *testing.T) {
 	t.Parallel()
 	s := objectstoretest.New(t)
-	ctx := context.Background()
-	id := uuid.NewV7().String()
-	for _, key := range []string{"media/" + id, "uploads/" + id} {
-		if err := s.Put(ctx, key, "image/jpeg", bytes.NewReader([]byte("x")), 1); err != nil {
-			t.Fatal(err)
-		}
+	cfg, err := objectstoretest.Config()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if code, body := get(t, s.PublicURL("media/"+id)); code != http.StatusOK || string(body) != "x" {
-		t.Fatalf("media: %d %q", code, body)
+	key := "media/" + uuid.NewV7().String()
+	if err := s.Put(context.Background(), key, "image/jpeg", bytes.NewReader([]byte("x")), 1); err != nil {
+		t.Fatal(err)
 	}
-	if code, _ := get(t, s.PublicURL("uploads/"+id)); code == http.StatusOK {
-		t.Fatal("uploads/ is public")
+	if code, _ := get(t, cfg.Endpoint+"/"+cfg.Bucket+"/"+key); code == http.StatusOK {
+		t.Fatal("an anonymous GET read the object")
 	}
 }
 
@@ -159,48 +158,5 @@ func TestPresignGet(t *testing.T) {
 	}
 	if status, _ := get(t, strings.Replace(url, key, "uploads/"+uuid.NewV7().String(), 1)); status == http.StatusOK {
 		t.Fatal("the signature covers the key")
-	}
-}
-
-// Prepare lets the website's origins PUT to presigned URLs from a browser,
-// and no other origin.
-func TestPrepareAllowsTheWebsiteToPut(t *testing.T) {
-	t.Parallel()
-	cfg, err := objectstoretest.Config()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if testing.Short() {
-		t.Skip("needs the object store")
-	}
-	cfg.UploadOrigins = []string{"https://shop.example.test"}
-	s, err := objectstore.New(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = s.Prepare(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	u, _, err := s.PresignPut(t.Context(), "uploads/"+uuid.NewV7().String(), "image/jpeg", 10, time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	preflight := func(origin string) string {
-		req, _ := http.NewRequestWithContext(t.Context(), http.MethodOptions, u, http.NoBody)
-		req.Header.Set("Origin", origin)
-		req.Header.Set("Access-Control-Request-Method", http.MethodPut)
-		req.Header.Set("Access-Control-Request-Headers", "content-type")
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_ = res.Body.Close()
-		return res.Header.Get("Access-Control-Allow-Origin")
-	}
-	if got := preflight("https://shop.example.test"); got != "https://shop.example.test" {
-		t.Fatalf("the website's preflight: Access-Control-Allow-Origin %q", got)
-	}
-	if got := preflight("https://evil.example.test"); got != "" {
-		t.Fatalf("another origin's preflight: Access-Control-Allow-Origin %q", got)
 	}
 }

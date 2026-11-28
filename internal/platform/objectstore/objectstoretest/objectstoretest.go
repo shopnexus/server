@@ -1,4 +1,4 @@
-// Package objectstoretest connects tests to the test stack's RustFS.
+// Package objectstoretest connects tests to the test stack's Garage.
 package objectstoretest
 
 import (
@@ -9,6 +9,7 @@ import (
 
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/platform/objectstore/garage"
 	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
@@ -18,15 +19,40 @@ var prepare = sync.OnceValue(func() error {
 	if err != nil {
 		return err
 	}
-	s, err := objectstore.New(cfg)
+	admin, err := Admin()
 	if err != nil {
-		return fmt.Errorf("test object store: %w", err)
+		return err
 	}
-	if err = s.Prepare(context.Background()); err != nil {
+	err = admin.Ensure(context.Background(), garage.Bucket{
+		Name: cfg.Bucket, AccessKey: cfg.AccessKey, SecretKey: cfg.SecretKey, Website: true,
+	})
+	if err != nil {
 		return fmt.Errorf("prepare test bucket: %w", err)
 	}
 	return nil
 })
+
+// Prepare readies the test stack's bucket once per process, for a TestMain
+// that builds its own Store.
+func Prepare() error { return prepare() }
+
+// Admin returns the test stack's Garage admin API, from the environment or
+// .env.test.
+func Admin() (*garage.Admin, error) {
+	endpoint, err := testenv.Get("TEST_OBJECT_STORE_ADMIN_ENDPOINT")
+	if err != nil {
+		return nil, fmt.Errorf("test object store: %w", err)
+	}
+	token, err := testenv.Get("TEST_OBJECT_STORE_ADMIN_TOKEN")
+	if err != nil {
+		return nil, fmt.Errorf("test object store: %w", err)
+	}
+	admin, err := garage.New(endpoint, token)
+	if err != nil {
+		return nil, fmt.Errorf("test object store: %w", err)
+	}
+	return admin, nil
+}
 
 // Config returns the test stack's object store settings, from the
 // environment or .env.test.
