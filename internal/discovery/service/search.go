@@ -87,8 +87,9 @@ type SearchView struct {
 // distance and age. A guest's q, and a q the model errs on or outlasts the
 // timeout for, searches its raw words without the lists the model feeds, and
 // the cursor keeps the next pages on them; a guest's q embeds nothing
-// either. Raw words sink the device accessories q does not name. A signed-in viewer's first page with q is kept in the history; a
-// failed write is logged and the search still answers. A search of one
+// either; raw words sink the device accessories q does not name. A
+// signed-in viewer's first page with q is kept in the history; a failed
+// write is logged and the search still answers. A search of one
 // seller's listings keeps no history and names no watch.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
 	// UC-DSC-06 E6: a watch brings its query and filters alone.
