@@ -1,6 +1,6 @@
 # ShopNexus Server
 
-The open-source backend of ShopNexus, a C2C marketplace in Vietnam where people buy and sell to each other. It is one Go binary on Postgres, with [Restate](https://restate.dev) for the flows that must survive a crash.
+The open-source backend of ShopNexus, a C2C marketplace for used goods in Vietnam. It is one Go binary on Postgres, with [Restate](https://restate.dev) for the flows that must survive a crash.
 
 ![Home for a guest](https://raw.githubusercontent.com/shopnexus/.github/main/profile/media/home-demo.gif)
 
