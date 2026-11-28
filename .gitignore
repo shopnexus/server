@@ -12,6 +12,7 @@
 !/.sqlfluffignore
 !/.superdesign/
 !/AGENTS.md
+!/CONTRIBUTING.md
 !/Dockerfile
 !/LICENSE
 !/NOTICE

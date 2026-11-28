@@ -1,12 +1,14 @@
-"""Generates the eval photos with gpt-image-2.5 on the proxy: photos/<key>.jpg
-for each listing from its photo_prompt, and for each photo query its file, a
-second shot of the listing it names made with /v1/images/edits. A file that
-exists is kept. Run from the server repo:
+"""Generates the eval photos with gpt-image-2.5 through an OpenAI-compatible
+images API: photos/<key>.jpg for each listing from its photo_prompt, and for
+each photo query its file, a second shot of the listing it names made with
+/images/edits. A file that exists is kept. Run from the server repo:
+    IMAGES_API_URL=https://api.openai.com/v1 IMAGES_API_KEY=... \
     python3 internal/discovery/eval/tools/gen_photos.py
 """
 import base64
 import io
 import json
+import os
 import pathlib
 import urllib.request
 import uuid
@@ -14,8 +16,8 @@ import uuid
 from PIL import Image
 
 DATA = pathlib.Path(__file__).resolve().parent.parent / "testdata"
-API = "http://khoakomlem-internal.ddns.net:8317/v1/images"
-KEY = (pathlib.Path.home() / ".config/cliproxyapi-remote.key").read_text().strip()
+API = os.environ["IMAGES_API_URL"].rstrip("/") + "/images"
+KEY = os.environ["IMAGES_API_KEY"]
 STYLE = ", a phone photo for a second-hand listing, the whole item in view, plain background, no text, no people"
 AGAIN = "the same item photographed again by its owner, from another angle, in other light, on another background"
 

@@ -7,13 +7,18 @@ that must survive a crash and delivers events between modules.
 
 ## Where things are written down
 
-- How the system works (flows, states, rules, limits) is the docs site:
-  `~/shopnexus/docs/web/src/content/docs/en/`. Read the page of the part you
+- How the system works (flows, states, rules, limits) is the docs site,
+  written in the [docs repo](https://github.com/shopnexus/docs) under
+  `web/src/content/docs/en/`. Read the page of the part you
   change, not all of them. When your change alters a flow, a rule or a
   limit, update that English page in the same piece of work.
 - The API contract is `api/` (OpenAPI). Requirement IDs are
-  `~/shopnexus/docs/registry/requirements.yaml`.
-- `~/shopnexus/docs/superpowers/` specs and plans are history. The site and
+  the docs repo's `registry/requirements.yaml`. Its prose quotes limits by
+  name, such as `{catalog.MaxOnSale}`, and `make trace` reads the values
+  from this code: a new value reaches the docs at the next `make trace` (run
+  in the [umbrella repo](https://github.com/shopnexus/shopnexus)), and
+  renaming or moving a quoted name fails it.
+- The docs repo's `superpowers/` specs and plans are history. The site and
   the code win where they disagree.
 
 | Working on | Read |
