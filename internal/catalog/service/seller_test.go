@@ -49,7 +49,7 @@ func TestSellerListingsAndCounts(t *testing.T) {
 	if err != nil || len(first.Items) != 1 || first.Items[0].ID != reserved || first.NextCursor == nil || first.Items[0].DistanceKm != nil {
 		t.Fatalf("first page: %+v %v", first, err)
 	}
-	if c := first.Items[0]; c.SellerID != seller || c.Commune == "" || c.CategoryCode == "" || c.CoverThumbURL == "" {
+	if c := first.Items[0]; c.SellerID != seller || c.Commune == "" || c.Province != "Thành phố Hà Nội" || c.CategoryCode == "" || c.CoverThumbURL == "" {
 		t.Fatalf("a card misses its fields: %+v", c)
 	}
 	rest, err := e.catalog.SellerListings(ctx, seller, domain.Near{Commune: "00004"}, nil, page.Request{Cursor: *first.NextCursor, Limit: 1})

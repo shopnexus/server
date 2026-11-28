@@ -22,6 +22,8 @@ type SearchCard struct {
 	AllowOffers   bool             `json:"allow_offers"`
 	Commune       string           `json:"commune"`
 	CommuneCode   string           `json:"commune_code"`
+	// Province is the name of the commune's province.
+	Province string `json:"province"`
 	// DistanceKm is whole kilometres from the search's origin, 0 under 1
 	// km; absent without an origin.
 	DistanceKm *int              `json:"distance_km,omitempty"`
@@ -83,10 +85,11 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 	out := make([]SearchCard, len(ls))
 	for i := range ls {
 		l := &ls[i]
+		place := places[l.CommuneCode()]
 		out[i] = SearchCard{
 			ID: l.ID(), Slug: l.Slug(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), CategoryCode: l.CategoryCode(),
-			Condition: l.Condition(), AllowOffers: l.AllowOffers(), Commune: places[l.CommuneCode()].Commune.DisplayName,
-			CommuneCode: l.CommuneCode(), PublishedAt: l.PublishedAt(), BumpedAt: l.BumpedAt(),
+			Condition: l.Condition(), AllowOffers: l.AllowOffers(), Commune: place.Commune.DisplayName,
+			CommuneCode: l.CommuneCode(), Province: place.Province.DisplayName, PublishedAt: l.PublishedAt(), BumpedAt: l.BumpedAt(),
 		}
 		ps := l.Photos()
 		if len(ps) > 0 && ps[0].Keys.Photo != "" {

@@ -91,7 +91,7 @@ func TestSaveAndList(t *testing.T) {
 	if err != nil || len(p.Items) != 2 || p.Items[1].ListingID != listing || p.Items[1].SavedPrice != 1_500_000 ||
 		p.Items[1].Listing.Title == "" || p.Items[1].Listing.CoverThumbURL == "" || p.Items[0].Listing.Status != catalogdomain.StatusReserved ||
 		p.Items[1].Listing.CategoryCode != "vehicles.bicycle" || p.Items[1].Listing.Condition != catalogdomain.ConditionUsed ||
-		p.Items[1].Listing.Commune == "" {
+		p.Items[1].Listing.Commune == "" || p.Items[1].Listing.Province == "" {
 		t.Fatalf("%+v %v", p, err)
 	}
 	if err = e.discovery.Unsave(ctx, me, reserved); err != nil {
@@ -181,7 +181,7 @@ func TestHiddenSaveShowsStatusOnly(t *testing.T) {
 	}
 	l := p.Items[0].Listing
 	if l.Status != catalogdomain.StatusHidden || l.Title != "" || l.Price != nil || l.CoverThumbURL != "" ||
-		l.CategoryCode != "" || l.Condition != "" || l.Commune != "" {
+		l.CategoryCode != "" || l.Condition != "" || l.Commune != "" || l.Province != "" {
 		t.Fatalf("%+v", l)
 	}
 }

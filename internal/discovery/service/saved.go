@@ -32,9 +32,11 @@ type SavedListing struct {
 	CoverThumbURL string                  `json:"cover_thumb_url,omitempty"`
 	CategoryCode  string                  `json:"category_code,omitempty"`
 	Condition     catalogdomain.Condition `json:"condition,omitempty"`
-	// Commune is the name of the listing's commune, CommuneCode its code.
+	// Commune is the name of the listing's commune, CommuneCode its code,
+	// Province the name of the commune's province.
 	Commune     string               `json:"commune,omitempty"`
 	CommuneCode string               `json:"commune_code,omitempty"`
+	Province    string               `json:"province,omitempty"`
 	Status      catalogdomain.Status `json:"status"`
 }
 
@@ -120,7 +122,8 @@ func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request
 		if !slices.Contains(takenDown, l.Status) {
 			shown.Slug, shown.Title, shown.Price, shown.CoverThumbURL = l.Slug, l.Title, new(l.Price), l.CoverThumbURL
 			shown.CategoryCode, shown.Condition = l.CategoryCode, l.Condition
-			shown.Commune, shown.CommuneCode = places[l.CommuneCode].Commune.DisplayName, l.CommuneCode
+			place := places[l.CommuneCode]
+			shown.Commune, shown.CommuneCode, shown.Province = place.Commune.DisplayName, l.CommuneCode, place.Province.DisplayName
 		}
 		items = append(items, SavedView{ID: r.ID, ListingID: r.ListingID, SavedPrice: r.Price, SavedAt: r.At, Listing: shown, AlertBelow: r.AlertBelow})
 	}
